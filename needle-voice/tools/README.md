@@ -6,4 +6,4 @@
 - set_pipeline_engine.py <conversation.entity_id>   switch the "hermes on AI2" pipeline's agent (BACKOUT = pass the Hermes entity id)
 - prompt_ab.py        labeled-set A/B of Qwen prompt variants against the live server (ALWAYS warm the server first; see notes)
 - live_router_dryrun.py  run the real router against real Needle+Qwen with a FAKE executor (touches nothing)
-- pipeline_hermes_on_ai2_BEFORE.json   exact pipeline config before Needle Voice was selected
+- pipeline_hermes_on_ai2_BEFORE.json   (private, not in git; see pipeline_BEFORE.example.json) exact pipeline config before Needle Voice was selected
