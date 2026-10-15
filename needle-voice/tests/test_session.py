@@ -101,3 +101,11 @@ def test_context_and_events_are_session_scoped():
     assert m.context() == [("user", "a b"), ("assistant", "c")]
     m.note_interruption("keyword wait"); m.dismiss()
     m.wake(); assert m.context() == [] and {"activated", "interruption", "transition", "dismissed"} <= set(names(ev))
+
+
+def test_ok_thanks_dismisses():
+    m, clk, ev = mk(); m.wake()
+    for phrase in ("ok thanks", "Okay, thanks.", "okay thank you", "OK thanks Nina"):
+        assert m.check_dismissal(phrase), phrase
+    for phrase in ("thanks for checking", "that's ok thank goodness the pool is warm", "ok then what about tomorrow"):
+        assert not m.check_dismissal(phrase), phrase

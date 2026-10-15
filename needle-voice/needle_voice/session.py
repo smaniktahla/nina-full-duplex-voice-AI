@@ -38,7 +38,7 @@ ASLEEP = (DORMANT, SUSPENDED)
 
 DISMISS_RE = re.compile(
     r"\b(?:that'?s (?:all|it|enough|everything)|that will be all|nothing else|we'?re (?:all )?done|i'?m (?:all )?done|stop listening|"
-    r"go to sleep|good ?night|good ?bye|bye(?: bye)?|see you(?: later| tomorrow)?|thanks?,? (?:that'?s|bye|good)|you can go|dismissed|"
+    r"go to sleep|good ?night|good ?bye|bye(?: bye)?|see you(?: later| tomorrow)?|thanks?,? (?:that'?s|bye|good)|(?:o?kay|ok),? thank(?:s| you)|you can go|dismissed|"
     r"never ?mind (?:all )?that|cancel (?:the )?(?:conversation|session))\b", re.I)
 
 
