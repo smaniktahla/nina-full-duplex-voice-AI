@@ -27,12 +27,7 @@ jobs:
       - run: python -m compileall -q duplex live needle-voice bench.py rescore.py analyze_hybrid.py endpoint_eval.py
       - run: pip install ruff && ruff check --select E9,F63,F7,F82 .      # real errors only (syntax, undefined names), not style
       - run: bash -n live/run.sh live/ops/apply_parallel2.sh scripts/check_no_secrets.sh
-      - run: node --version && python - <<'PY'
-          import re, subprocess, sys, tempfile
-          js = re.search(r"<script>(.*)</script>", open("live/static/index.html").read(), re.S).group(1)
-          f = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False); f.write(js); f.close()
-          sys.exit(subprocess.call(["node", "--check", f.name]))
-          PY
+      - run: node --version && python scripts/check_js.py
   secrets:
     name: No secrets or private files
     runs-on: ubuntu-latest
