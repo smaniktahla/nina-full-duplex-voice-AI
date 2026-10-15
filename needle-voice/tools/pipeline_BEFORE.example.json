@@ -1,8 +1,8 @@
 {
- "conversation_engine": "conversation.workshop_extended_openai_conversation_hermes_on_ai2",
+ "conversation_engine": "conversation.<your_hermes_agent>",
  "conversation_language": "*",
  "language": "en",
- "name": "hermes on AI2",
+ "name": "<pipeline name>",
  "stt_engine": "stt.faster_whisper_2",
  "stt_language": "en",
  "tts_engine": "tts.piper_2",
@@ -11,5 +11,5 @@
  "wake_word_entity": null,
  "wake_word_id": null,
  "prefer_local_intents": true,
- "id": "01kvr2fjzpn2xyjgpd7dw4r015"
+ "id": "<pipeline id>"
 }

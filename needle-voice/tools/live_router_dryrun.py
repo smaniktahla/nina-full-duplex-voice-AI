@@ -2,7 +2,7 @@ import asyncio, json, sys, time, urllib.request
 sys.path.insert(0, "/home/salil/needle-voice")
 from needle_voice import needle_adapter as na, router as r, executor as ex
 na.NEEDLE_ENDPOINT = "http://ai1.local:8793"; na.NEEDLE_TIMEOUT_S = 1.0
-snap = json.load(open("/home/salil/needle-voice/tests/real_snapshot.json"))
+snap = json.load(open("" + __import__("os").path.join(__import__("os").path.dirname(__file__), "..", "tests", "real_snapshot.json") + ""))
 LEX = json.loads(sys.argv[1]) if len(sys.argv) > 1 else {}
 from needle_voice import candidates as cm
 snap = cm.merge_lexicon(snap, LEX)
