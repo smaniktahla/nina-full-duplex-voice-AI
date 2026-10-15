@@ -1,0 +1,212 @@
+  mid_thought_pause         25 ticks
+  question_simple           15 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             26 ticks
+  backchannel_long_answer   28 ticks
+  correction                16 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                42 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0_s1  lat p50/p95/p99 357/819/917 ms  miss 11%  reuse 0.94  inval 1 | FI 0 PR 1 MR 1 MI 0 YF 0 INC 3 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           15 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             26 ticks
+  backchannel_long_answer   28 ticks
+  correction                17 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                41 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0_s2  lat p50/p95/p99 355/807/955 ms  miss 11%  reuse 0.94  inval 1 | FI 0 PR 1 MR 1 MI 0 YF 0 INC 3 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           15 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             26 ticks
+  backchannel_long_answer   28 ticks
+  correction                16 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                41 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0_s3  lat p50/p95/p99 358/813/908 ms  miss 12%  reuse 0.94  inval 1 | FI 0 PR 1 MR 1 MI 0 YF 0 INC 3 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           14 ticks
+  danger_interrupt          23 ticks
+  user_barge_in             24 ticks
+  backchannel_long_answer   27 ticks
+  correction                17 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                41 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s1  lat p50/p95/p99 362/849/968 ms  miss 16%  reuse 0.94  inval 0 | FI 0 PR 1 MR 1 MI 0 YF 0 INC 3 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           15 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   27 ticks
+  correction                16 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                41 ticks
+  stt_noise                 25 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s2  lat p50/p95/p99 356/817/955 ms  miss 12%  reuse 0.94  inval 1 | FI 0 PR 1 MR 1 MI 0 YF 0 INC 2 REP 0
+  mid_thought_pause         24 ticks
+  question_simple           15 ticks
+  danger_interrupt          23 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   26 ticks
+  correction                16 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                41 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s3  lat p50/p95/p99 357/834/952 ms  miss 16%  reuse 0.94  inval 1 | FI 0 PR 1 MR 2 MI 0 YF 0 INC 4 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           13 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             26 ticks
+  backchannel_long_answer   27 ticks
+  correction                16 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                41 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s4  lat p50/p95/p99 357/848/957 ms  miss 14%  reuse 0.94  inval 0 | FI 0 PR 1 MR 1 MI 0 YF 0 INC 1 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           15 ticks
+  danger_interrupt          23 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   27 ticks
+  correction                17 ticks
+  fillers_self_talk         30 ticks
+  long_story                41 ticks
+  delegation                41 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s5  lat p50/p95/p99 359/863/960 ms  miss 14%  reuse 0.94  inval 1 | FI 0 PR 1 MR 1 MI 0 YF 0 INC 1 REP 0
+  mid_thought_pause         23 ticks
+  question_simple           14 ticks
+  danger_interrupt          23 ticks
+  user_barge_in             24 ticks
+  backchannel_long_answer   27 ticks
+  correction                14 ticks
+  fillers_self_talk         31 ticks
+  long_story                38 ticks
+  delegation                41 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s1  lat p50/p95/p99 353/950/1519 ms  miss 23%  reuse 0.93  inval 1 | FI 0 PR 0 MR 1 MI 1 YF 0 INC 3 REP 0
+  mid_thought_pause         20 ticks
+  question_simple           15 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             24 ticks
+  backchannel_long_answer   27 ticks
+  correction                15 ticks
+  fillers_self_talk         28 ticks
+  long_story                38 ticks
+  delegation                40 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s2  lat p50/p95/p99 352/956/1592 ms  miss 22%  reuse 0.93  inval 1 | FI 0 PR 1 MR 3 MI 1 YF 0 INC 1 REP 0
+  mid_thought_pause         20 ticks
+  question_simple           15 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             24 ticks
+  backchannel_long_answer   27 ticks
+  correction                14 ticks
+  fillers_self_talk         28 ticks
+  long_story                38 ticks
+  delegation                39 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s3  lat p50/p95/p99 352/952/1559 ms  miss 22%  reuse 0.93  inval 2 | FI 0 PR 0 MR 2 MI 1 YF 0 INC 1 REP 0
+  mid_thought_pause         24 ticks
+  question_simple           14 ticks
+  danger_interrupt          22 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   27 ticks
+  correction                16 ticks
+  fillers_self_talk         32 ticks
+  long_story                40 ticks
+  delegation                42 ticks
+  stt_noise                 24 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0.3_s1  lat p50/p95/p99 351/700/845 ms  miss 10%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 0 REP 1
+  mid_thought_pause         24 ticks
+  question_simple           14 ticks
+  danger_interrupt          25 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   26 ticks
+  correction                17 ticks
+  fillers_self_talk         29 ticks
+  long_story                40 ticks
+  delegation                44 ticks
+  stt_noise                 25 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0.3_s2  lat p50/p95/p99 350/656/885 ms  miss 6%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 2 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           14 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   28 ticks
+  correction                17 ticks
+  fillers_self_talk         29 ticks
+  long_story                40 ticks
+  delegation                43 ticks
+  stt_noise                 23 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0.3_s3  lat p50/p95/p99 350/670/846 ms  miss 8%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 1 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           14 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             26 ticks
+  backchannel_long_answer   27 ticks
+  correction                17 ticks
+  fillers_self_talk         30 ticks
+  long_story                40 ticks
+  delegation                43 ticks
+  stt_noise                 25 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0.3_s4  lat p50/p95/p99 349/661/847 ms  miss 7%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 2 REP 0
+  mid_thought_pause         24 ticks
+  question_simple           14 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   28 ticks
+  correction                17 ticks
+  fillers_self_talk         29 ticks
+  long_story                39 ticks
+  delegation                44 ticks
+  stt_noise                 24 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0.3_s5  lat p50/p95/p99 349/654/847 ms  miss 7%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 1 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           14 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   25 ticks
+  correction                17 ticks
+  fillers_self_talk         30 ticks
+  long_story                40 ticks
+  delegation                43 ticks
+  stt_noise                 25 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0_s1  lat p50/p95/p99 350/666/848 ms  miss 9%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 4 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           14 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             26 ticks
+  backchannel_long_answer   28 ticks
+  correction                17 ticks
+  fillers_self_talk         29 ticks
+  long_story                40 ticks
+  delegation                43 ticks
+  stt_noise                 25 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0_s2  lat p50/p95/p99 351/618/847 ms  miss 6%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 6 REP 0
+  mid_thought_pause         25 ticks
+  question_simple           14 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             26 ticks
+  backchannel_long_answer   28 ticks
+  correction                17 ticks
+  fillers_self_talk         29 ticks
+  long_story                40 ticks
+  delegation                43 ticks
+  stt_noise                 26 ticks
+unit_append_state_T600_g0.3-hi0.95_Stilde_t0_s3  lat p50/p95/p99 350/602/847 ms  miss 6%  reuse 0.96  inval 0 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 7 REP 0
+  soak_2min                256 ticks
+soak_hybrid_T600_g0.3_Stilde  lat p50/p95/p99 366/808/951 ms  miss 13%  reuse 0.98  inval 0 | FI 1 PR 0 MR 1 MI 0 YF 0 INC 3 REP 0
+HYBRID_MATRIX_DONE

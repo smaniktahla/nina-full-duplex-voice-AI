@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Duplex Voice</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#16181d;--mut:#667085;--line:#e2e5ea;--acc:#2563eb;--ok:#16a34a;--warn:#d97706;--bad:#dc2626}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a21;--ink:#e8eaef;--mut:#8b93a3;--line:#262b36;--acc:#5b8cff;--ok:#34d399;--warn:#fbbf24;--bad:#f87171}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px env(safe-area-inset-bottom)}
+main{max-width:760px;margin:0 auto;padding:16px 0 32px;display:grid;gap:12px}
+h1{font-size:1.1rem;margin:4px 0 0;font-weight:650}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:10px 16px;border-radius:10px;min-height:44px;cursor:pointer}
+button.primary{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600}
+button.danger{border-color:var(--bad);color:var(--bad);font-weight:600}
+button:disabled{opacity:.45;cursor:default}
+.chip{padding:3px 10px;border-radius:99px;border:1px solid var(--line);font-size:.85rem;color:var(--mut)}
+.chip.on{color:#fff;border-color:transparent}
+#state.LISTENING{background:var(--ok)}#state.SPEAKING{background:var(--acc)}#state.INTERRUPTED{background:var(--warn)}#state.OFF,#state.MUTED,#sess.DORMANT{background:var(--mut)}#sess.ACTIVE{background:var(--ok)}#sess.IDLE{background:var(--warn)}#sess.SUSPENDED{background:#7c3aed}
+#meter{height:6px;border-radius:3px;background:var(--line);overflow:hidden;flex:1;min-width:80px}#meter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}
+#live{min-height:1.6em;color:var(--mut);font-style:italic}
+#log{display:grid;gap:8px;max-height:48vh;overflow:auto}
+.m{padding:8px 12px;border-radius:12px;max-width:88%;white-space:pre-wrap}
+.m.u{justify-self:end;background:var(--acc);color:#fff}.m.a{justify-self:start;background:var(--bg);border:1px solid var(--line)}
+.m.s{justify-self:center;color:var(--mut);font-size:.85rem}
+small{color:var(--mut)}
+.num{width:70px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+#sinfo{color:var(--mut);font-size:.85rem}</style>
+</head>
+<body>
+<main>
+  <h1>Duplex voice <small id="info"></small></h1>
+  <div class="card row">
+    <button id="go" class="primary">Start conversation</button>
+    <button id="stop" disabled>Stop talking</button>
+    <button id="end" class="danger" disabled>End conversation</button>
+    <button id="reset" disabled>Reset</button>
+    <button id="mute" disabled>Mute</button>
+    <select id="voice" title="Voice"></select>
+    <span id="sess" class="chip on DORMANT" title="Session state (Needle)">DORMANT</span><span id="state" class="chip on OFF" title="Duplex engine state">OFF</span>
+    <div id="meter"><i></i></div>
+  </div>
+  <div class="card"><div id="live">&nbsp;</div><div class="row" style="margin-top:8px"><input id="typed" placeholder="or type a message" style="flex:1;min-width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="send">Send</button></div></div>
+  <div class="card"><div id="sinfo">session: none</div><div id="log"></div></div>
+  <div class="card row" style="font-size:.9rem"><label for="wake">Wake word</label><select id="wake"></select><label for="tmo" title="Active -> idle after this much silence from the assistant side">Idle after</label><input id="tmo" type="number" min="0" max="600" step="5" value="25" class="num"><span>s</span><label for="tmo2" title="Idle -> asleep">Sleep after</label><input id="tmo2" type="number" min="0" max="600" step="5" value="20" class="num"><span>s</span><label for="tmo3" title="How long a suspended session (with pending tasks) is kept">Keep session</label><input id="tmo3" type="number" min="0" max="3600" step="30" value="300" class="num"><span>s</span><button id="wakebtn" disabled>Wake</button><button id="sleepbtn" disabled>Sleep</button></div>
+  <div class="card row" style="font-size:.9rem"><label for="sens">Ignore distant voices</label><input id="sens" type="range" min="0" max="0.8" step="0.05" value="0.4" style="flex:1;min-width:120px"><span id="sensv">0.40</span></div>
+  <small>Say "wait", "stop" or "hold on" to interrupt. Headphones give the best echo behaviour; speakers rely on the browser's echo cancellation.</small>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+let engine='LISTENING',mgrState='DORMANT',muted=false,ws,ctx,gain,stream,node,nextT=0,src=new Set(),analyser,running=false;
+const log=(cls,txt)=>{const d=document.createElement('div');d.className='m '+cls;d.textContent=txt;$('log').appendChild(d);$('log').scrollTop=1e9;return d};
+const setState=s=>{$('state').textContent=s;$('state').className='chip on '+s};
+
+const worklet=`class Cap extends AudioWorkletProcessor{
+ constructor(){super();this.r=sampleRate/16000;this.ph=0;this.acc=0;this.cnt=0;this.buf=new Int16Array(640);this.n=0}
+ process(i){const c=i[0][0];if(!c)return true;
+  for(let k=0;k<c.length;k++){this.acc+=c[k];this.cnt++;this.ph+=1;
+   if(this.ph>=this.r){this.ph-=this.r;let v=this.acc/this.cnt;this.acc=0;this.cnt=0;v=Math.max(-1,Math.min(1,v));
+    this.buf[this.n++]=v<0?v*32768:v*32767;
+    if(this.n===640){this.port.postMessage(this.buf.slice().buffer);this.n=0}}}
+  return true}}registerProcessor('cap',Cap)`;
+
+function cancelPlayback(){for(const s of src){try{s.onended=null;s.stop()}catch(e){}}src.clear();nextT=0;if(gain)gain.gain.value=1}
+function play(buf){
+  const sr=new DataView(buf).getUint32(0,true), pcm=new Int16Array(buf.slice(4));
+  const ab=ctx.createBuffer(1,pcm.length,sr), ch=ab.getChannelData(0);
+  for(let i=0;i<pcm.length;i++)ch[i]=pcm[i]/32768;
+  const s=ctx.createBufferSource();s.buffer=ab;s.connect(gain);
+  const t=Math.max(ctx.currentTime+0.04,nextT);s.start(t);nextT=t+ab.duration;
+  src.add(s);s.onended=()=>src.delete(s);
+}
+
+async function start(){
+  $('go').disabled=true;
+  ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});await ctx.resume();
+  gain=ctx.createGain();gain.connect(ctx.destination);
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}})}
+  catch(e){log('s','Microphone unavailable: '+e.message+(isSecureContext?'':' (page is not a secure context; use https)'));$('go').disabled=false;return}
+  await ctx.audioWorklet.addModule(URL.createObjectURL(new Blob([worklet],{type:'application/javascript'})));
+  const mic=ctx.createMediaStreamSource(stream);node=new AudioWorkletNode(ctx,'cap');
+  analyser=ctx.createAnalyser();analyser.fftSize=512;mic.connect(analyser);mic.connect(node);
+  ws=new WebSocket((location.protocol==='https:'?'wss://':'ws://')+location.host+'/ws');ws.binaryType='arraybuffer';
+  ws.onopen=()=>{applyChoices();running=true;$('mute').disabled=false;$('end').disabled=false;$('stop').disabled=false;$('reset').disabled=false;setState('LISTENING');log('s','Connected. Start talking.')};
+  ws.onclose=()=>{shutdown();log('s','Conversation ended. Microphone released.')};
+  node.port.onmessage=e=>{if(ws.readyState===1&&!muted)ws.send(e.data)};
+  let liveUser=null;
+  ws.onmessage=e=>{
+    if(typeof e.data!=='string'){play(e.data);return}
+    const m=JSON.parse(e.data);
+    if(m.t==='hello'){if(m.sens!==undefined){$('sens').value=m.sens;$('sensv').textContent=(+m.sens).toFixed(2)}$('info').textContent='· STT '+m.stt+' · TTS '+m.tts+' · tick '+m.tick_ms+' ms';if(m.tts_note)log('s','\u26a0 '+m.tts_note)}
+    else if(m.t==='state'){engine=m.state;if(mgrState==='ACTIVE'||mgrState==='IDLE')setState(m.state)}
+    else if(m.t==='mgr'){mgrState=m.state;fillWake(m);const asleep=m.state==='DORMANT'||m.state==='SUSPENDED';
+      $('sess').textContent=m.state;$('sess').className='chip on '+m.state;setState(asleep?'OFF':engine);
+      $('sinfo').textContent=(asleep?'asleep \u2014 say \u201c'+(m.wake==='off'?'':m.wake.replace('_',' '))+'\u201d, press Wake, or choose Always listening \u00b7 ':'')+'session: '+(m.session||'none')+(m.tasks?' \u00b7 '+m.tasks+' task(s) pending':'')+(m.wake==='off'?' \u00b7 always listening':'');
+      $('wakebtn').disabled=!asleep&&m.state!=='IDLE';$('sleepbtn').disabled=asleep||m.wake==='off'}
+    else if(m.t==='session_event'){if(['transition','dismissed','interruption','ambient_ignored','activated'].includes(m.event))log('s','\u2699 '+m.event+(m.to?' \u2192 '+m.to:'')+(m.reason?' ('+m.reason+')':'')+(m.why?' ('+m.why+')':''))}
+    else if(m.t==='earcon')beep(m.kind)
+    else if(m.t==='stt'){ if(m.kind==='partial')$('live').textContent=m.text||' ';
+      else{$('live').innerHTML='&nbsp;';if(m.text)log('u',m.text)} }
+    else if(m.t==='assistant')log('a',m.text);
+    else if(m.t==='tool'){const ic={search:'\u{1F50E}',hermes:'\u{1F9E0}',ha:'\u{1F3E0}',weather:'\u{26C5}',calendar:'\u{1F4C5}'}[m.kind]||'\u{1F527}';log('s',ic+' #'+m.id+' '+m.kind+' '+m.status+(m.status==='done'?' in '+m.secs+'s':': '+m.task))}
+    else if(m.t==='cancel'){cancelPlayback();log('s','— interrupted ('+m.why+') —')}
+    else if(m.t==='duck'){gain.gain.setTargetAtTime(m.on?0.12:1,ctx.currentTime,0.03)}
+    else if(m.t==='log')log('s',m.text);
+  };
+  const lv=new Uint8Array(analyser.fftSize);
+  (function loop(){analyser.getByteTimeDomainData(lv);let mx=0;for(const v of lv)mx=Math.max(mx,Math.abs(v-128));
+    $('meter').firstElementChild.style.width=Math.min(100,mx*1.6)+'%';if(running||!ws||ws.readyState<2)requestAnimationFrame(loop)})();
+}
+function shutdown(){
+  mgrState='DORMANT';$('sess').textContent='DORMANT';$('sess').className='chip on DORMANT';running=false;cancelPlayback();setState('OFF');$('live').innerHTML='&nbsp;';
+  try{node&&node.disconnect()}catch(e){}
+  try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}
+  try{ctx&&ctx.close()}catch(e){}
+  stream=node=ctx=null;
+  muted=false;$('mute').textContent='Mute';$('mute').disabled=true;
+  $('go').disabled=false;$('stop').disabled=true;$('end').disabled=true;$('reset').disabled=true;
+}
+$('end').onclick=()=>{try{ws&&ws.readyState===1&&ws.send(JSON.stringify({t:'stop'}))}catch(e){};ws&&ws.close()};
+$('voice').onchange=()=>{store.set('voice',$('voice').value);ws&&ws.readyState===1&&ws.send(JSON.stringify({t:'voice',name:$('voice').value}))};
+const sendTyped=()=>{const v=$('typed').value.trim();if(v&&ws&&ws.readyState===1){ws.send(JSON.stringify({t:'text',text:v}));$('typed').value=''}};
+$('send').onclick=sendTyped;$('typed').onkeydown=e=>{if(e.key==='Enter')sendTyped()};
+function beep(kind){if(!ctx)return;const f=kind==='wake'?[660,880]:[660,440];f.forEach((hz,i)=>{const o=ctx.createOscillator(),g=ctx.createGain();o.frequency.value=hz;o.connect(g);g.connect(ctx.destination);
+  const t=ctx.currentTime+i*0.11;g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.12,t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t+0.1);o.start(t);o.stop(t+0.12)})}
+function fillOptions(sel,vals,labelf){if(sel.options.length)return;vals.forEach(v=>{const o=document.createElement('option');o.value=v;o.textContent=labelf?labelf(v):v;sel.appendChild(o)})}
+const store={get:(k,d)=>{try{const v=localStorage.getItem('dx_'+k);return v===null?d:v}catch(e){return d}},set:(k,v)=>{try{localStorage.setItem('dx_'+k,v)}catch(e){}}};
+async function loadConfig(){
+  try{const r=await fetch('/api/config');const m=await r.json();
+    fillOptions($('voice'),m.voices);$('voice').value=m.voices.includes(store.get('voice',m.voice))?store.get('voice',m.voice):m.voice;
+    fillOptions($('wake'),['off'].concat(m.wake_words),w=>w==='off'?'Always listening':w.replace(/_/g,' '));
+    const w=store.get('wake',m.wake);$('wake').value=(w==='off'||m.wake_words.includes(w))?w:m.wake;
+    $('tmo').value=store.get('tmo',m.active_timeout);$('tmo2').value=store.get('tmo2',m.idle_timeout);$('tmo3').value=store.get('tmo3',m.suspend_ttl);
+    $('sens').value=store.get('sens',m.sens);$('sensv').textContent=(+$('sens').value).toFixed(2);
+    $('info').textContent='\u00b7 STT '+m.stt+' \u00b7 TTS '+m.tts+(m.tts_note?' \u26a0 '+m.tts_note:'')}catch(e){}}
+function applyChoices(){ws.send(JSON.stringify({t:'voice',name:$('voice').value}));sendCfg();ws.send(JSON.stringify({t:'sens',v:+$('sens').value}))}
+function fillWake(m){const sel=$('wake');if(!sel.options.length){['off'].concat(m.words).forEach(w=>{const o=document.createElement('option');o.value=w;o.textContent=w==='off'?'Always listening':w.replace('_',' ')+(w==='hey_nina'?' (phrase)':'');sel.appendChild(o)})}
+  sel.value=m.wake;$('tmo').value=m.active_timeout;$('tmo2').value=m.idle_timeout;$('tmo3').value=m.suspend_ttl}
+const sendCfg=()=>ws&&ws.readyState===1&&ws.send(JSON.stringify({t:'cfg',wake:$('wake').value,active_timeout:+$('tmo').value,idle_timeout:+$('tmo2').value,suspend_ttl:+$('tmo3').value}));
+$('wake').onchange=()=>{store.set('wake',$('wake').value);sendCfg()};['tmo','tmo2','tmo3'].forEach(i=>$(i).onchange=()=>{store.set(i,$(i).value);sendCfg()});
+$('wakebtn').onclick=()=>ws&&ws.send(JSON.stringify({t:'wake'}));$('sleepbtn').onclick=()=>ws&&ws.send(JSON.stringify({t:'sleep'}));
+const setMute=v=>{muted=v;$('mute').textContent=v?'Unmute':'Mute';$('mute').classList.toggle('danger',v);if(running)setState(v?'MUTED':'LISTENING')};
+$('mute').onclick=()=>setMute(!muted);
+document.addEventListener('keydown',e=>{if(e.key==='m'&&document.activeElement.tagName!=='INPUT'&&running)setMute(!muted)});
+$('sens').oninput=()=>{store.set('sens',$('sens').value);$('sensv').textContent=(+$('sens').value).toFixed(2);ws&&ws.readyState===1&&ws.send(JSON.stringify({t:'sens',v:+$('sens').value}))};
+loadConfig();
+$('go').onclick=start;
+$('stop').onclick=()=>{cancelPlayback();ws&&ws.send(JSON.stringify({t:'stop'}))};
+$('reset').onclick=()=>{cancelPlayback();ws&&ws.send(JSON.stringify({t:'reset'}));$('log').innerHTML=''};
+</script>
+</body>
+</html>

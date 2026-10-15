@@ -1,0 +1,12 @@
+{
+  "ha_url": "http://<home-assistant-host>:8123",
+  "searx_url": "http://<searxng-api-host>:8091",
+  "hermes_url": "http://<hermes-host>:8643",
+  "hermes_ssh_host": "<ssh-alias-of-hermes-host>",
+  "wake_host": "<home-assistant-host>",
+  "ha_lexicon_ssh": "<ssh-alias>:/config/needle_voice/lexicon.json",
+  "calendars": ["calendar.example_one", "calendar.example_two"],
+  "weather_entity": "weather.example_station",
+  "forecast_today_sensor": "sensor.nws_today_forecast",
+  "forecast_tomorrow_sensor": "sensor.nws_tomorrow_forecast"
+}

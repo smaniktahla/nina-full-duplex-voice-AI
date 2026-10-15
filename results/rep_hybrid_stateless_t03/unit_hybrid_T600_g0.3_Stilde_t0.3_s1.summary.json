@@ -1,0 +1,171 @@
+{
+ "config": "unit_hybrid_T600_g0.3_Stilde_t0.3_s1",
+ "mode": "hybrid",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": null,
+ "sentinel": "~",
+ "set": "unit",
+ "clf_mode": "stateless",
+ "temp": 0.3,
+ "seed": 1,
+ "clf_thr": 0.5,
+ "wall_s": 72,
+ "perf": {
+  "clf_calls": 32,
+  "gen_calls": 121,
+  "ticks_no_model_call": 111,
+  "interrupt_cancels": 4,
+  "skip_connective": 23,
+  "clf_ms_p50": 403.7197199941147,
+  "gen_ms_p50_after_clf_switch": 787.7502880000975,
+  "gen_ms_p50_no_switch": 351.4768559980439,
+  "gen_after_switch_n": 13,
+  "seq_clf_gen_ticks": 5,
+  "seq_clf_gen_lat_p50": 1493.3731839846587,
+  "seq_clf_gen_overrun_pct": 100.0,
+  "gen_prompt_new_after_switch_p50": 46,
+  "ticks": 259,
+  "lat_p50": 353.2252779987175,
+  "lat_p95": 950.0485510070575,
+  "lat_p99": 1519.1795099963201,
+  "lat_max": 1566.457053006161,
+  "ttft_p50": 301.329772992176,
+  "ttft_p95": 779.2178049858194,
+  "miss_lat_pct": 22.972972972972972,
+  "miss_ttft_pct": 14.18918918918919,
+  "late_p95_ms": 172.89036799629685,
+  "late_max_ms": 966.457053006161,
+  "prompt_new_p50": 0,
+  "prompt_new_p95": 95,
+  "cache_reuse_mean": 0.9313726446161475,
+  "ctx_max": 2167,
+  "invalidations": 1,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 2,
+  "gate_forced_silence": 5
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 0,
+  "missed_responses": 1,
+  "wrong_responses": 1,
+  "missed_interruptions": 1,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 3,
+  "junk_utterances": 0,
+  "incomplete_after_backchannel": 0,
+  "repetitive_fillers": 0,
+  "fillers": 0,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 0,
+  "relay_ms": 6726.525238007889,
+  "respond_latency_p50_ms": 1730,
+  "respond_latency_n": 7,
+  "interrupt_latency_p50_ms": 1043,
+  "interrupt_latency_n": 1,
+  "yield_latency_p50_ms": 250,
+  "yield_latency_n": 1
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 1730.1917470013723,
+   "tick_wait_ms": 330.0,
+   "clf_ms": 742.139344001771,
+   "gen_ttft_ms": 658.0524029996013,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 687.7997739956481,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 300.1267070067115,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 2232.0908049860736,
+   "tick_wait_ms": 830.0,
+   "clf_ms": 712.8816129988991,
+   "gen_ttft_ms": 689.2091919871746,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 551.4867369929561,
+   "tick_wait_ms": 250.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 301.48673699295614,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 154.32951201160904,
+   "tick_wait_ms": -1240.0,
+   "clf_ms": 708.810241005267,
+   "gen_ttft_ms": 685.519271006342,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 2055.532949003391,
+   "tick_wait_ms": 670.0,
+   "clf_ms": 719.9743450037204,
+   "gen_ttft_ms": 665.5586039996706,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  null,
+  {
+   "scenario": "delegation",
+   "e2e_ms": 1799.1840809909627,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 403.7197199941147,
+   "gen_ttft_ms": 855.464360996848,
+   "route": "classify_y",
+   "late_ms": 0.0
+  }
+ ],
+ "per_scenario": {
+  "mid_thought_pause": {
+   "incomplete_answers": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {},
+  "user_barge_in": {
+   "yield_ok": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 1
+  },
+  "correction": {
+   "wrong_responses": 1
+  },
+  "fillers_self_talk": {
+   "incomplete_answers": 1
+  },
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 6726.525238007889
+  },
+  "stt_noise": {
+   "missed_interruptions": 1
+  }
+ }
+}

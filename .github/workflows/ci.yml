@@ -1,0 +1,50 @@
+name: CI
+on:
+  pull_request:
+  push:
+    branches: [main]
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  needle-tests:
+    name: Needle unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: needle-voice/requirements-dev.txt }
+      - run: pip install -r needle-voice/requirements-dev.txt
+      - run: python -m pytest -q
+        working-directory: needle-voice/tests
+  lint:
+    name: Syntax and static checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python -m compileall -q duplex live needle-voice bench.py rescore.py analyze_hybrid.py endpoint_eval.py
+      - run: pip install ruff && ruff check --select E9,F63,F7,F82 .      # real errors only (syntax, undefined names), not style
+      - run: bash -n live/run.sh live/ops/apply_parallel2.sh scripts/check_no_secrets.sh
+      - run: node --version && python - <<'PY'
+          import re, subprocess, sys, tempfile
+          js = re.search(r"<script>(.*)</script>", open("live/static/index.html").read(), re.S).group(1)
+          f = tempfile.NamedTemporaryFile("w", suffix=".js", delete=False); f.write(js); f.close()
+          sys.exit(subprocess.call(["node", "--check", f.name]))
+          PY
+  secrets:
+    name: No secrets or private files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash scripts/check_no_secrets.sh
+  unit-pure:
+    name: Pure-logic tests for the voice server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pytest aiohttp
+      - run: python -m pytest -q tests

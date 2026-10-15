@@ -1,0 +1,169 @@
+{
+ "config": "unit_hybrid_T600_g0.3_Stilde_t0.3_s2",
+ "mode": "hybrid",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": null,
+ "sentinel": "~",
+ "set": "unit",
+ "clf_mode": "inline",
+ "temp": 0.3,
+ "seed": 2,
+ "clf_thr": 0.5,
+ "wall_s": 68,
+ "perf": {
+  "clf_calls": 31,
+  "gen_calls": 139,
+  "ticks_no_model_call": 109,
+  "interrupt_cancels": 3,
+  "skip_connective": 23,
+  "clf_ms_p50": 362.6402679947205,
+  "gen_ms_p50_after_clf_switch": 411.24234900053125,
+  "gen_ms_p50_no_switch": 350.95489700324833,
+  "gen_after_switch_n": 15,
+  "seq_clf_gen_ticks": 10,
+  "seq_clf_gen_lat_p50": 783.8438269827748,
+  "seq_clf_gen_overrun_pct": 100.0,
+  "gen_prompt_new_after_switch_p50": 36,
+  "ticks": 269,
+  "lat_p50": 356.4198940002825,
+  "lat_p95": 817.41310399957,
+  "lat_p99": 954.9068089982029,
+  "lat_max": 1010.0693029962713,
+  "ttft_p50": 303.20750099781435,
+  "ttft_p95": 708.8887869904283,
+  "miss_lat_pct": 12.5,
+  "miss_ttft_pct": 5.625,
+  "late_p95_ms": 179.45685099984985,
+  "late_max_ms": 410.0693029962713,
+  "prompt_new_p50": 20,
+  "prompt_new_p95": 95,
+  "cache_reuse_mean": 0.9397357442393722,
+  "ctx_max": 2340,
+  "invalidations": 1,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 0,
+  "gate_forced_silence": 0
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 1,
+  "missed_responses": 1,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 1,
+  "yield_ok": 0,
+  "incomplete_answers": 2,
+  "junk_utterances": 0,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 0,
+  "fillers": 1,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 0,
+  "relay_ms": 7890.048720993218,
+  "respond_latency_p50_ms": 1316,
+  "respond_latency_n": 7,
+  "interrupt_latency_p50_ms": 824,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": null,
+  "yield_latency_n": 0
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 1661.6636389878113,
+   "tick_wait_ms": 930.0,
+   "clf_ms": 402.5327319977805,
+   "gen_ttft_ms": 329.1309069900308,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 467.0923349930672,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 297.0923349930672,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1834.0853199898265,
+   "tick_wait_ms": 1521.4982769958442,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 312.5870429939823,
+   "route": "gen",
+   "late_ms": 91.49827699584421
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 1500.8624699781649,
+   "tick_wait_ms": 850.0,
+   "clf_ms": 328.2738619891461,
+   "gen_ttft_ms": 322.5886079890188,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 1300.0446879910305,
+   "tick_wait_ms": 560.0,
+   "clf_ms": 418.3827079978073,
+   "gen_ttft_ms": 321.6619799932232,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 1315.5539540038444,
+   "tick_wait_ms": 670.0,
+   "clf_ms": 324.30525100789964,
+   "gen_ttft_ms": 321.24870299594477,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  null,
+  {
+   "scenario": "delegation",
+   "e2e_ms": 1175.9015260095475,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 318.1343040050706,
+   "gen_ttft_ms": 317.76722200447693,
+   "route": "classify_y",
+   "late_ms": 0.0
+  }
+ ],
+ "per_scenario": {
+  "mid_thought_pause": {
+   "incomplete_answers": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {},
+  "user_barge_in": {
+   "yield_na": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 1,
+   "incomplete_after_backchannel": 1
+  },
+  "correction": {
+   "premature_responses": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 7890.048720993218
+  },
+  "stt_noise": {}
+ }
+}

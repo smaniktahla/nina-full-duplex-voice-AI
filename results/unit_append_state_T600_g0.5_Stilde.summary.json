@@ -1,0 +1,92 @@
+{
+ "config": "unit_append_state_T600_g0.5_Stilde",
+ "mode": "append_state",
+ "tick_ms": 600,
+ "gate": 0.5,
+ "sentinel": "~",
+ "set": "unit",
+ "wall_s": 106,
+ "perf": {
+  "ticks": 275,
+  "lat_p50": 347.5591460010037,
+  "lat_p95": 521.5244709979743,
+  "lat_max": 837.0830850035418,
+  "ttft_p50": 300.1282299956074,
+  "ttft_p95": 321.1260379976011,
+  "miss_lat_pct": 3.272727272727273,
+  "miss_ttft_pct": 3.272727272727273,
+  "late_p95_ms": 0.0,
+  "late_max_ms": 237.08308500354178,
+  "prompt_new_p50": 22,
+  "prompt_new_p95": 57,
+  "cache_reuse_mean": 0.9637362225475704,
+  "ctx_max": 2202,
+  "invalidations": 0,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 4,
+  "gate_forced_silence": 0,
+  "extra_reqs": 4
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 0,
+  "missed_responses": 5,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 2,
+  "incomplete_after_backchannel": 0,
+  "repetitive_fillers": 1,
+  "fillers": 5,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 1,
+  "relay_missing": 0,
+  "relay_ms": 309.47873500554124,
+  "respond_latency_p50_ms": 545,
+  "respond_latency_n": 3,
+  "interrupt_latency_p50_ms": 819,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": 559,
+  "yield_latency_n": 1
+ },
+ "per_scenario": {
+  "mid_thought_pause": {
+   "missed_responses": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {},
+  "user_barge_in": {
+   "yield_ok": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 1
+  },
+  "correction": {
+   "missed_responses": 1,
+   "repetitive_fillers": 1,
+   "fillers": 2
+  },
+  "fillers_self_talk": {
+   "missed_responses": 1
+  },
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "missed_responses": 1,
+   "fillers": 2,
+   "delegations": 1,
+   "relay_ms": 309.47873500554124,
+   "relay_during_user_speech": 1
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ }
+}

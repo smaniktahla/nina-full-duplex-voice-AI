@@ -1,0 +1,19 @@
+[Unit]
+Description=Wyoming faster-whisper STT (small.en, CPU, VAD + Home Assistant vocabulary) - speech input for Needle Voice
+After=network-online.target
+StartLimitIntervalSec=120
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=salil
+WorkingDirectory=/home/salil/wyoming-whisper
+Environment=CUDA_VISIBLE_DEVICES=
+Environment=WYO_WHISPER_HASS_TOKEN_FILE=/home/salil/wyoming-whisper/hass_token
+ExecStart=/home/salil/wyoming-whisper/venv/bin/python -m wyoming_faster_whisper --uri tcp://0.0.0.0:10300 --model small.en --language en --data-dir /home/salil/wyoming-whisper/data --download-dir /home/salil/wyoming-whisper/data --device cpu --compute-type int8 --beam-size 5 --cpu-threads 6 --vad-filter --hass-api http://homeassistant.local:8123/api --hass-refresh-seconds 300 --hass-prompt-max-tokens 200
+Restart=on-failure
+RestartSec=5
+MemoryMax=2G
+
+[Install]
+WantedBy=multi-user.target

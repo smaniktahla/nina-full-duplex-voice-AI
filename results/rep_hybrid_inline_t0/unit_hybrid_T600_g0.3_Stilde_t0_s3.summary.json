@@ -1,0 +1,173 @@
+{
+ "config": "unit_hybrid_T600_g0.3_Stilde_t0_s3",
+ "mode": "hybrid",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": null,
+ "sentinel": "~",
+ "set": "unit",
+ "clf_mode": "inline",
+ "temp": 0.0,
+ "seed": 3,
+ "clf_thr": 0.5,
+ "wall_s": 70,
+ "perf": {
+  "clf_calls": 23,
+  "gen_calls": 153,
+  "ticks_no_model_call": 104,
+  "interrupt_cancels": 3,
+  "skip_connective": 23,
+  "clf_ms_p50": 326.10748401202727,
+  "gen_ms_p50_after_clf_switch": 386.6675619938178,
+  "gen_ms_p50_no_switch": 353.37963300116826,
+  "gen_after_switch_n": 15,
+  "seq_clf_gen_ticks": 10,
+  "seq_clf_gen_lat_p50": 779.2741279845359,
+  "seq_clf_gen_overrun_pct": 100.0,
+  "gen_prompt_new_after_switch_p50": 36,
+  "ticks": 270,
+  "lat_p50": 357.71119699347764,
+  "lat_p95": 813.2298789860215,
+  "lat_p99": 908.4629380085971,
+  "lat_max": 1017.0412230072543,
+  "ttft_p50": 307.54099700425286,
+  "ttft_p95": 471.1837340000784,
+  "miss_lat_pct": 12.048192771084338,
+  "miss_ttft_pct": 4.216867469879518,
+  "late_p95_ms": 95.11258401325904,
+  "late_max_ms": 417.0412230072543,
+  "prompt_new_p50": 21,
+  "prompt_new_p95": 95,
+  "cache_reuse_mean": 0.9424985730751251,
+  "ctx_max": 2340,
+  "invalidations": 1,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 1,
+  "gate_forced_silence": 0
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 1,
+  "missed_responses": 1,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 1,
+  "yield_ok": 0,
+  "incomplete_answers": 3,
+  "junk_utterances": 0,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 0,
+  "fillers": 2,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 0,
+  "relay_ms": 7890.253501015832,
+  "respond_latency_p50_ms": 1320,
+  "respond_latency_n": 7,
+  "interrupt_latency_p50_ms": 821,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": null,
+  "yield_latency_n": 0
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 1662.486003995291,
+   "tick_wait_ms": 930.0,
+   "clf_ms": 402.2147789946757,
+   "gen_ttft_ms": 330.27122500061523,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 469.5098999963375,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 299.5098999963375,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1833.074007021496,
+   "tick_wait_ms": 1525.112584013259,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 307.96142300823703,
+   "route": "gen",
+   "late_ms": 95.11258401325904
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 2079.2989599955035,
+   "tick_wait_ms": 1545.5823280004552,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 313.6600500001805,
+   "route": "gen",
+   "late_ms": 95.58232800045516
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 1302.1933189907577,
+   "tick_wait_ms": 560.0,
+   "clf_ms": 418.5368600010406,
+   "gen_ttft_ms": 323.65645898971707,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 1319.9094549944857,
+   "tick_wait_ms": 670.0,
+   "clf_ms": 326.09422400128096,
+   "gen_ttft_ms": 323.81523099320475,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  null,
+  {
+   "scenario": "delegation",
+   "e2e_ms": 1175.4742179828463,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 316.7186539940303,
+   "gen_ttft_ms": 318.755563988816,
+   "route": "classify_y",
+   "late_ms": 0.0
+  }
+ ],
+ "per_scenario": {
+  "mid_thought_pause": {
+   "incomplete_answers": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {
+   "incomplete_answers": 1,
+   "incomplete_after_backchannel": 1
+  },
+  "user_barge_in": {
+   "yield_na": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "fillers": 1
+  },
+  "correction": {
+   "premature_responses": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 7890.253501015832
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ }
+}

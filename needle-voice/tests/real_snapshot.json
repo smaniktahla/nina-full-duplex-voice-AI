@@ -1,0 +1,1296 @@
+{
+ "entities": [
+  {
+   "entity_id": "todo.shopping_list",
+   "name": "Shopping list",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.living_room_amp",
+   "name": "Living Room Amp",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "media_player.living_room_amp_zone2",
+   "name": "Room Living Room Amp zone2",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "binary_sensor.basement_door_sensor_door",
+   "name": "Basement Door Sensor Door",
+   "aliases": [
+    "Basement Back Door"
+   ],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.basement_6",
+   "name": "",
+   "aliases": [],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "light.bedroom_light_1",
+   "name": "",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.bedroom_light_2",
+   "name": "",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.living_room_lamps_socket",
+   "name": "Living Room Lamps Socket",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "switch.moroccan_lamp_socket_1",
+   "name": "Moroccan Lamp Socket 1",
+   "aliases": [],
+   "area_id": "dining_room"
+  },
+  {
+   "entity_id": "switch.small_wood_lamp_socket_1",
+   "name": "Small Wood Lamp Socket 1",
+   "aliases": [],
+   "area_id": "master_bedroom"
+  },
+  {
+   "entity_id": "switch.front_porch_light_switch_1",
+   "name": "Front Porch Light Switch 1",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "switch.kitchen_switch_1",
+   "name": "Kitchen Switch 1",
+   "aliases": [],
+   "area_id": "kitchen"
+  },
+  {
+   "entity_id": "switch.entry_lights_switch_1",
+   "name": "Entry Lights  Switch 1",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.back_yard_lights_socket_1",
+   "name": "Sunroom String Lights Socket 1",
+   "aliases": [],
+   "area_id": "sunroom"
+  },
+  {
+   "entity_id": "switch.office_printer_socket_1",
+   "name": "Grow Light Socket 1",
+   "aliases": [],
+   "area_id": "office"
+  },
+  {
+   "entity_id": "switch.basement_floor_lamp_socket_1",
+   "name": "Basement Floor Lamp Socket 1",
+   "aliases": [
+    "Basement Floor Lamp"
+   ],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "switch.basement_av_lamp_socket_1",
+   "name": "Basement AV Lamp Socket 1",
+   "aliases": [
+    "Basement Living Room Lamp"
+   ],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "switch.back_yard_water_timer_switch",
+   "name": "WiFi Water Timer Valve Switch",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "switch.headboard_lights_socket_1",
+   "name": "Headboard Lights Socket 1",
+   "aliases": [],
+   "area_id": "master_bedroom"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_poe_motion",
+   "name": "Front Doorbell PoE Motion",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "sensor.nws_station_temperature",
+   "name": "NWS Station Temperature",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.nws_station_wind_chill",
+   "name": "NWS Station Wind Chill",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.nws_station_heat_index",
+   "name": "NWS Station Heat Index",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.nws_station_relative_humidity",
+   "name": "Relative Humidity",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.nws_station_barometric_pressure",
+   "name": "NWS Station Barometric Pressure",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.nws_station_sea_level_pressure",
+   "name": "NWS Station Sea Level Pressure",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.front_doorbell_autofocus",
+   "name": "Front Doorbell Autofocus",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "switch.front_doorbell_ir_lamp",
+   "name": "Front Doorbell IR lamp",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_vehicle_detection",
+   "name": "Front Doorbell Vehicle Detection",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_face_detection",
+   "name": "Front Doorbell Face Detection",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_cell_motion_detection",
+   "name": "Front Doorbell Cell Motion Detection",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_motion_alarm",
+   "name": "Front Doorbell Motion Alarm",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_person_detection",
+   "name": "Front Doorbell Person Detection",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_pet_detection",
+   "name": "Front Doorbell Pet Detection",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "light.kitchen_recessed_light_1",
+   "name": "Kitchen Recessed Light 1",
+   "aliases": [],
+   "area_id": "kitchen"
+  },
+  {
+   "entity_id": "switch.square_shelf_lights_socket_1",
+   "name": "Square Shelf Lights Socket 1",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "binary_sensor.dining_room_motion",
+   "name": "Dining Room Motion",
+   "aliases": [],
+   "area_id": "dining_room"
+  },
+  {
+   "entity_id": "binary_sensor.living_room_motion",
+   "name": "Living Room Motion",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "binary_sensor.back_yard_dome_motion",
+   "name": "Back Yard Dome Motion",
+   "aliases": [],
+   "area_id": "back_yard"
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_motion",
+   "name": "Front Doorbell Motion",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.basement_motion",
+   "name": "Basement Motion",
+   "aliases": [],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "binary_sensor.carport_motion",
+   "name": "Carport Motion",
+   "aliases": [],
+   "area_id": "carport"
+  },
+  {
+   "entity_id": "binary_sensor.swimming_pool_motion",
+   "name": "Swimming Pool Motion",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "binary_sensor.workshop_motion",
+   "name": "Workshop Motion",
+   "aliases": [],
+   "area_id": "workshop"
+  },
+  {
+   "entity_id": "binary_sensor.laptop_chrome",
+   "name": "Laptop Chrome",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.laptop_chrome",
+   "name": "Laptop Chrome",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.cast",
+   "name": "CAST",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.cast",
+   "name": "CAST",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "weather.forecast_home_2",
+   "name": "Forecast Home",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.pool_pendant_lights",
+   "name": "Pool Pendant Lights",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "switch.pool_high_bay_lights",
+   "name": "Pool High Bay Lights",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "switch.swimming_pool_exhaust_fan",
+   "name": "Swimming Pool Exhaust Fan",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "switch.fireplace_fan",
+   "name": "Fireplace Fan",
+   "aliases": [],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "switch.sunroom_fan",
+   "name": "Sunroom Fan",
+   "aliases": [],
+   "area_id": "sunroom"
+  },
+  {
+   "entity_id": "switch.front_entrance_lights",
+   "name": "Front Entrance Lights",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "switch.carport_light",
+   "name": "Carport Light",
+   "aliases": [],
+   "area_id": "carport"
+  },
+  {
+   "entity_id": "input_text.nws_forecast_text",
+   "name": "NWS Forecast Text",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "fan.pool_fan",
+   "name": "Pool Fan",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "light.guest_room_lamp_1",
+   "name": "Guest Room Lamp 1",
+   "aliases": [],
+   "area_id": "basement_guest_room"
+  },
+  {
+   "entity_id": "binary_sensor.contact_sensor_door",
+   "name": "Basement Freezer Door Door",
+   "aliases": [
+    "Basement Freezer Door"
+   ],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "binary_sensor.contact_sensor_2_door",
+   "name": "Basement Back Door",
+   "aliases": [
+    "Basement Back Door"
+   ],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "binary_sensor.contact_sensor_3_door",
+   "name": "Carport Door Door",
+   "aliases": [
+    "Carport Door"
+   ],
+   "area_id": "workshop"
+  },
+  {
+   "entity_id": "binary_sensor.contact_sensor_4_door",
+   "name": "Basement Fridge Door Door",
+   "aliases": [],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "climate.living_room_thermostat",
+   "name": "Living Room Thermostat",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "sensor.living_room_thermostat_temperature",
+   "name": "Living Room Thermostat Temperature",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "sensor.living_room_thermostat_humidity",
+   "name": "Living Room Thermostat Humidity",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "binary_sensor.kitchen_kiosk",
+   "name": "kitchen_kiosk",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.kitchen_kiosk_screen",
+   "name": "kitchen_kiosk Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.kitchen_kiosk",
+   "name": "kitchen_kiosk",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.laptop",
+   "name": "Laptop",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.laptop",
+   "name": "Laptop",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.front_doorbell_vehicle_detection_2",
+   "name": "Front Doorbell Vehicle Detection",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "switch.basement_lamps_socket",
+   "name": "Stairway Fan Socket",
+   "aliases": [],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "switch.workshop_plant_lamp_socket_1",
+   "name": "Xmas Tree Lights Socket 1",
+   "aliases": [],
+   "area_id": "workshop"
+  },
+  {
+   "entity_id": "media_player.basement_bathroom",
+   "name": "Basement Bathroom",
+   "aliases": [],
+   "area_id": "basement_bathroom"
+  },
+  {
+   "entity_id": "media_player.kitchen_display",
+   "name": "Kitchen display",
+   "aliases": [],
+   "area_id": "kitchen"
+  },
+  {
+   "entity_id": "media_player.basement_speaker",
+   "name": "Basement Speaker",
+   "aliases": [],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "media_player.party",
+   "name": "Party",
+   "aliases": [],
+   "area_id": "sunroom"
+  },
+  {
+   "entity_id": "media_player.the_whole_house",
+   "name": "The Whole House",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.kids_bedroom_speaker",
+   "name": "Kids' Bedroom Speaker",
+   "aliases": [],
+   "area_id": "kids_room"
+  },
+  {
+   "entity_id": "media_player.master_bedroom_speaker",
+   "name": "Master Bedroom Speaker",
+   "aliases": [],
+   "area_id": "master_bedroom"
+  },
+  {
+   "entity_id": "media_player.master_bathroom_speaker",
+   "name": "Master Bathroom Speaker",
+   "aliases": [],
+   "area_id": "master_bathroom"
+  },
+  {
+   "entity_id": "media_player.guest_room_speaker",
+   "name": "Guest Room Speaker",
+   "aliases": [],
+   "area_id": "basement_guest_room"
+  },
+  {
+   "entity_id": "media_player.workshop_speaker",
+   "name": "Workshop speaker",
+   "aliases": [],
+   "area_id": "workshop"
+  },
+  {
+   "entity_id": "media_player.office_speaker",
+   "name": "Office speaker",
+   "aliases": [],
+   "area_id": "office"
+  },
+  {
+   "entity_id": "media_player.swimming_pool_speakers",
+   "name": "Basement Living Room + Swimming Pool Speakers",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.swimming_pool_2",
+   "name": "Swimming Pool",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.basement_tv",
+   "name": "Basement TV",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.smart_plug_1",
+   "name": "Smart Plug 1",
+   "aliases": [],
+   "area_id": "carport"
+  },
+  {
+   "entity_id": "switch.smart_plug_1_christmas_lights",
+   "name": "Smart Plug 1 Christmas Lights",
+   "aliases": [],
+   "area_id": "carport"
+  },
+  {
+   "entity_id": "switch.smart_plug_1_plug_2",
+   "name": "Smart Plug 1 Plug 2",
+   "aliases": [],
+   "area_id": "carport"
+  },
+  {
+   "entity_id": "automation.pool_exhaust_fan_humidity_control",
+   "name": "Pool Exhaust Fan - Humidity Control",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "media_player.all_speakers",
+   "name": "All Speakers",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.govee_hygrometer_temperature",
+   "name": "Govee Hygrometer Temperature",
+   "aliases": [],
+   "area_id": "office"
+  },
+  {
+   "entity_id": "sensor.govee_hygrometer_humidity",
+   "name": "Govee Hygrometer Humidity",
+   "aliases": [],
+   "area_id": "office"
+  },
+  {
+   "entity_id": "light.browser_1_screen",
+   "name": "browser_1 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.sonorium_global_play",
+   "name": "Sonorium Sonorium Play",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.sonorium_stop_all",
+   "name": "Sonorium Sonorium Stop All",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.sunroom_door",
+   "name": "Sunroom Door",
+   "aliases": [],
+   "area_id": "sunroom"
+  },
+  {
+   "entity_id": "binary_sensor.front_door",
+   "name": "Front Door",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.back_yard_left_motion",
+   "name": "Back Yard Left Motion",
+   "aliases": [],
+   "area_id": "back_yard"
+  },
+  {
+   "entity_id": "binary_sensor.back_yard_right_motion",
+   "name": "Back Yard Right Motion",
+   "aliases": [],
+   "area_id": "back_yard"
+  },
+  {
+   "entity_id": "switch.back_yard_left_camera_motion_detection",
+   "name": "Back Yard Left Camera motion detection",
+   "aliases": [],
+   "area_id": "back_yard"
+  },
+  {
+   "entity_id": "switch.back_yard_right_camera_motion_detection",
+   "name": "Back Yard Right Camera motion detection",
+   "aliases": [],
+   "area_id": "back_yard"
+  },
+  {
+   "entity_id": "sensor.firewall_temp_zone_0",
+   "name": "Firewall Temp Zone 0",
+   "aliases": [],
+   "area_id": "workshop"
+  },
+  {
+   "entity_id": "switch.sonorium_sleepy_time_play",
+   "name": "Sonorium Sleepy Time Play",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.back_yard_right_motion_2",
+   "name": "Back Yard Right  Motion",
+   "aliases": [],
+   "area_id": "back_yard"
+  },
+  {
+   "entity_id": "switch.back_yard_right_camera_motion_detection_2",
+   "name": "Back Yard Right  Camera motion detection",
+   "aliases": [],
+   "area_id": "back_yard"
+  },
+  {
+   "entity_id": "sensor.tpms_2b2f_temperature",
+   "name": "Car - Left Rear Tire Temperature",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.tpms_37b5_temperature",
+   "name": "Car - Left Front Tire Temperature",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.home_assistant_voice_0a63ce_media_player",
+   "name": "Home Assistant Voice Cloudfree Media Player",
+   "aliases": [],
+   "area_id": "kitchen"
+  },
+  {
+   "entity_id": "binary_sensor.apollo_tracker_battery_charging",
+   "name": "Tracker 1 Charging",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "device_tracker.apollo_tracker",
+   "name": "Tracker 1",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.apollo_tracker_battery",
+   "name": "Tracker 1 Battery",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "climate.greenhouse_thermostat",
+   "name": "Greenhouse Thermostat",
+   "aliases": [],
+   "area_id": "greenhouse"
+  },
+  {
+   "entity_id": "binary_sensor.browser_2",
+   "name": "browser_2",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_2_screen",
+   "name": "browser_2 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_2",
+   "name": "browser_2",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.black_jbl_speaker",
+   "name": "Black JBL Speaker",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.gray_jbl_speaker",
+   "name": "Gray JBL Speaker",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_3",
+   "name": "browser_3",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_3_screen",
+   "name": "browser_3 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_3",
+   "name": "browser_3",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_4",
+   "name": "browser_4",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_4_screen",
+   "name": "browser_4 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_4",
+   "name": "browser_4",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_5",
+   "name": "browser_5",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_5_screen",
+   "name": "browser_5 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_5",
+   "name": "browser_5",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.nws_today_forecast_2",
+   "name": "NWS Today Forecast",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "sensor.nws_tomorrow_forecast_2",
+   "name": "NWS Tomorrow Forecast",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.swimming_pool_pool_camera_autofocus",
+   "name": "Pool Camera Autofocus",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "switch.swimming_pool_pool_camera_ir_lamp",
+   "name": "Pool Camera IR lamp",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "switch.swimming_pool_pool_camera_wiper",
+   "name": "Pool Camera Wiper",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "media_player.living_room_amp_3",
+   "name": "Living Room Amp",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.living_room_tv",
+   "name": "Living Room TV",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "media_player.xbox_2",
+   "name": "XBOX",
+   "aliases": [],
+   "area_id": "master_bedroom"
+  },
+  {
+   "entity_id": "media_player.xboxone_3",
+   "name": "XboxOne",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.basement_bathroom_2",
+   "name": "Basement Bathroom",
+   "aliases": [
+    "Basement Bathroom Speaker"
+   ],
+   "area_id": "basement_bathroom"
+  },
+  {
+   "entity_id": "media_player.master_bedroom_speaker_mass",
+   "name": "Master Bedroom Speaker",
+   "aliases": [],
+   "area_id": "master_bedroom"
+  },
+  {
+   "entity_id": "media_player.master_bathroom_speaker_mass",
+   "name": "Master Bathroom Speaker",
+   "aliases": [],
+   "area_id": "master_bathroom"
+  },
+  {
+   "entity_id": "media_player.office_speaker_mass",
+   "name": "Office speaker",
+   "aliases": [],
+   "area_id": "office"
+  },
+  {
+   "entity_id": "media_player.workshop_speaker_mass",
+   "name": "Workshop speaker",
+   "aliases": [],
+   "area_id": "workshop"
+  },
+  {
+   "entity_id": "media_player.the_whole_house_2",
+   "name": "The Whole House",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.basement_speaker_mass",
+   "name": "Basement Speaker",
+   "aliases": [],
+   "area_id": "basement_living_room"
+  },
+  {
+   "entity_id": "media_player.guest_room_speaker_mass",
+   "name": "Guest Room Speaker",
+   "aliases": [],
+   "area_id": "basement_guest_room"
+  },
+  {
+   "entity_id": "media_player.living_room_speaker_mass",
+   "name": "Living Room speaker",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "media_player.swimming_pool_speakers_mass",
+   "name": "Basement Living Room + Swimming Pool Speakers",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "media_player.party_2",
+   "name": "Party",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.swimming_pool",
+   "name": "Swimming Pool",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "media_player.chromecastaudio4078_2",
+   "name": "Living Room HiFi",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "vacuum.swimming_pool_pool_robot",
+   "name": "Pool Robot",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "binary_sensor.browser_6",
+   "name": "browser_6",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_6_screen",
+   "name": "browser_6 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_6",
+   "name": "browser_6",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.front_porch_front_doorbell_person_detection_1",
+   "name": "Front Doorbell Person Detection 1",
+   "aliases": [],
+   "area_id": "front_porch"
+  },
+  {
+   "entity_id": "binary_sensor.browser_7",
+   "name": "browser_7",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_7_screen",
+   "name": "browser_7 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_7",
+   "name": "browser_7",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "switch.third_reality_inc_3rsp02028bz",
+   "name": "Third Reality Plug Repeater",
+   "aliases": [],
+   "area_id": "swimming_pool"
+  },
+  {
+   "entity_id": "binary_sensor.browser_8",
+   "name": "browser_8",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_8_screen",
+   "name": "browser_8 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_8",
+   "name": "browser_8",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_9",
+   "name": "browser_9",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_9_screen",
+   "name": "browser_9 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_9",
+   "name": "browser_9",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_10",
+   "name": "browser_10",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_10_screen",
+   "name": "browser_10 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_10",
+   "name": "browser_10",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_11",
+   "name": "browser_11",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_11_screen",
+   "name": "browser_11 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_11",
+   "name": "browser_11",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.living_room_hisense_tv",
+   "name": "Hisense TV",
+   "aliases": [],
+   "area_id": "living_room"
+  },
+  {
+   "entity_id": "media_player.plex_client_service_plex_user_plex_web_firefox_windows",
+   "name": "Plex Client Service Plex (Plex Web - Firefox - Windows)",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_12",
+   "name": "browser_12",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_12_screen",
+   "name": "browser_12 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_12",
+   "name": "browser_12",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_13",
+   "name": "browser_13",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_13_screen",
+   "name": "browser_13 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_13",
+   "name": "browser_13",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_14",
+   "name": "browser_14",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_14_screen",
+   "name": "browser_14 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_14",
+   "name": "browser_14",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_15",
+   "name": "browser_15",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_15_screen",
+   "name": "browser_15 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_15",
+   "name": "browser_15",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_16",
+   "name": "browser_16",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_16_screen",
+   "name": "browser_16 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_16",
+   "name": "browser_16",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "binary_sensor.browser_17",
+   "name": "browser_17",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "light.browser_17_screen",
+   "name": "browser_17 Screen",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "media_player.browser_17",
+   "name": "browser_17",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "scene.turn_off_candles",
+   "name": "Turn Off Candles",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "scene.turn_on_candles",
+   "name": "Turn on Candles",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "scene.greenhouse_off",
+   "name": "Greenhouse - Off",
+   "aliases": [],
+   "area_id": null
+  },
+  {
+   "entity_id": "scene.greenhouse_on_after_sunrise",
+   "name": "Greenhouse - On After Sunrise",
+   "aliases": [],
+   "area_id": null
+  }
+ ],
+ "areas": [
+  {
+   "area_id": "back_yard",
+   "name": "Back Yard",
+   "aliases": []
+  },
+  {
+   "area_id": "basement_bathroom",
+   "name": "Basement Bathroom",
+   "aliases": []
+  },
+  {
+   "area_id": "basement_guest_room",
+   "name": "Basement Guest Room",
+   "aliases": []
+  },
+  {
+   "area_id": "basement_living_room",
+   "name": "Basement Living Room",
+   "aliases": []
+  },
+  {
+   "area_id": "bedroom",
+   "name": "Bedroom",
+   "aliases": []
+  },
+  {
+   "area_id": "carport",
+   "name": "Carport",
+   "aliases": []
+  },
+  {
+   "area_id": "dining_room",
+   "name": "Dining Room",
+   "aliases": []
+  },
+  {
+   "area_id": "front_porch",
+   "name": "Front Porch",
+   "aliases": []
+  },
+  {
+   "area_id": "hallway_bathroom",
+   "name": "Hallway Bathroom",
+   "aliases": []
+  },
+  {
+   "area_id": "kids_room",
+   "name": "Kids' Room",
+   "aliases": []
+  },
+  {
+   "area_id": "kitchen",
+   "name": "Kitchen",
+   "aliases": []
+  },
+  {
+   "area_id": "laundry_room",
+   "name": "Laundry Room",
+   "aliases": []
+  },
+  {
+   "area_id": "living_room",
+   "name": "Living Room",
+   "aliases": []
+  },
+  {
+   "area_id": "master_bathroom",
+   "name": "Master Bathroom",
+   "aliases": []
+  },
+  {
+   "area_id": "master_bedroom",
+   "name": "Master Bedroom",
+   "aliases": []
+  },
+  {
+   "area_id": "office",
+   "name": "Office",
+   "aliases": []
+  },
+  {
+   "area_id": "sunroom",
+   "name": "Sunroom",
+   "aliases": []
+  },
+  {
+   "area_id": "swimming_pool",
+   "name": "Swimming Pool",
+   "aliases": []
+  },
+  {
+   "area_id": "workshop",
+   "name": "Workshop",
+   "aliases": []
+  },
+  {
+   "area_id": "greenhouse",
+   "name": "Greenhouse",
+   "aliases": []
+  }
+ ]
+}

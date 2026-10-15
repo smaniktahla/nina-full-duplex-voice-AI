@@ -1,0 +1,46 @@
+  mid_thought_pause         24 ticks
+  question_simple           13 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   28 ticks
+  correction                64 ticks
+  fillers_self_talk         30 ticks
+  long_story                40 ticks
+  delegation                48 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s1  lat p50/p95/p99 366/823/1005 ms  miss 10%  reuse 0.95  inval 1 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 44 REP 0
+  mid_thought_pause         24 ticks
+  question_simple           13 ticks
+  danger_interrupt          23 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   28 ticks
+  correction                42 ticks
+  fillers_self_talk         30 ticks
+  long_story                40 ticks
+  delegation                92 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s2  lat p50/p95/p99 365/801/949 ms  miss 11%  reuse 0.95  inval 1 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 33 REP 0
+  mid_thought_pause         24 ticks
+  question_simple           13 ticks
+  danger_interrupt          23 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   28 ticks
+  correction                64 ticks
+  fillers_self_talk         30 ticks
+  long_story                40 ticks
+  delegation                92 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s3  lat p50/p95/p99 373/801/976 ms  miss 8%  reuse 0.96  inval 1 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 68 REP 0
+  mid_thought_pause         24 ticks
+  question_simple           13 ticks
+  danger_interrupt          24 ticks
+  user_barge_in             25 ticks
+  backchannel_long_answer   27 ticks
+  correction                64 ticks
+  fillers_self_talk         30 ticks
+  long_story                40 ticks
+  delegation                92 ticks
+  stt_noise                 24 ticks
+unit_hybrid_T600_g0.3_Stilde_t0.3_s4  lat p50/p95/p99 371/785/960 ms  miss 8%  reuse 0.96  inval 1 | FI 0 PR 1 MR 0 MI 0 YF 0 INC 78 REP 0
+  mid_thought_pause         24 ticks
+  question_simple           13 ticks

@@ -1,0 +1,174 @@
+{
+ "config": "unit_append_hint_T600_g0.3-hi0.9_Stilde",
+ "mode": "append_hint",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": 0.9,
+ "sentinel": "~",
+ "set": "unit",
+ "wall_s": 110,
+ "perf": {
+  "clf_calls": 0,
+  "gen_calls": 0,
+  "ticks_no_model_call": 0,
+  "interrupt_cancels": 0,
+  "skip_connective": 0,
+  "clf_ms_p50": 0.0,
+  "gen_ms_p50_after_clf_switch": 0.0,
+  "gen_ms_p50_no_switch": 0.0,
+  "gen_after_switch_n": 0,
+  "seq_clf_gen_ticks": 0,
+  "seq_clf_gen_lat_p50": 0.0,
+  "seq_clf_gen_overrun_pct": 0.0,
+  "gen_prompt_new_after_switch_p50": 0.0,
+  "ticks": 269,
+  "lat_p50": 356.8717860034667,
+  "lat_p95": 619.643111996993,
+  "lat_p99": 844.7653929979424,
+  "lat_max": 882.0367810039897,
+  "ttft_p50": 306.91371200373396,
+  "ttft_p95": 347.8797870047856,
+  "miss_lat_pct": 6.691449814126394,
+  "miss_ttft_pct": 2.973977695167286,
+  "late_p95_ms": 19.643111996992957,
+  "late_max_ms": 282.03678100398974,
+  "prompt_new_p50": 33,
+  "prompt_new_p95": 67,
+  "cache_reuse_mean": 0.9555305229779443,
+  "ctx_max": 2536,
+  "invalidations": 0,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 24,
+  "gate_forced_silence": 5
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 1,
+  "missed_responses": 0,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 6,
+  "junk_utterances": 1,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 0,
+  "fillers": 1,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 1,
+  "respond_latency_p50_ms": 1198,
+  "respond_latency_n": 8,
+  "interrupt_latency_p50_ms": 819,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": 564,
+  "yield_latency_n": 1
+ },
+ "per_scenario": {
+  "mid_thought_pause": {},
+  "question_simple": {},
+  "danger_interrupt": {
+   "incomplete_answers": 2
+  },
+  "user_barge_in": {
+   "yield_ok": 1,
+   "incomplete_after_backchannel": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 3,
+   "junk_utterances": 1,
+   "fillers": 1
+  },
+  "correction": {
+   "premature_responses": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {
+   "incomplete_answers": 1
+  },
+  "delegation": {
+   "delegations": 1,
+   "relay_missing": 1
+  },
+  "stt_noise": {}
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 1455.5856350049726,
+   "tick_wait_ms": 930.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 304.9293900039629,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 464.41539199615363,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 294.41539199615363,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1130.414217999787,
+   "tick_wait_ms": 830.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 300.41421799978707,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 1976.4068719989154,
+   "tick_wait_ms": 1450.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 309.7435840027174,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 268.34363200119697,
+   "tick_wait_ms": -40.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 308.34363200119697,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 1198.3409080002457,
+   "tick_wait_ms": 670.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 307.9714810010046,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "long_story",
+   "e2e_ms": 1464.3636220012559,
+   "tick_wait_ms": 810.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 309.7776319991681,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "delegation",
+   "e2e_ms": 840.3832169997622,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 300.3832169997622,
+   "route": "gen",
+   "late_ms": 0.0
+  }
+ ],
+ "rescored": "is_filler fix 2026-10-14"
+}

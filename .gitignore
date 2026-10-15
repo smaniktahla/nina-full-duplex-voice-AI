@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+# secrets / machine-local state: never commit
+*.pem
+*.key
+.env
+profile.json
+live/server.log*
+live/*.bak*
+*.bak-*
+# model weights are downloaded, not stored (see live/voices/README.md)
+live/voices/*.onnx
+live/voices/*.onnx.json
+live/voices/*.bin
+!results/*.log
+household.json
+!household.example.json

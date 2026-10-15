@@ -1,0 +1,95 @@
+{
+ "config": "unit_append_T600_g0.3_Stilde",
+ "mode": "append",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "sentinel": "~",
+ "set": "unit",
+ "wall_s": 104,
+ "perf": {
+  "ticks": 278,
+  "lat_p50": 344.95335099927615,
+  "lat_p95": 470.1570269971853,
+  "lat_max": 827.2616339963861,
+  "ttft_p50": 297.7787499985425,
+  "ttft_p95": 305.40381200262345,
+  "miss_lat_pct": 2.5179856115107913,
+  "miss_ttft_pct": 2.5179856115107913,
+  "late_p95_ms": 0.0,
+  "late_max_ms": 227.26163399638608,
+  "prompt_new_p50": 22,
+  "prompt_new_p95": 30,
+  "cache_reuse_mean": 0.9664574163734337,
+  "ctx_max": 1606,
+  "invalidations": 0,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 0,
+  "gate_forced_silence": 1,
+  "extra_reqs": 0
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 0,
+  "missed_responses": 5,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 3,
+  "incomplete_after_backchannel": 2,
+  "repetitive_fillers": 0,
+  "fillers": 5,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 1,
+  "relay_missing": 0,
+  "relay_ms": 309.3546379968757,
+  "respond_latency_p50_ms": 547,
+  "respond_latency_n": 3,
+  "interrupt_latency_p50_ms": 818,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": 543,
+  "yield_latency_n": 1
+ },
+ "per_scenario": {
+  "mid_thought_pause": {
+   "missed_responses": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {
+   "incomplete_answers": 1
+  },
+  "user_barge_in": {
+   "yield_ok": 1,
+   "incomplete_after_backchannel": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 1,
+   "incomplete_after_backchannel": 1
+  },
+  "correction": {
+   "missed_responses": 1,
+   "fillers": 2
+  },
+  "fillers_self_talk": {
+   "missed_responses": 1
+  },
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "missed_responses": 1,
+   "fillers": 2,
+   "delegations": 1,
+   "relay_ms": 309.3546379968757,
+   "relay_during_user_speech": 1
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ }
+}

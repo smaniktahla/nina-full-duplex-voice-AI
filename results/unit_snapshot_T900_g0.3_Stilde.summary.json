@@ -1,0 +1,93 @@
+{
+ "config": "unit_snapshot_T900_g0.3_Stilde",
+ "mode": "snapshot",
+ "tick_ms": 900,
+ "gate": 0.3,
+ "sentinel": "~",
+ "set": "unit",
+ "wall_s": 87,
+ "perf": {
+  "ticks": 191,
+  "lat_p50": 428.1174130010186,
+  "lat_p95": 630.6501910003135,
+  "lat_max": 812.218948994996,
+  "ttft_p50": 377.50034499913454,
+  "ttft_p95": 453.5829320011544,
+  "miss_lat_pct": 0.0,
+  "miss_ttft_pct": 0.0,
+  "late_p95_ms": 0.0,
+  "late_max_ms": 0.0,
+  "prompt_new_p50": 70,
+  "prompt_new_p95": 164,
+  "cache_reuse_mean": 0.8485637542740383,
+  "ctx_max": 598,
+  "invalidations": 0,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 16,
+  "gate_forced_silence": 1,
+  "extra_reqs": 16
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 0,
+  "missed_responses": 3,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 3,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 1,
+  "fillers": 7,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 1,
+  "relay_missing": 0,
+  "relay_ms": 348.55674100253964,
+  "respond_latency_p50_ms": 1226,
+  "respond_latency_n": 5,
+  "interrupt_latency_p50_ms": 1206,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": 1244,
+  "yield_latency_n": 1
+ },
+ "per_scenario": {
+  "mid_thought_pause": {},
+  "question_simple": {
+   "incomplete_answers": 1
+  },
+  "danger_interrupt": {
+   "incomplete_after_backchannel": 1
+  },
+  "user_barge_in": {
+   "yield_ok": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 1
+  },
+  "correction": {
+   "missed_responses": 1,
+   "repetitive_fillers": 1,
+   "fillers": 2
+  },
+  "fillers_self_talk": {
+   "missed_responses": 1,
+   "fillers": 1
+  },
+  "long_story": {},
+  "delegation": {
+   "missed_responses": 1,
+   "fillers": 3,
+   "delegations": 1,
+   "relay_ms": 348.55674100253964,
+   "relay_during_user_speech": 1
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ }
+}

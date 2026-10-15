@@ -1,0 +1,173 @@
+{
+ "config": "unit_hybrid_T600_g0.3_Stilde_t0_s1",
+ "mode": "hybrid",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": null,
+ "sentinel": "~",
+ "set": "unit",
+ "clf_mode": "inline",
+ "temp": 0.0,
+ "seed": 1,
+ "clf_thr": 0.5,
+ "wall_s": 70,
+ "perf": {
+  "clf_calls": 23,
+  "gen_calls": 154,
+  "ticks_no_model_call": 104,
+  "interrupt_cancels": 3,
+  "skip_connective": 23,
+  "clf_ms_p50": 324.77873998868745,
+  "gen_ms_p50_after_clf_switch": 383.833265004796,
+  "gen_ms_p50_no_switch": 353.42057299567387,
+  "gen_after_switch_n": 15,
+  "seq_clf_gen_ticks": 10,
+  "seq_clf_gen_lat_p50": 776.9845529983286,
+  "seq_clf_gen_overrun_pct": 100.0,
+  "gen_prompt_new_after_switch_p50": 36,
+  "ticks": 271,
+  "lat_p50": 357.37312301353086,
+  "lat_p95": 818.9142589835683,
+  "lat_p99": 917.1444819949102,
+  "lat_max": 1010.3869669983396,
+  "ttft_p50": 307.049693990848,
+  "ttft_p95": 490.82667600305285,
+  "miss_lat_pct": 11.377245508982035,
+  "miss_ttft_pct": 4.191616766467066,
+  "late_p95_ms": 87.52731500717346,
+  "late_max_ms": 410.38696699833963,
+  "prompt_new_p50": 21,
+  "prompt_new_p95": 95,
+  "cache_reuse_mean": 0.9425232783918632,
+  "ctx_max": 2363,
+  "invalidations": 1,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 1,
+  "gate_forced_silence": 0
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 1,
+  "missed_responses": 1,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 1,
+  "yield_ok": 0,
+  "incomplete_answers": 3,
+  "junk_utterances": 0,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 0,
+  "fillers": 2,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 0,
+  "relay_ms": 7848.907438007882,
+  "respond_latency_p50_ms": 1317,
+  "respond_latency_n": 7,
+  "interrupt_latency_p50_ms": 818,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": null,
+  "yield_latency_n": 0
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 1660.4408409981988,
+   "tick_wait_ms": 930.0,
+   "clf_ms": 401.1237369995797,
+   "gen_ttft_ms": 329.31710399861913,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 469.18272599752527,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 299.18272599752527,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1822.4301080027362,
+   "tick_wait_ms": 1517.6076460030163,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 304.82246199971996,
+   "route": "gen",
+   "late_ms": 87.60764600301627
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 2066.933932999382,
+   "tick_wait_ms": 1537.5273150071735,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 310.81212099525146,
+   "route": "gen",
+   "late_ms": 87.52731500717346
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 1302.9551259992877,
+   "tick_wait_ms": 560.0,
+   "clf_ms": 418.76817199226934,
+   "gen_ttft_ms": 324.18695400701836,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 1317.1270850015571,
+   "tick_wait_ms": 670.0,
+   "clf_ms": 326.4594960055547,
+   "gen_ttft_ms": 320.66758899600245,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  null,
+  {
+   "scenario": "delegation",
+   "e2e_ms": 1212.100773997954,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 348.017420998076,
+   "gen_ttft_ms": 324.0833529998781,
+   "route": "classify_y",
+   "late_ms": 0.0
+  }
+ ],
+ "per_scenario": {
+  "mid_thought_pause": {
+   "incomplete_answers": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {
+   "incomplete_answers": 1,
+   "incomplete_after_backchannel": 1
+  },
+  "user_barge_in": {
+   "yield_na": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "fillers": 1
+  },
+  "correction": {
+   "premature_responses": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 7848.907438007882
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ }
+}

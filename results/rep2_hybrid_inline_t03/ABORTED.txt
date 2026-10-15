@@ -1,0 +1,1 @@
+partial v2b: killed by user pivot; INC 33-78 shows runaway forced continuation (ban list included '.')

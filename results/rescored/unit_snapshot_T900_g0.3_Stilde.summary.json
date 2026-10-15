@@ -1,0 +1,175 @@
+{
+ "config": "unit_snapshot_T900_g0.3_Stilde",
+ "mode": "snapshot",
+ "tick_ms": 900,
+ "gate": 0.3,
+ "sentinel": "~",
+ "set": "unit",
+ "wall_s": 87,
+ "perf": {
+  "clf_calls": 0,
+  "gen_calls": 0,
+  "ticks_no_model_call": 0,
+  "interrupt_cancels": 0,
+  "skip_connective": 0,
+  "clf_ms_p50": 0.0,
+  "gen_ms_p50_after_clf_switch": 0.0,
+  "gen_ms_p50_no_switch": 0.0,
+  "gen_after_switch_n": 0,
+  "seq_clf_gen_ticks": 0,
+  "seq_clf_gen_lat_p50": 0.0,
+  "seq_clf_gen_overrun_pct": 0.0,
+  "gen_prompt_new_after_switch_p50": 0.0,
+  "ticks": 191,
+  "lat_p50": 428.1174130010186,
+  "lat_p95": 630.6501910003135,
+  "lat_p99": 713.7563670039526,
+  "lat_max": 812.218948994996,
+  "ttft_p50": 377.50034499913454,
+  "ttft_p95": 453.5829320011544,
+  "miss_lat_pct": 0.0,
+  "miss_ttft_pct": 0.0,
+  "late_p95_ms": 0.0,
+  "late_max_ms": 0.0,
+  "prompt_new_p50": 70,
+  "prompt_new_p95": 164,
+  "cache_reuse_mean": 0.8485637542740383,
+  "ctx_max": 598,
+  "invalidations": 0,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 16,
+  "gate_forced_silence": 1
+ },
+ "behaviour": {
+  "false_interruptions": 1,
+  "premature_responses": 0,
+  "missed_responses": 0,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 3,
+  "junk_utterances": 0,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 0,
+  "fillers": 1,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 1,
+  "relay_missing": 0,
+  "relay_ms": 348.55674100253964,
+  "respond_latency_p50_ms": 1110,
+  "respond_latency_n": 8,
+  "interrupt_latency_p50_ms": 1206,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": 1244,
+  "yield_latency_n": 1
+ },
+ "per_scenario": {
+  "mid_thought_pause": {},
+  "question_simple": {
+   "incomplete_answers": 1
+  },
+  "danger_interrupt": {
+   "incomplete_after_backchannel": 1
+  },
+  "user_barge_in": {
+   "yield_ok": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 1
+  },
+  "correction": {
+   "false_interruptions": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {},
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 348.55674100253964,
+   "relay_during_user_speech": 1
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 1605.4578860025504,
+   "tick_wait_ms": 1230.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 375.45788600255037,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 845.1133530022344,
+   "tick_wait_ms": 470.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 375.11335300223436,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1503.734892003995,
+   "tick_wait_ms": 1130.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 373.7348920039949,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 1225.7567409993499,
+   "tick_wait_ms": 850.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 375.75674099934986,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 678.0403110003681,
+   "tick_wait_ms": 260.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 418.0403110003681,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 752.0237789987004,
+   "tick_wait_ms": 370.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 382.02377899870044,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "long_story",
+   "e2e_ms": 1109.6760400012136,
+   "tick_wait_ms": 510.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 380.3042259969516,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "delegation",
+   "e2e_ms": 16.164077999419533,
+   "tick_wait_ms": -360.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 376.16407799941953,
+   "route": "gen",
+   "late_ms": 0.0
+  }
+ ],
+ "rescored": "is_filler fix 2026-10-14"
+}

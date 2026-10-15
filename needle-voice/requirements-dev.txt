@@ -1,0 +1,2 @@
+pytest>=8
+voluptuous>=0.14   # ships with Home Assistant at runtime (so NOT in manifest.json "requirements"); needed here to exercise CONFIG_SCHEMA

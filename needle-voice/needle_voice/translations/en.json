@@ -1,0 +1,11 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Needle Voice",
+        "description": "Adds the Needle Voice conversation agent. Settings live in the needle_voice: block of configuration.yaml."
+      }
+    },
+    "abort": {"already_configured": "Needle Voice is already set up."}
+  }
+}

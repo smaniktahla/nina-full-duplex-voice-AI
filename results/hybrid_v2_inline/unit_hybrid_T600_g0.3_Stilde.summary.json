@@ -1,0 +1,170 @@
+{
+ "config": "unit_hybrid_T600_g0.3_Stilde",
+ "mode": "hybrid",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": null,
+ "sentinel": "~",
+ "set": "unit",
+ "clf_mode": "inline",
+ "temp": 0.0,
+ "seed": 1,
+ "clf_thr": 0.5,
+ "wall_s": 67,
+ "perf": {
+  "clf_calls": 32,
+  "gen_calls": 133,
+  "ticks_no_model_call": 113,
+  "interrupt_cancels": 3,
+  "skip_connective": 22,
+  "clf_ms_p50": 396.2470469996333,
+  "gen_ms_p50_after_clf_switch": 394.5525809976971,
+  "gen_ms_p50_no_switch": 350.32283200416714,
+  "gen_after_switch_n": 15,
+  "seq_clf_gen_ticks": 9,
+  "seq_clf_gen_lat_p50": 799.7964279929874,
+  "seq_clf_gen_overrun_pct": 100.0,
+  "gen_prompt_new_after_switch_p50": 36,
+  "ticks": 269,
+  "lat_p50": 355.6433659978211,
+  "lat_p95": 868.263965996448,
+  "lat_p99": 912.2894930042094,
+  "lat_max": 1013.1703829974867,
+  "ttft_p50": 302.9924329894129,
+  "ttft_p95": 726.672923003207,
+  "miss_lat_pct": 12.820512820512821,
+  "miss_ttft_pct": 7.051282051282051,
+  "late_p95_ms": 183.51357599603944,
+  "late_max_ms": 413.17038299748674,
+  "prompt_new_p50": 0,
+  "prompt_new_p95": 95,
+  "cache_reuse_mean": 0.9381823768546625,
+  "ctx_max": 2334,
+  "invalidations": 1,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 0,
+  "gate_forced_silence": 0
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 1,
+  "missed_responses": 1,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 1,
+  "yield_ok": 0,
+  "incomplete_answers": 3,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 0,
+  "fillers": 1,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 0,
+  "relay_ms": 7920.902274013497,
+  "respond_latency_p50_ms": 1302,
+  "respond_latency_n": 7,
+  "interrupt_latency_p50_ms": 818,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": null,
+  "yield_latency_n": 0
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 2883.315276990179,
+   "tick_wait_ms": 2130.0,
+   "clf_ms": 428.37375598901417,
+   "gen_ttft_ms": 324.9415210011648,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 467.148894998827,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 297.148894998827,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1818.760660009575,
+   "tick_wait_ms": 1514.608385010506,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 304.15227499906905,
+   "route": "gen",
+   "late_ms": 84.60838501050603
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 549.8425719997613,
+   "tick_wait_ms": 250.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 299.8425719997613,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 1301.5774000110105,
+   "tick_wait_ms": 560.0,
+   "clf_ms": 417.3338859982323,
+   "gen_ttft_ms": 324.2435140127782,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 1319.171714001568,
+   "tick_wait_ms": 670.0,
+   "clf_ms": 326.30728400545195,
+   "gen_ttft_ms": 322.8644299961161,
+   "route": "classify_y",
+   "late_ms": 0.0
+  },
+  null,
+  {
+   "scenario": "delegation",
+   "e2e_ms": 1172.3832679918269,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 315.07889299246017,
+   "gen_ttft_ms": 317.3043749993667,
+   "route": "classify_y",
+   "late_ms": 0.0
+  }
+ ],
+ "per_scenario": {
+  "mid_thought_pause": {
+   "incomplete_answers": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {
+   "incomplete_answers": 1,
+   "incomplete_after_backchannel": 1
+  },
+  "user_barge_in": {
+   "yield_na": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {},
+  "correction": {
+   "premature_responses": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 7920.902274013497
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ }
+}

@@ -1,0 +1,177 @@
+{
+ "config": "unit_append_state_T600_g0.3-hi0.95_Stilde_t0.3_s4",
+ "mode": "append_state",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": 0.95,
+ "sentinel": "~",
+ "set": "unit",
+ "clf_mode": null,
+ "temp": 0.3,
+ "seed": 4,
+ "clf_thr": null,
+ "wall_s": 110,
+ "perf": {
+  "clf_calls": 0,
+  "gen_calls": 0,
+  "ticks_no_model_call": 0,
+  "interrupt_cancels": 0,
+  "skip_connective": 0,
+  "clf_ms_p50": 0.0,
+  "gen_ms_p50_after_clf_switch": 0.0,
+  "gen_ms_p50_no_switch": 0.0,
+  "gen_after_switch_n": 0,
+  "seq_clf_gen_ticks": 0,
+  "seq_clf_gen_lat_p50": 0.0,
+  "seq_clf_gen_overrun_pct": 0.0,
+  "gen_prompt_new_after_switch_p50": 0.0,
+  "ticks": 271,
+  "lat_p50": 349.0781589935068,
+  "lat_p95": 661.270627999329,
+  "lat_p99": 847.4463800084777,
+  "lat_max": 906.5325080009643,
+  "ttft_p50": 301.5261979890056,
+  "ttft_p95": 324.9583849974442,
+  "miss_lat_pct": 7.011070110701107,
+  "miss_ttft_pct": 3.321033210332103,
+  "late_p95_ms": 26.50262500392273,
+  "late_max_ms": 306.5325080009643,
+  "prompt_new_p50": 22,
+  "prompt_new_p95": 65,
+  "cache_reuse_mean": 0.961733673447043,
+  "ctx_max": 2133,
+  "invalidations": 0,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 25,
+  "gate_forced_silence": 7
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 1,
+  "missed_responses": 0,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 2,
+  "junk_utterances": 2,
+  "incomplete_after_backchannel": 1,
+  "repetitive_fillers": 0,
+  "fillers": 0,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 0,
+  "relay_ms": 7138.85068600357,
+  "respond_latency_p50_ms": 1126,
+  "respond_latency_n": 8,
+  "interrupt_latency_p50_ms": 821,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": 562,
+  "yield_latency_n": 1
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 2047.9402140056482,
+   "tick_wait_ms": 1530.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 297.1403819974512,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 464.19560001406353,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 294.19560001406353,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1126.400324004935,
+   "tick_wait_ms": 830.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 296.4003240049351,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 767.0170670025982,
+   "tick_wait_ms": 250.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 297.62876899621915,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 266.2367480015382,
+   "tick_wait_ms": -40.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 306.2367480015382,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 1811.6213990101824,
+   "tick_wait_ms": 1270.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 324.4030030036811,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "long_story",
+   "e2e_ms": 1331.72025499749,
+   "tick_wait_ms": 810.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 301.3903169921832,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "delegation",
+   "e2e_ms": 835.7376100093825,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 295.7376100093825,
+   "route": "gen",
+   "late_ms": 0.0
+  }
+ ],
+ "per_scenario": {
+  "mid_thought_pause": {
+   "incomplete_answers": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {},
+  "user_barge_in": {
+   "yield_ok": 1,
+   "incomplete_after_backchannel": 1
+  },
+  "backchannel_long_answer": {},
+  "correction": {
+   "premature_responses": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {
+   "junk_utterances": 1
+  },
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 7138.85068600357
+  },
+  "stt_noise": {
+   "incomplete_answers": 1,
+   "junk_utterances": 1
+  }
+ }
+}

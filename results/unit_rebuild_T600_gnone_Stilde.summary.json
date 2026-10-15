@@ -1,0 +1,90 @@
+{
+ "config": "unit_rebuild_T600_gnone_Stilde",
+ "mode": "rebuild",
+ "tick_ms": 600,
+ "gate": null,
+ "sentinel": "~",
+ "set": "unit",
+ "wall_s": 107,
+ "perf": {
+  "ticks": 276,
+  "lat_p50": 347.791642001539,
+  "lat_p95": 489.88917600217974,
+  "lat_max": 1554.1785479945247,
+  "ttft_p50": 300.4954420030117,
+  "ttft_p95": 325.35290899977554,
+  "miss_lat_pct": 2.898550724637681,
+  "miss_ttft_pct": 2.898550724637681,
+  "late_p95_ms": 0.0,
+  "late_max_ms": 954.1785479945247,
+  "prompt_new_p50": 22,
+  "prompt_new_p95": 58,
+  "cache_reuse_mean": 0.9571562873441021,
+  "ctx_max": 1976,
+  "invalidations": 2,
+  "foreign_evictions": 0,
+  "rebuilds": 2,
+  "gate_forced_speech": 0,
+  "gate_forced_silence": 0,
+  "extra_reqs": 0
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 0,
+  "missed_responses": 5,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 1,
+  "yield_ok": 0,
+  "incomplete_answers": 11,
+  "incomplete_after_backchannel": 0,
+  "repetitive_fillers": 1,
+  "fillers": 5,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 1,
+  "respond_latency_p50_ms": 549,
+  "respond_latency_n": 3,
+  "interrupt_latency_p50_ms": 818,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": null,
+  "yield_latency_n": 0
+ },
+ "per_scenario": {
+  "mid_thought_pause": {
+   "missed_responses": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {},
+  "user_barge_in": {
+   "yield_na": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {
+   "incomplete_answers": 10
+  },
+  "correction": {
+   "missed_responses": 1,
+   "repetitive_fillers": 1,
+   "fillers": 2
+  },
+  "fillers_self_talk": {
+   "missed_responses": 1
+  },
+  "long_story": {
+   "missed_responses": 1
+  },
+  "delegation": {
+   "missed_responses": 1,
+   "fillers": 2,
+   "delegations": 1,
+   "relay_missing": 1
+  },
+  "stt_noise": {
+   "incomplete_answers": 1
+  }
+ }
+}

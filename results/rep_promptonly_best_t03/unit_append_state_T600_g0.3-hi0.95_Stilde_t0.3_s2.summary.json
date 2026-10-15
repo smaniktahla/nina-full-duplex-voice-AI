@@ -1,0 +1,173 @@
+{
+ "config": "unit_append_state_T600_g0.3-hi0.95_Stilde_t0.3_s2",
+ "mode": "append_state",
+ "tick_ms": 600,
+ "gate": 0.3,
+ "gate_hi": 0.95,
+ "sentinel": "~",
+ "set": "unit",
+ "clf_mode": null,
+ "temp": 0.3,
+ "seed": 2,
+ "clf_thr": null,
+ "wall_s": 108,
+ "perf": {
+  "clf_calls": 0,
+  "gen_calls": 0,
+  "ticks_no_model_call": 0,
+  "interrupt_cancels": 0,
+  "skip_connective": 0,
+  "clf_ms_p50": 0.0,
+  "gen_ms_p50_after_clf_switch": 0.0,
+  "gen_ms_p50_no_switch": 0.0,
+  "gen_after_switch_n": 0,
+  "seq_clf_gen_ticks": 0,
+  "seq_clf_gen_lat_p50": 0.0,
+  "seq_clf_gen_overrun_pct": 0.0,
+  "gen_prompt_new_after_switch_p50": 0.0,
+  "ticks": 269,
+  "lat_p50": 349.7577010130044,
+  "lat_p95": 656.4820679923287,
+  "lat_p99": 885.263025003951,
+  "lat_max": 902.4415159947239,
+  "ttft_p50": 302.22727099317126,
+  "ttft_p95": 327.01034999627154,
+  "miss_lat_pct": 6.319702602230484,
+  "miss_ttft_pct": 3.345724907063197,
+  "late_p95_ms": 56.482067992328666,
+  "late_max_ms": 302.4415159947239,
+  "prompt_new_p50": 23,
+  "prompt_new_p95": 62,
+  "cache_reuse_mean": 0.9611185513866487,
+  "ctx_max": 2188,
+  "invalidations": 0,
+  "foreign_evictions": 0,
+  "rebuilds": 0,
+  "gate_forced_speech": 20,
+  "gate_forced_silence": 3
+ },
+ "behaviour": {
+  "false_interruptions": 0,
+  "premature_responses": 1,
+  "missed_responses": 0,
+  "wrong_responses": 0,
+  "missed_interruptions": 0,
+  "wrong_interruptions": 0,
+  "yield_failures": 0,
+  "yield_na": 0,
+  "yield_ok": 1,
+  "incomplete_answers": 2,
+  "junk_utterances": 0,
+  "incomplete_after_backchannel": 0,
+  "repetitive_fillers": 0,
+  "fillers": 1,
+  "delegations": 1,
+  "delegation_missing": 0,
+  "relay_during_user_speech": 0,
+  "relay_missing": 0,
+  "relay_ms": 7138.882153006853,
+  "respond_latency_p50_ms": 1192,
+  "respond_latency_n": 8,
+  "interrupt_latency_p50_ms": 820,
+  "interrupt_latency_n": 2,
+  "yield_latency_p50_ms": 567,
+  "yield_latency_n": 1
+ },
+ "e2e": [
+  {
+   "scenario": "mid_thought_pause",
+   "e2e_ms": 2050.2741360117216,
+   "tick_wait_ms": 1530.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 300.56237800454255,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "question_simple",
+   "e2e_ms": 466.39927799871657,
+   "tick_wait_ms": 170.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 296.39927799871657,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "user_barge_in",
+   "e2e_ms": 1736.165708010667,
+   "tick_wait_ms": 1430.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 306.165708010667,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "backchannel_long_answer",
+   "e2e_ms": 548.3047089946922,
+   "tick_wait_ms": 250.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 298.3047089946922,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "correction",
+   "e2e_ms": 272.2068320080871,
+   "tick_wait_ms": -40.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 312.2068320080871,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "fillers_self_talk",
+   "e2e_ms": 1191.8246290023671,
+   "tick_wait_ms": 670.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 302.05440399004146,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "long_story",
+   "e2e_ms": 1332.028745006537,
+   "tick_wait_ms": 810.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 301.0491040040506,
+   "route": "gen",
+   "late_ms": 0.0
+  },
+  {
+   "scenario": "delegation",
+   "e2e_ms": 838.8849200046388,
+   "tick_wait_ms": 540.0,
+   "clf_ms": 0.0,
+   "gen_ttft_ms": 298.88492000463884,
+   "route": "gen",
+   "late_ms": 0.0
+  }
+ ],
+ "per_scenario": {
+  "mid_thought_pause": {
+   "incomplete_answers": 1
+  },
+  "question_simple": {},
+  "danger_interrupt": {},
+  "user_barge_in": {
+   "yield_ok": 1,
+   "incomplete_answers": 1,
+   "fillers": 1
+  },
+  "backchannel_long_answer": {},
+  "correction": {
+   "premature_responses": 1
+  },
+  "fillers_self_talk": {},
+  "long_story": {},
+  "delegation": {
+   "delegations": 1,
+   "relay_ms": 7138.882153006853
+  },
+  "stt_noise": {}
+ }
+}

@@ -1,0 +1,55 @@
+{
+ "date": "2026-10-14 21:57:35",
+ "host": "ai-ubuntu-2",
+ "endpoint": "http://localhost:8080",
+ "server": {
+  "model_path": "/home/salil/models/qwen3.8-27b/Qwen3.8-27B-UD-IQ3_XXS.gguf",
+  "model_alias": "gemma4",
+  "total_slots": 1,
+  "n_ctx": 98304,
+  "cmdline": "/home/salil/llama.cpp/build/bin/llama-server -m /home/salil/models/qwen3.8-27b/Qwen3.8-27B-UD-IQ3_XXS.gguf --mmproj /home/salil/models/qwen3.8-27b/mmproj-F16.gguf --alias gemma4 --host 0.0.0.0 --port 8080 -ngl 999 --split-mode layer -fa on --no-mmap --ctx-size 98304 --cache-type-k q8_0 --cache-type-v q8_0 --parallel 1 -b 256 -ub 64 --spec-type draft-mtp,ngram-mod -n 4096"
+ },
+ "args": {
+  "base": "http://localhost:8080",
+  "probe": false,
+  "modes": "append_state",
+  "ticks": "600",
+  "gates": "0.3/0.95",
+  "sentinel": "~",
+  "set": "unit",
+  "only": "",
+  "out": "results/rep_promptonly_best_t03",
+  "clf_thr": 0.5,
+  "clf_mode": "stateless",
+  "cand_ms": 300,
+  "pause_ms": 1200,
+  "temp": 0.3,
+  "seed": 1,
+  "repeat": 5,
+  "allow_busy": false
+ },
+ "code_sha256_12": {
+  "bench.py": "0a611000037d",
+  "duplex/loop.py": "46dc4e05fe77",
+  "duplex/hybrid.py": "3b5393e8463c",
+  "duplex/score.py": "add5be17810c",
+  "duplex/scenarios.py": "f7b51bac8883",
+  "duplex/llama.py": "c6e0fb13a82d"
+ },
+ "scenario_set": "unit",
+ "scenarios": [
+  "mid_thought_pause",
+  "question_simple",
+  "danger_interrupt",
+  "user_barge_in",
+  "backchannel_long_answer",
+  "correction",
+  "fillers_self_talk",
+  "long_story",
+  "delegation",
+  "stt_noise"
+ ],
+ "prompt_sha": {
+  "generator_system_600": "5427816a478a"
+ }
+}
