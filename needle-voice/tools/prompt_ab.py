@@ -1,7 +1,7 @@
 import asyncio, json, sys, statistics, urllib.request
 sys.path.insert(0, "/home/salil/needle-voice")
 from needle_voice import router as r, qwen, needle_adapter as na
-snap = json.load(open("/home/salil/needle-voice/tests/real_snapshot.json"))
+snap = json.load(open("" + __import__("os").path.join(__import__("os").path.dirname(__file__), "..", "tests", "real_snapshot.json") + ""))
 snap["entities"].append({"entity_id": "input_boolean.needle_voice_test", "name": "Voice Test Lamp", "aliases": [], "area_id": None})
 CASES = [
  ("is the pool exhaust fan on", "get_state", "switch.swimming_pool_exhaust_fan"),

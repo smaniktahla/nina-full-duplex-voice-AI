@@ -21,3 +21,5 @@ household.json
 *.wav
 *.npy
 speakers/
+# private HA pipeline backup made before a pipeline change (see needle-voice/tools/README.md): keep local
+needle-voice/tools/pipeline_hermes_on_ai2_BEFORE.json
