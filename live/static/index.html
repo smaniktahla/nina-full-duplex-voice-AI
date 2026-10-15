@@ -44,21 +44,22 @@ h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{ba
     <button id="go" class="primary">Start conversation</button>
     <button id="stop" disabled>Stop talking</button>
     <button id="end" class="danger" disabled>End conversation</button>
+    <button id="reset" disabled title="Clear this conversation and start fresh">Reset</button>
     <button id="mute" disabled>Mute</button>
     <span id="rec" class="chip" hidden style="color:var(--bad);border-color:var(--bad)" title="Nina is recording notes of this conversation">● notes</span><span id="sess" class="chip on DORMANT" title="Session state (Needle)">DORMANT</span><span id="state" class="chip on OFF" title="Duplex engine state">OFF</span>
     <div id="meter"><i></i></div>
   </div>
+  <div class="card row" id="v-sens" style="font-size:.9rem"><label for="sens">Ignore distant voices</label><input id="sens" type="range" min="0" max="0.8" step="0.05" value="0.4" style="flex:1;min-width:120px"><span id="sensv">0.40</span></div>
   <div class="card" id="v-live"><div id="live">&nbsp;</div><div class="row" style="margin-top:8px"><input id="typed" placeholder="or type a message" style="flex:1;min-width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="send">Send</button></div></div>
   <div class="card" id="v-log"><div id="sinfo">session: none</div><div id="log"></div></div>
   <div id="v-main-rest" hidden></div>
   <section id="v-set" hidden>
     <h2>Settings</h2>
-    <div class="card"><h3>Voice</h3><div class="row"><label for="voice">Nina's voice</label><select id="voice" title="Voice"></select><button id="reset" disabled title="Clear this conversation from the screen and start fresh">Reset conversation</button></div></div>
+    <div class="card"><h3>Voice</h3><div class="row"><label for="voice">Nina's voice</label><select id="voice" title="Voice"></select><button id="vplay" title="Play a sample of this voice">&#9654; Play sample</button><small id="vmsg"></small></div></div>
     <div class="card"><h3>Wake word and timing</h3>
       <div class="row"><label for="wake">Wake word</label><select id="wake"></select></div>
       <div class="row" style="margin-top:8px"><label for="tmo" title="Active -> idle after this much silence from the assistant side">Idle after</label><input id="tmo" type="number" min="0" max="600" step="5" value="25" class="num"><span>s</span><label for="tmo2" title="Idle -> asleep">Sleep after</label><input id="tmo2" type="number" min="0" max="600" step="5" value="20" class="num"><span>s</span><label for="tmo3" title="How long a suspended session (with pending tasks) is kept">Keep session</label><input id="tmo3" type="number" min="0" max="3600" step="30" value="300" class="num"><span>s</span></div>
       <div class="row" style="margin-top:8px"><button id="wakebtn" disabled>Wake now</button><button id="sleepbtn" disabled>Sleep now</button><small>Only while a conversation is running.</small></div></div>
-    <div class="card"><h3>Microphone</h3><div class="row"><label for="sens">Ignore distant voices</label><input id="sens" type="range" min="0" max="0.8" step="0.05" value="0.4" style="flex:1;min-width:120px"><span id="sensv">0.40</span></div></div>
     <div class="card"><h3>Voice enrollment (who is speaking)</h3>
       <p><small>Enrolling household voices is done in the separate recorder (it handles voiceprints, so it has its own access token and is only run when needed). Paste the link it prints, then open it.</small></p>
       <div class="row"><input id="reclink" placeholder="https://10.10.10.226:8444/?t=..." style="flex:1;min-width:200px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="recopen">Open</button></div>
@@ -167,10 +168,15 @@ document.addEventListener('keydown',e=>{if(e.key==='m'&&document.activeElement.t
 $('sens').oninput=()=>{store.set('sens',$('sens').value);$('sensv').textContent=(+$('sens').value).toFixed(2);ws&&ws.readyState===1&&ws.send(JSON.stringify({t:'sens',v:+$('sens').value}))};
 function view(){const s=location.hash==='#settings';
   $('v-set').hidden=!s;$('toback').hidden=!s;$('tosettings').hidden=s;
-  ['v-main-controls','v-live','v-log','hint'].forEach(i=>{const e=$(i);if(e)e.hidden=s})}
+  ['v-main-controls','v-sens','v-live','v-log','hint'].forEach(i=>{const e=$(i);if(e)e.hidden=s})}
 addEventListener('hashchange',view);
 $('reclink').value=store.get('reclink','');$('reclink').onchange=()=>store.set('reclink',$('reclink').value.trim());
 $('recopen').onclick=()=>{const u=$('reclink').value.trim();if(/^https:\/\/[^ ]+$/.test(u))window.open(u,'_blank','noopener');else alert('Paste the https:// link the recorder printed (it includes ?t=...).')};
+let vaudio=null;
+$('vplay').onclick=async()=>{const b=$('vplay');b.disabled=true;$('vmsg').textContent=' loading…';
+  try{const r=await fetch('/api/voice_sample?voice='+encodeURIComponent($('voice').value));if(!r.ok)throw new Error(r.status);
+    const u=URL.createObjectURL(await r.blob());if(vaudio)vaudio.pause();vaudio=new Audio(u);vaudio.onended=()=>URL.revokeObjectURL(u);await vaudio.play();$('vmsg').textContent=''}
+  catch(e){$('vmsg').textContent=' could not play ('+e.message+')'}b.disabled=false};
 loadConfig();view();
 $('go').onclick=start;
 $('stop').onclick=()=>{cancelPlayback();ws&&ws.send(JSON.stringify({t:'stop'}))};

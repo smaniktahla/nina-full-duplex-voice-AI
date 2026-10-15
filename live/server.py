@@ -9,6 +9,8 @@ Browser <-> server (WebSocket /ws):
   server  -> browser binary: [u32 LE sample rate][int16 PCM] TTS audio      text JSON: stt / state / assistant / cancel / duck / log
 """
 import asyncio
+import wave
+import io
 import json
 import os
 import random
@@ -980,6 +982,27 @@ async def api_config(request):
         "sens": float(os.environ.get("SENS", "0.4")), "stt": CFG["stt_model"]})
 
 
+SAMPLE_TEXT = "Hello there, nice to meet you."
+_samples = {}
+
+
+async def api_voice_sample(request):
+    """WAV of a fixed phrase in the requested voice (cached). Runs on the TTS pool so it queues behind live speech."""
+    sh = request.app["shared"]
+    voice = request.query.get("voice", "")
+    if voice not in sh.tts_engine.voices:
+        return web.Response(status=404, text="unknown voice")
+    if voice not in _samples:
+        def synth():
+            return b"".join(sh.tts_engine.synth(SAMPLE_TEXT, voice))
+        pcm = await asyncio.get_running_loop().run_in_executor(sh.tts_pool, synth)
+        buf = io.BytesIO()
+        with wave.open(buf, "wb") as w:
+            w.setnchannels(1); w.setsampwidth(2); w.setframerate(sh.sample_rate); w.writeframes(pcm)
+        _samples[voice] = buf.getvalue()
+    return web.Response(body=_samples[voice], content_type="audio/wav", headers={"Cache-Control": "max-age=86400"})
+
+
 async def index(request):
     return web.FileResponse(os.path.join(HERE, "static", "index.html"))
 
@@ -996,6 +1019,7 @@ def main():
     app.router.add_get("/favicon.ico", lambda r: web.FileResponse(os.path.join(HERE, "static", "favicon.ico")))
     app.router.add_static("/icons", os.path.join(HERE, "static", "icons"))
     app.router.add_get("/api/config", api_config)
+    app.router.add_get("/api/voice_sample", api_voice_sample)
     app.router.add_get("/ws", ws_handler)
     ctx = None
     cert, key = os.path.join(HERE, "cert.pem"), os.path.join(HERE, "key.pem")
