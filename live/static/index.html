@@ -40,7 +40,7 @@ small{color:var(--mut)}
     <button id="reset" disabled>Reset</button>
     <button id="mute" disabled>Mute</button>
     <select id="voice" title="Voice"></select>
-    <span id="sess" class="chip on DORMANT" title="Session state (Needle)">DORMANT</span><span id="state" class="chip on OFF" title="Duplex engine state">OFF</span>
+    <span id="rec" class="chip" hidden style="color:var(--bad);border-color:var(--bad)" title="Nina is recording notes of this conversation">● notes</span><span id="sess" class="chip on DORMANT" title="Session state (Needle)">DORMANT</span><span id="state" class="chip on OFF" title="Duplex engine state">OFF</span>
     <div id="meter"><i></i></div>
   </div>
   <div class="card"><div id="live">&nbsp;</div><div class="row" style="margin-top:8px"><input id="typed" placeholder="or type a message" style="flex:1;min-width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="send">Send</button></div></div>
@@ -101,6 +101,7 @@ async function start(){
     else if(m.t==='earcon')beep(m.kind)
     else if(m.t==='stt'){ if(m.kind==='partial')$('live').textContent=m.text||' ';
       else{$('live').innerHTML='&nbsp;';if(m.text)log('u',m.text)} }
+    else if(m.t==='notes'){$('rec').hidden=!m.recording;$('rec').textContent='\u25cf '+(m.mode==='transcript'?'transcript':'notes')+(m.title?': '+m.title:'')}
     else if(m.t==='assistant')log('a',m.text);
     else if(m.t==='tool'){const ic={search:'\u{1F50E}',hermes:'\u{1F9E0}',ha:'\u{1F3E0}',weather:'\u{26C5}',calendar:'\u{1F4C5}'}[m.kind]||'\u{1F527}';log('s',ic+' #'+m.id+' '+m.kind+' '+m.status+(m.status==='done'?' in '+m.secs+'s':': '+m.task))}
     else if(m.t==='cancel'){cancelPlayback();log('s','— interrupted ('+m.why+') —')}

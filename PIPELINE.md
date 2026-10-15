@@ -294,3 +294,26 @@ temperature 0.2, no tick history), kept whole, spoken as one utterance; the forc
 finishes the sentence in one call. Replay of the same weather / calendar questions: one coherent utterance each, no fragments. Also noticed: another session
 pinned the voice server to llama slot 1 (`run.sh`, `VOICE_SLOT=1`) after making the health gate pin Hermes to slot 0, which resolves the queue-behind-Hermes
 problem that unpinned/pinned-both-ways had.
+
+## 13. Notes and transcripts saved to DocMost
+
+Ask Nina to "take notes", "write down this conversation" or "make a transcript". The model only emits a tag; the code does the recording, so it never depends on the model remembering:
+
+| Tag | Effect |
+|---|---|
+| `@notes start [notes\|transcript] [title]` | begin recording what is said from now on (a red "notes" chip shows in the browser) |
+| `@notes add <text>` | put one explicit point into the notes |
+| `@notes stop [title]` / `save` | stop and write the DocMost note; the result is spoken back |
+| `@notes cancel` | discard |
+
+- **Modes:** `notes` (default) = concise bullets, decisions and action items written from the conversation by one clean LLM request (plus any explicit points); `transcript` = verbatim turns with times.
+  A title is generated if none was given.
+- **Every note** is titled `MM/DD/YYYY - <title>`, filed under the configured parent page, and starts with a header: date, time (in the household time zone), speaker, source (mode, session id).
+  The speaker is `household.json` -> `notes_default_user` until speaker recognition can supply `session.speaker` (the notes code already prefers it).
+- **Nothing is lost:** the recording is flushed to a private local file as it grows (`~/.local/share/nina/notes_buffer/`, mode 0600); it is saved automatically (and the note says so) if the conversation ends
+  or the browser disconnects first; if DocMost is unreachable the note is parked as markdown in `~/.local/share/nina/notes_failed/` and the user is told.
+- **Never on its own:** recording starts only when asked, and Nina says so. Transcripts can contain other people in the room; keep this in mind before enabling it for the whole household.
+- **Config (private, not in the repo):** `docmost_mcp_url` (the DocMost MCP endpoint), optional `docmost_parent_id`, `notes_default_user`, `timezone` in `~/.config/nina/household.json`
+  (template in `live/household.example.json`). With no `docmost_mcp_url` the feature is off and the prompt does not mention it.
+- **Code:** `live/docmost.py` (client), `live/notes_tool.py` (recording, rendering, summarising, saving), small hooks in `live/server.py`; tests in `tests/test_notes.py` (fake DocMost endpoint, no network).
+- **Verified live (trial instance, real DocMost):** notes mode (asked to name it, said two facts, asked to save: note created with header + bullets + explicit points) and transcript mode ended by the browser disconnecting (autosaved).
