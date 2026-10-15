@@ -396,3 +396,11 @@ A language model cannot be random, and giving Hermes the RNG tools would cost 50
 * **Hermes:** nothing added (decision 2026-10-16: look for a better architecture first). It already has `terminal` / `code_execution` (Python `secrets`, or curl the JSON door). `~/rng-service/scripts/hermes_tool_cost.py` measures what any MCP server would cost it in prompt tokens.
 * Tests: `needle-voice/tests/test_random_ops.py` (parser, speech, contract, router tier including "answers without any model" and "service down is spoken not delegated"), `tests/test_random_tool.py` (Nina's thin wrapper).
 
+## 21. navigation_ops (2026-10-15, module built; wired in below)
+
+`needle_voice/navigation_ops.py`: `handle(text, ctx, cfg) -> ToolResult` for "how long to X", "when should I leave" (event start - ETA - buffer, default 10 min) and "send it to my phone".
+ETA from the Google Routes API (`computeRoutes`, DRIVE, TRAFFIC_AWARE, destination as an address string, origin = `zone.home`); future departures are spoken as "typically".
+All I/O is injected (`post_json`, `notify`), so it is pure and tested with fakes (`tests/test_navigation_ops.py`). Telemetry holds durations and a result code only.
+Status mapping: bad key / rate limit / outage -> EXECUTION_FAILED, no route -> NO_MATCH, no destination or arrival time -> AMBIGUOUS ("Where to?"), phone hand-off -> UNVERIFIED (no read-back, never retried).
+Not done: an API key (`~/.config/nina/google_routes_key`, Routes API enabled), wiring an `@nav` tag into the live server, filling `NavContext` from the next calendar event with a location,
+the phone notify target (`notify.mobile_app_<phone>`, tap opens `google.navigation:q=...`; the Companion app's handling of that URI is untested), and a live test. Known limit: no place search, so a vague name is Google's best guess.
