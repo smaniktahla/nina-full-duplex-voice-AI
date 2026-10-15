@@ -56,7 +56,7 @@ def remove(speaker_id):
     for f in (_p("profiles", f"{speaker_id}.json"), _p("embeddings", f"{speaker_id}.npy")):
         if os.path.exists(f):
             os.remove(f); n += 1
-    shutil.rmtree(_p("audio", speaker_id), ignore_errors=True)
+    shutil.rmtree(os.path.join(audio_root(), speaker_id), ignore_errors=True)
     return n
 
 
@@ -69,3 +69,57 @@ def save_thresholds(d):
     init()
     fp = _p("calibration.json")
     json.dump(d, open(fp, "w"), indent=2); _secure(fp)
+
+
+# ---- settings (edited from the recorder's Settings page) ----
+# Voice-sample storage: SPEAKER_AUDIO_DIR seeds the default; a value saved on the Settings page (settings.json) overrides it.
+# Embeddings/profiles always stay under SPEAKER_DIR. Changing the folder does NOT move existing clips.
+DEFAULT_SETTINGS = {"audio_dir": None, "keep_audio_after_enroll": True}
+
+
+def settings():
+    fp = _p("settings.json")
+    d = dict(DEFAULT_SETTINGS)
+    if os.path.exists(fp):
+        try:
+            d.update(json.load(open(fp)))
+        except Exception:
+            pass
+    return d
+
+
+def audio_root():
+    return os.path.expanduser(settings().get("audio_dir") or os.environ.get("SPEAKER_AUDIO_DIR") or _p("audio"))
+
+
+def audio_root_source():
+    if settings().get("audio_dir"):
+        return "settings"
+    return "env SPEAKER_AUDIO_DIR" if os.environ.get("SPEAKER_AUDIO_DIR") else "default"
+
+
+def validate_audio_dir(path):
+    """Absolute path under the user's home (or an existing mount), creatable and writable. Returns the normalised path."""
+    p = os.path.abspath(os.path.expanduser(path or ""))
+    if not os.path.isabs(os.path.expanduser(path or "")) and not (path or "").startswith("~"):
+        raise ValueError("use an absolute path (or one starting with ~)")
+    if p in ("/", os.path.expanduser("~")) or p.startswith(("/etc", "/proc", "/sys", "/dev", "/boot", "/usr", "/bin", "/sbin", "/var/lib")):
+        raise ValueError("not an allowed location")
+    os.makedirs(p, mode=0o700, exist_ok=True)
+    if not os.access(p, os.W_OK):
+        raise ValueError("folder is not writable")
+    os.chmod(p, 0o700)
+    return p
+
+
+def save_settings(**kw):
+    init()
+    d = settings()
+    if "audio_dir" in kw:
+        v = (kw["audio_dir"] or "").strip()
+        d["audio_dir"] = validate_audio_dir(v) if v else None
+    if "keep_audio_after_enroll" in kw:
+        d["keep_audio_after_enroll"] = bool(kw["keep_audio_after_enroll"])
+    fp = _p("settings.json")
+    json.dump(d, open(fp, "w"), indent=2); _secure(fp)
+    return d
