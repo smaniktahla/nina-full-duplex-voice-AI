@@ -294,3 +294,21 @@ temperature 0.2, no tick history), kept whole, spoken as one utterance; the forc
 finishes the sentence in one call. Replay of the same weather / calendar questions: one coherent utterance each, no fragments. Also noticed: another session
 pinned the voice server to llama slot 1 (`run.sh`, `VOICE_SLOT=1`) after making the health gate pin Hermes to slot 0, which resolves the queue-behind-Hermes
 problem that unpinned/pinned-both-ways had.
+
+## 13. Reply generation decoupled from the tick loop (2026-10-15, built, OFF by default)
+
+Problem (11:33 ET and 09:55 sessions): the tick model emitted one word then the sentinel, so replies came out as "Sorry", "It", "It" and the turn was over; TTS chunking followed whatever few words each 600 ms tick produced.
+
+Behind `RESPONDER=1` (env, read by `run.sh`; default 0 = old behavior exactly):
+- The tick loop only DECIDES (STT drain, p_s turn-taking gate, speak-gate, hold-back while the user is mid-utterance, barge-in, dismissal). When the decision is "speak" with no tool tag, no tool result and a non-filler chunk, the tick's own words are discarded.
+- `Session.start_responder` -> `Session.respond` (server.py) runs ONE streamed `/completion` from a clean prompt (`responder.py`: Nina persona + long-term facts + `self.convo` last 10 turns + the user's words; n_predict 120, temp 0.4, no tick format, no sentinel). `responder.generate` splits the stream into sentences (1-2 word sentences are joined to the next, max 4) and `speak(sentence, final=True)` sends each as its own TTS unit; sentence 1 goes out as soon as it completes. Tool tags/markdown are stripped from the text.
+- While a reply is in progress, ticks keep draining STT and accumulating `user_buf`, but make no LLM call and take no tool results (they are delivered after). `interrupt()` cancels the responder (`llm_task` is the responder task) and `self.gen` stops any further sentence, so barge-in/duck/dismissal behave as before.
+- Unchanged: tool-call ticks (`On it. @ha ...` speak the tick's words and start the tool), `say_result()` for tool results, Needle `[DONE]`/`[NOT DONE]` handling, @ha polarity repair and mutation audit.
+- Logging: each reply gets `rid`; server.log has `RESPOND rid=... decision-tick=... user=... final-stt=...` and `RESPOND rid=... done: N sentence(s), first audio queued X ms, total Y ms`; `tools._home["parent_rid"]` is written as `reply_id` into home_requests.jsonl rows, linking tool calls to the reply that triggered them. STT-final text and decision tick are in the first line.
+- Tested: `live/responder_test.py` (9 offline tests: first sentence before stream end, no one-word replies, short-sentence joining, decimals, interruption stops speech, tag/markdown stripping, cap, trailing fragment) and one real call through `Session.respond` against the live llama: "can you hear me clearly right now" -> 2 sentences, first queued at 942 ms (no pinned slot used). NOT tested with real audio/browser.
+- Known gaps: the tick model's own history (`pol`) still records the discarded fragment as what Nina said; a reply is not re-checked against the user continuing to talk except through barge-in/gen; only plain-speech turns go through the responder (tool turns still speak the tick's short acknowledgement).
+- Enable: `cd ~/claude-workspace/duplex-sim/live && RESPONDER=1 VOICE_SLOT=<as before> setsid nohup ./run.sh >> server.log 2>&1 < /dev/null &` (Salil restarts). Back out: restart without `RESPONDER`; the pre-change file is `server.py.pre-responder`.
+
+## 14. GPU headroom for Kokoro (2026-10-15)
+
+Kokoro (TTS) shares GPU 0 with llama-server; at ctx 98304 the cards were 9.8 / 9.1 GB used of 10 GB and a long sentence hit CUDA OOM (silent reply). llama-server ctx reduced 98304 -> 65536 (`/etc/systemd/system/llama-server.service`, backup `.bak-1015-1153`), Hermes `context_length` (`~/.hermes/config.yaml` line 5, backup `.bak-1015-1153`) reduced to match; llama + Hermes restarted. Result: GPU0 ~7.4 GB llama (was 8.6), GPU1 ~7.7 (was 9.1). Roll back: restore both backups, `sudo systemctl daemon-reload && sudo systemctl restart llama-server hermes`. Also tts_engine.py now retries on OOM then falls back to a CPU Kokoro (`tts_engine.py.pre-oomfix` is the old file).

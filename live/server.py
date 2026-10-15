@@ -16,6 +16,7 @@ import ssl
 import struct
 import sys
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 
 import aiohttp
@@ -33,6 +34,7 @@ from needle_voice import telemetry as needle_telemetry         # noqa: E402  Nee
 from needle_voice.session import ACTIVE, DORMANT, IDLE, SUSPENDED, SessionConfig, SessionManager  # noqa: E402
 from stt_stream import StreamingSTT                           # noqa: E402
 from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector            # noqa: E402
+import responder                                                                         # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
 from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search          # noqa: E402
 
@@ -68,6 +70,8 @@ SESSION_LOG = os.environ.get("SESSION_LOG", os.path.expanduser("~/.local/share/n
 BAN_TOKENS = ["...", "\u2026", "-", "_", "~"]                 # NOT . , ! ? : forced speech must be able to finish its sentence
 DANGLING = re.compile(r"(?:\b(?:a|an|the|to|of|in|on|at|for|with|and|but|or|if|is|are|was|were|be|my|your|his|her|its|our|their|that|this|it's|i'm|you're|about|from|into|than|as|by|so)|\d|,)\s*$", re.I)   # ends mid-phrase
 DANGER = re.compile(r"\b(bleach|ammonia|fire|gas leak|knife|electric|plug|burn|choke|poison|danger|hurt|poisonous|toxic)\b", re.I)
+CAL_RE = re.compile(r"\b(calendar|schedule|appointments?|events?|meetings?|agenda)\b", re.I)
+RESPONDER = os.environ.get("RESPONDER", "0") == "1"      # reply = ONE clean generation spoken per sentence, decoupled from the tick loop
 PROFILE = os.environ.get("PROFILE", os.path.expanduser("~/.local/share/needle_voice/profile.json"))
 
 
@@ -157,6 +161,7 @@ class Session:
         self.wake_det, self.dismiss_buf, self.wake_grace_until, self.wake_clean = None, "", 0.0, True
         self.closed = False
         self.sbuf, self.sbuf_timer, self.resp_started = "", None, False
+        self.resp_task, self.convo, self.cur_rid, self.last_final = None, [], "-", ""
 
     def now(self):
         return (self.loop.time() - self.t0) * 1000
@@ -205,6 +210,7 @@ class Session:
                 self.interrupt("barge-in keyword: %r" % BARGE.search(tail).group(0))
         elif kind == "final":
             log("STT final:  ", text)
+            self.last_final = text
             if len(text.split()) >= 2:
                 self.sess.on_user_utterance(text)
             self.barge_fired = False
@@ -261,6 +267,9 @@ class Session:
             try:
                 for pcm in self.sh.tts_engine.synth(text, self.voice):
                     self.loop.call_soon_threadsafe(q.put_nowait, pcm)
+            except Exception as e:                                                  # noqa: BLE001  never a silent reply
+                log("TTS FAILED for %r: %s: %s" % (text[:60], type(e).__name__, str(e)[:100]))
+                self.loop.call_soon_threadsafe(asyncio.ensure_future, self.send(t="tts_error", text=text[:80]))
             finally:
                 self.loop.call_soon_threadsafe(q.put_nowait, None)
 
@@ -319,6 +328,70 @@ class Session:
         async with self.http.post(CFG["llama"] + "/completion", json=body) as r:
             d = await r.json()
         return {"text": d.get("content", "").strip(), "first_top": [], "ms": (time.perf_counter() - t0) * 1000}
+
+    # ------------------------------------------------------------ responder (RESPONDER=1)
+    def convo_add(self, role, text):
+        text = (text or "").strip()
+        if text and not (self.convo and self.convo[-1] == (role, text)):
+            self.convo.append((role, text))
+            self.convo = self.convo[-16:]
+
+    def start_responder(self, user_said, hint, now):
+        rid = uuid.uuid4().hex[:8]
+        self.cur_rid = rid
+        tools_mod._home["parent_rid"] = rid
+        user_said = user_said or self.last_final
+        log("RESPOND rid=%s decision-tick=%.1fs hint=%r user=%r final-stt=%r" % (rid, now / 1000, hint[:40], user_said[:80], self.last_final[:80]))
+        self.sess.engage("assistant_spoke")
+        self.resp_task = asyncio.ensure_future(self.respond(self.gen, rid, user_said))
+        self.llm_task = self.resp_task                      # interrupt() cancels it
+
+    async def respond(self, gen, rid, user_said):
+        t0 = time.perf_counter()
+        me = asyncio.current_task()
+        prompt = responder.build_prompt(chat, THINK_PREFIX, responder.persona(load_facts()), self.convo, user_said or "(the user said something unclear)",
+                                        self.note_once)
+        body = {"prompt": prompt, "n_predict": 120, "temperature": 0.4, "cache_prompt": True, "stream": True, "stop": ["<|im_end|>"]}
+        if self.sh.voice_slot >= 0:
+            body["id_slot"] = self.sh.voice_slot
+        first_audio = []
+
+        async def stream():
+            async with self.http.post(CFG["llama"] + "/completion", json=body) as r:
+                async for raw in r.content:
+                    line = raw.decode().strip()
+                    if line.startswith("data:"):
+                        d = json.loads(line[5:])
+                        if d.get("content"):
+                            yield d["content"]
+
+        async def on_sentence(s, first):
+            if gen != self.gen:
+                return False
+            if first:
+                first_audio.append(time.perf_counter() - t0)
+            self.speak(s, final=True)
+            self.set_state("SPEAKING")
+            self.last_chunk = s
+            self.sess.add_turn("assistant", s)
+            await self.send(t="assistant", text=s)
+            return True
+
+        spoken = []
+        try:
+            spoken = await responder.generate(stream(), on_sentence)
+            if spoken and gen == self.gen:
+                self.convo_add("user", user_said)
+                self.convo_add("assistant", " ".join(spoken))
+        except asyncio.CancelledError:
+            log("RESPOND rid=%s cancelled after %d sentence(s)" % (rid, len(spoken)))
+        except Exception as e:                                                  # noqa: BLE001
+            log("RESPOND rid=%s ERROR %s: %s" % (rid, type(e).__name__, e))
+        finally:
+            if self.llm_task is me:
+                self.llm_task = None
+            log("RESPOND rid=%s done: %d sentence(s), first audio queued %s, total %.0f ms: %r" % (
+                rid, len(spoken), ("%.0f ms" % (first_audio[0] * 1000)) if first_audio else "never", (time.perf_counter() - t0) * 1000, " ".join(spoken)[:200]))
 
     # ------------------------------------------------------------ tools (background, never block the loop)
     def pending_tag(self, now):
@@ -481,6 +554,10 @@ class Session:
         silent_ms = now - self.last_word_ms
         speaking = self.tts.speaking(now)
         self.stt.boost = 2.2 if speaking else 1.0                       # echo residue guard
+        if RESPONDER and self.resp_task is not None and not self.resp_task.done():
+            if text:
+                self.pol.commit(text, text, "", "silent")                  # input keeps flowing (user_buf above); the reply in progress owns the output
+            return
         if self.answer_open and text and not is_backchannel(text):
             self.answer_open = False
             self.cont_n = 0
@@ -590,13 +667,31 @@ class Session:
             self.sess.add_turn("user", text)
         if kind == "speech" and out:
             self.sess.add_turn("assistant", out)
+        user_said = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf
         if kind == "speech" and out:
             if not is_filler(out):
                 self.user_buf = ""
-            self.answer_open = not re.search(r"[.?!][\"')]*$", out)
+            self.answer_open = False if (RESPONDER and not events and not tool and not is_filler(out)) else not re.search(r"[.?!][\"')]*$", out)
             self.last_chunk = out
             if not self.answer_open:
                 self.cont_n = 0
+            if RESPONDER and not events and not tool and CAL_RE.search(user_said or ""):
+                # asking about the calendar needs the calendar tool, not a model guess (the reply model has no calendar and used to say so)
+                when = "tomorrow" if "tomorrow" in user_said.lower() else ("week" if re.search(r"\b(week|weekend)\b", user_said.lower()) else "today")
+                log("   (calendar question without a tool tag: starting @calendar %s)" % when)
+                self.start_tool("calendar", when)
+                self.speak("Let me check.", final=True)
+                self.set_state("SPEAKING")
+                await self.send(t="assistant", text="Let me check.")
+                return
+            if RESPONDER and not events and not tool and not is_filler(out):
+                # the tick only DECIDED to speak; the words it produced are not the reply
+                self.start_responder(user_said, out, now)
+                return
+            if events:                                                      # the reply memory must know what the tool said, or a follow-up is answered blind
+                for j in events:
+                    self.convo_add("user", self.job_title(j))
+                self.convo_add("assistant", out)
             self.speak(out)
             self.set_state("SPEAKING")
             await self.send(t="assistant", text=out)

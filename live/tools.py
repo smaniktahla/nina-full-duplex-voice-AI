@@ -173,7 +173,7 @@ async def ha_say(http, text):
         # MUTATION AUDIT MODE (flag-gated: rm the flag file to turn off). Log what was PROPOSED before anything runs, and refuse requests whose
         # tool text is self-contradictory or disagrees with what the user actually said.
         bad = audit_reject(text, transcript)
-        ntel.write(HOME_LOG, {"ts": ts(), "request_id": rid, "stage": "proposed", "tool_text": text, "transcript": transcript, "audit_reject": bad})
+        ntel.write(HOME_LOG, {"ts": ts(), "request_id": rid, "stage": "proposed", "reply_id": _home.get("parent_rid"), "tool_text": text, "transcript": transcript, "audit_reject": bad})
         if bad:
             ntel.write(HOME_LOG, {"ts": ts(), "request_id": rid, "stage": "executed", "status": "REJECTED_BY_AUDIT", "service_calls": []})
             return "[NOT DONE] I wasn't sure I heard that right, so I didn't change anything. Please say it again."
@@ -182,7 +182,7 @@ async def ha_say(http, text):
         t = o.telemetry
         ntel.write(HOME_LOG, {"ts": ts(), "request_id": rid, "stage": "executed", "status": o.status.value, "plan": t.get("plan"),
                               "service_calls_sent": o.side_effect, "verify": t.get("verify")})
-    log_row = {"ts": ts(), **o.telemetry, "handled": bool(o.speech)}
+    log_row = {"ts": ts(), **o.telemetry, "handled": bool(o.speech), "reply_id": _home.get("parent_rid")}
     try:
         if o.status == Status.SUCCESS:
             return "[DONE] " + o.speech
