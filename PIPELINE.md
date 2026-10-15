@@ -189,7 +189,7 @@ Found by reading the live log of a real conversation ("do you know my home addre
 - **Answered before the user finished:** the model saw partial words ("My home address") and replied "I don't have your home address stored".
   Now a response (or tool call) that would *start* while the user's voice is still active is held back and re-decided once they stop;
   exception: danger words (bleach, ammonia, fire, knife, ...) still cut in.
-- **Mid-phrase cut-offs** ("Got it, 6904 Ben", "Got"): forced speech banned `. , ! ?` so a forced sentence could never end, and nothing continued
+- **Mid-phrase cut-offs** ("Got it, <number> <street>", "Got"): forced speech banned `. , ! ?` so a forced sentence could never end, and nothing continued
   an unfinished sentence. Forced speech now bans only the sentinel and junk glyphs; if the last chunk had no sentence end and the model goes silent,
   the next tick is forced to continue (max 3 ticks, then it stops: this is the v2b runaway guard); a "response" of pure punctuation counts as silence.
 - **`@ha` used for a personal question** returned the time ("what's the home address" -> "12:05 AM"): the prompt now restricts `@ha` to devices,
