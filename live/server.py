@@ -153,8 +153,8 @@ class Session:
         self.tts_jobs = []
         self.jobs, self.job_n, self.job_tasks = [], 0, set()
         self.voice = self.sh.tts_engine.default_voice
-        wake = os.environ.get("WAKE", "hey_jarvis")
-        self.sess = SessionManager(SessionConfig(wake_enabled=wake != "off", wake_word=wake if wake != "off" else "hey_jarvis",
+        wake = os.environ.get("WAKE", "hey_nina")
+        self.sess = SessionManager(SessionConfig(wake_enabled=wake != "off", wake_word=wake if wake != "off" else "hey_nina",
                                                   active_timeout_s=float(os.environ.get("TIMEOUT", "25")),
                                                   idle_timeout_s=float(os.environ.get("IDLE_TIMEOUT", "20")),
                                                   suspend_ttl_s=float(os.environ.get("SUSPEND_TTL", "300"))), emit=self.on_session_event)
@@ -949,7 +949,7 @@ async def ws_handler(request):
 async def api_config(request):
     """Everything the page needs to fill its dropdowns BEFORE a conversation is started (the WebSocket hello only exists after Start)."""
     sh = request.app["shared"]
-    wake = os.environ.get("WAKE", "hey_jarvis")
+    wake = os.environ.get("WAKE", "hey_nina")
     return web.json_response({
         "tts": sh.tts_engine.kind, "tts_note": sh.tts_engine.note, "voices": sh.tts_engine.voices, "voice": sh.tts_engine.default_voice,
         "wake_words": WAKE_WORDS, "wake": wake, "active_timeout": float(os.environ.get("TIMEOUT", "25")),
