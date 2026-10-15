@@ -19,7 +19,7 @@ TOKEN = os.environ.get("RECORDER_TOKEN") or secrets.token_urlsafe(12)
 
 
 def audio_dir(*a):
-    return store._p("audio", *a)
+    return os.path.join(store.audio_root(), *a)
 
 
 def counts():
@@ -85,6 +85,8 @@ async def enroll(req):
     if len(embs) < 3:
         return web.json_response({"ok": False, "error": f"only {len(embs)} usable enrollment clips"}, status=400)
     p = store.save_profile(sp, b.get("name") or sp.capitalize(), role, embs)
+    if not store.settings()["keep_audio_after_enroll"]:
+        shutil.rmtree(audio_dir(sp, "enroll"), ignore_errors=True)
     return web.json_response({"ok": True, "profile": p})
 
 
@@ -97,6 +99,27 @@ async def evaluate(req):
     return web.json_response({"ok": True, "report": buf.getvalue()})
 
 
+def settings_view():
+    s = store.settings()
+    return {"audio_dir": store.audio_root(), "audio_dir_source": store.audio_root_source(),
+            "env_audio_dir": os.environ.get("SPEAKER_AUDIO_DIR"), "keep_audio_after_enroll": s["keep_audio_after_enroll"],
+            "profile_dir": store.ROOT}
+
+
+async def get_settings(_):
+    return web.json_response(settings_view())
+
+
+async def put_settings(req):
+    b = await req.json()
+    try:
+        store.save_settings(**{k: b[k] for k in ("audio_dir", "keep_audio_after_enroll") if k in b})
+        os.makedirs(audio_dir(), exist_ok=True); os.chmod(audio_dir(), 0o700)
+    except (ValueError, OSError) as e:
+        return web.json_response({"ok": False, "error": str(e)}, status=400)
+    return web.json_response({"ok": True, **settings_view()})
+
+
 async def delete(req):
     sp = check((await req.json()).get("speaker"))
     shutil.rmtree(audio_dir(sp), ignore_errors=True)
@@ -107,9 +130,11 @@ def main():
     store.init()
     os.makedirs(audio_dir(), exist_ok=True)
     os.chmod(audio_dir(), 0o700)
+    print(f"recorder: clips -> {audio_dir()} ({store.audio_root_source()})", flush=True)
     app = web.Application(client_max_size=20 * 1024 * 1024, middlewares=[auth])
     app.add_routes([web.get("/", page), web.get("/status", status), web.post("/clip", clip),
-                    web.post("/enroll", enroll), web.post("/eval", evaluate), web.post("/delete", delete)])
+                    web.post("/enroll", enroll), web.post("/eval", evaluate), web.post("/delete", delete),
+                    web.get("/settings", get_settings), web.post("/settings", put_settings)])
     ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     ctx.load_cert_chain(os.path.join(CERT_DIR, "cert.pem"), os.path.join(CERT_DIR, "key.pem"))
     host, port = os.environ.get("SPEAKER_BIND", "127.0.0.1"), int(os.environ.get("RECORDER_PORT", "8444"))

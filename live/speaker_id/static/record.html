@@ -15,7 +15,16 @@ button{cursor:pointer}button.p{background:var(--acc);color:#fff;border-color:var
 #meter{height:8px;background:var(--bg);border-radius:4px;overflow:hidden}#meter i{display:block;height:100%;width:0;background:var(--ok)}
 pre{white-space:pre-wrap;font-size:.8rem}
 </style></head><body><main>
-<h1>Nina voice enrollment</h1>
+<h1>Nina voice enrollment <button id="gear" style="float:right;font-size:.9rem">Settings</button></h1>
+<div class="card" id="settings" hidden>
+<b>Settings</b>
+<label>Voice sample folder (where recorded clips are stored on the server)</label>
+<input id="audiodir" style="width:100%;box-sizing:border-box" placeholder="~/voice-samples">
+<p class="mut" id="srcnote"></p>
+<label><input type="checkbox" id="keepaudio" style="width:auto"> Keep clips after building a profile (uncheck to delete enrollment clips once embeddings are made)</label>
+<p class="mut">Voiceprints/profiles stay in <code id="profdir"></code>. Changing the folder does not move existing clips. Leave empty to use the environment default (SPEAKER_AUDIO_DIR) or the built-in one.</p>
+<div class="row"><button id="savecfg" class="p">Save settings</button></div><p id="cfgmsg" class="mut"></p>
+</div>
 <div class="card">
 <p class="mut">Voiceprints are biometric data. This page stores short clips on the home server only (never uploaded elsewhere).
 Each person records their own voice, and a child only with a parent present. You can delete everything for a person at the bottom.</p>
@@ -110,5 +119,11 @@ $('enrollbtn').onclick=async()=>{ const sp=$('sp').value.trim(); $('report').tex
 $('evalbtn').onclick=async()=>{ $('report').textContent='Working (can take a minute)…'; const r=await post('/eval',{write:false}); $('report').textContent=r.j.report||'Failed'; };
 $('calbtn').onclick=async()=>{ if(!confirm('Save these thresholds for Nina to use?'))return; $('report').textContent='Working…'; const r=await post('/eval',{write:true}); $('report').textContent=r.j.report||'Failed'; };
 $('delbtn').onclick=async()=>{ const id=$('delid').value.trim(); if(!id||!confirm('Delete all clips and the voice profile for '+id+'?'))return; await post('/delete',{speaker:id}); refresh(); };
+async function loadCfg(){ const j=await (await fetch(q('/settings'))).json();
+ $('audiodir').value=j.audio_dir_source==='settings'?j.audio_dir:''; $('audiodir').placeholder=j.audio_dir;
+ $('srcnote').textContent='In use: '+j.audio_dir+' (from '+j.audio_dir_source+')'; $('keepaudio').checked=j.keep_audio_after_enroll; $('profdir').textContent=j.profile_dir; }
+$('gear').onclick=()=>{ $('settings').hidden=!$('settings').hidden; if(!$('settings').hidden)loadCfg(); };
+$('savecfg').onclick=async()=>{ const r=await post('/settings',{audio_dir:$('audiodir').value,keep_audio_after_enroll:$('keepaudio').checked});
+ $('cfgmsg').textContent=r.ok?'Saved.':'Not saved: '+(r.j.error||'error'); if(r.ok){loadCfg();refresh()} };
 refresh();
 </script></main></body></html>
