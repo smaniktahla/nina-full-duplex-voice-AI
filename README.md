@@ -21,7 +21,7 @@ browser mic/speaker --WSS--> live/server.py on AI2
 | `RESULTS.md` | simulator findings |
 | `SPEAKER_ID_ASSESSMENT.md` | speaker recognition assessment (in progress) |
 
-## Run it (on AI2)
+## Run it
 ```
 live/voices/fetch_voices.sh      # once: Piper fallback voice
 live/run.sh                      # https://<host>:8443/  (self-signed cert: live/gen_cert.sh)
