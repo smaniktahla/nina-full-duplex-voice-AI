@@ -33,26 +33,39 @@ button:disabled{opacity:.45;cursor:default}
 .m.s{justify-self:center;color:var(--mut);font-size:.85rem}
 small{color:var(--mut)}
 .num{width:70px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
-#sinfo{color:var(--mut);font-size:.85rem}</style>
+#sinfo{color:var(--mut);font-size:.85rem}.navlink{float:right;font-size:.9rem;font-weight:500;color:var(--acc);text-decoration:none;padding:6px 10px;border:1px solid var(--line);border-radius:10px;margin-top:-4px}
+h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{background:var(--bg);padding:1px 5px;border-radius:5px}
+#v-set{display:grid;gap:12px}[hidden]{display:none!important}</style>
 </head>
 <body>
 <main>
-  <h1><img src="/icons/nina-64.png" alt="" width="32" height="32" style="vertical-align:-9px;border-radius:7px;margin-right:8px">Nina <small id="info"></small></h1>
-  <div class="card row">
+  <h1><img src="/icons/nina-64.png" alt="" width="32" height="32" style="vertical-align:-9px;border-radius:7px;margin-right:8px">Nina <small id="info"></small><a href="#settings" id="tosettings" class="navlink">Settings</a><a href="#" id="toback" class="navlink" hidden>&larr; Back</a></h1>
+  <div class="card row" id="v-main-controls">
     <button id="go" class="primary">Start conversation</button>
     <button id="stop" disabled>Stop talking</button>
     <button id="end" class="danger" disabled>End conversation</button>
-    <button id="reset" disabled>Reset</button>
     <button id="mute" disabled>Mute</button>
-    <select id="voice" title="Voice"></select>
     <span id="rec" class="chip" hidden style="color:var(--bad);border-color:var(--bad)" title="Nina is recording notes of this conversation">● notes</span><span id="sess" class="chip on DORMANT" title="Session state (Needle)">DORMANT</span><span id="state" class="chip on OFF" title="Duplex engine state">OFF</span>
     <div id="meter"><i></i></div>
   </div>
-  <div class="card"><div id="live">&nbsp;</div><div class="row" style="margin-top:8px"><input id="typed" placeholder="or type a message" style="flex:1;min-width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="send">Send</button></div></div>
-  <div class="card"><div id="sinfo">session: none</div><div id="log"></div></div>
-  <div class="card row" style="font-size:.9rem"><label for="wake">Wake word</label><select id="wake"></select><label for="tmo" title="Active -> idle after this much silence from the assistant side">Idle after</label><input id="tmo" type="number" min="0" max="600" step="5" value="25" class="num"><span>s</span><label for="tmo2" title="Idle -> asleep">Sleep after</label><input id="tmo2" type="number" min="0" max="600" step="5" value="20" class="num"><span>s</span><label for="tmo3" title="How long a suspended session (with pending tasks) is kept">Keep session</label><input id="tmo3" type="number" min="0" max="3600" step="30" value="300" class="num"><span>s</span><button id="wakebtn" disabled>Wake</button><button id="sleepbtn" disabled>Sleep</button></div>
-  <div class="card row" style="font-size:.9rem"><label for="sens">Ignore distant voices</label><input id="sens" type="range" min="0" max="0.8" step="0.05" value="0.4" style="flex:1;min-width:120px"><span id="sensv">0.40</span></div>
-  <small>Say "wait", "stop" or "hold on" to interrupt. Headphones give the best echo behaviour; speakers rely on the browser's echo cancellation.</small>
+  <div class="card" id="v-live"><div id="live">&nbsp;</div><div class="row" style="margin-top:8px"><input id="typed" placeholder="or type a message" style="flex:1;min-width:140px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="send">Send</button></div></div>
+  <div class="card" id="v-log"><div id="sinfo">session: none</div><div id="log"></div></div>
+  <div id="v-main-rest" hidden></div>
+  <section id="v-set" hidden>
+    <h2>Settings</h2>
+    <div class="card"><h3>Voice</h3><div class="row"><label for="voice">Nina's voice</label><select id="voice" title="Voice"></select><button id="reset" disabled title="Clear this conversation from the screen and start fresh">Reset conversation</button></div></div>
+    <div class="card"><h3>Wake word and timing</h3>
+      <div class="row"><label for="wake">Wake word</label><select id="wake"></select></div>
+      <div class="row" style="margin-top:8px"><label for="tmo" title="Active -> idle after this much silence from the assistant side">Idle after</label><input id="tmo" type="number" min="0" max="600" step="5" value="25" class="num"><span>s</span><label for="tmo2" title="Idle -> asleep">Sleep after</label><input id="tmo2" type="number" min="0" max="600" step="5" value="20" class="num"><span>s</span><label for="tmo3" title="How long a suspended session (with pending tasks) is kept">Keep session</label><input id="tmo3" type="number" min="0" max="3600" step="30" value="300" class="num"><span>s</span></div>
+      <div class="row" style="margin-top:8px"><button id="wakebtn" disabled>Wake now</button><button id="sleepbtn" disabled>Sleep now</button><small>Only while a conversation is running.</small></div></div>
+    <div class="card"><h3>Microphone</h3><div class="row"><label for="sens">Ignore distant voices</label><input id="sens" type="range" min="0" max="0.8" step="0.05" value="0.4" style="flex:1;min-width:120px"><span id="sensv">0.40</span></div></div>
+    <div class="card"><h3>Voice enrollment (who is speaking)</h3>
+      <p><small>Enrolling household voices is done in the separate recorder (it handles voiceprints, so it has its own access token and is only run when needed). Paste the link it prints, then open it.</small></p>
+      <div class="row"><input id="reclink" placeholder="https://10.10.10.226:8444/?t=..." style="flex:1;min-width:200px;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="recopen">Open</button></div>
+      <p><small>Voice-sample storage folder and retention are set on the recorder's own Settings button, or with the <code>SPEAKER_AUDIO_DIR</code> environment variable.</small></p></div>
+    <small>Say "wait", "stop" or "hold on" to interrupt. Headphones give the best echo behaviour; speakers rely on the browser's echo cancellation.</small>
+  </section>
+  <small id="hint">Say "wait", "stop" or "hold on" to interrupt. Headphones give the best echo behaviour; speakers rely on the browser's echo cancellation.</small>
 </main>
 <script>
 const $=id=>document.getElementById(id);
@@ -152,7 +165,13 @@ const setMute=v=>{muted=v;$('mute').textContent=v?'Unmute':'Mute';$('mute').clas
 $('mute').onclick=()=>setMute(!muted);
 document.addEventListener('keydown',e=>{if(e.key==='m'&&document.activeElement.tagName!=='INPUT'&&running)setMute(!muted)});
 $('sens').oninput=()=>{store.set('sens',$('sens').value);$('sensv').textContent=(+$('sens').value).toFixed(2);ws&&ws.readyState===1&&ws.send(JSON.stringify({t:'sens',v:+$('sens').value}))};
-loadConfig();
+function view(){const s=location.hash==='#settings';
+  $('v-set').hidden=!s;$('toback').hidden=!s;$('tosettings').hidden=s;
+  ['v-main-controls','v-live','v-log','hint'].forEach(i=>{const e=$(i);if(e)e.hidden=s})}
+addEventListener('hashchange',view);
+$('reclink').value=store.get('reclink','');$('reclink').onchange=()=>store.set('reclink',$('reclink').value.trim());
+$('recopen').onclick=()=>{const u=$('reclink').value.trim();if(/^https:\/\/[^ ]+$/.test(u))window.open(u,'_blank','noopener');else alert('Paste the https:// link the recorder printed (it includes ?t=...).')};
+loadConfig();view();
 $('go').onclick=start;
 $('stop').onclick=()=>{cancelPlayback();ws&&ws.send(JSON.stringify({t:'stop'}))};
 $('reset').onclick=()=>{cancelPlayback();ws&&ws.send(JSON.stringify({t:'reset'}));$('log').innerHTML=''};
