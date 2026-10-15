@@ -8,5 +8,9 @@
   "calendars": ["calendar.example_one", "calendar.example_two"],
   "weather_entity": "weather.example_station",
   "forecast_today_sensor": "sensor.nws_today_forecast",
-  "forecast_tomorrow_sensor": "sensor.nws_tomorrow_forecast"
+  "forecast_tomorrow_sensor": "sensor.nws_tomorrow_forecast",
+  "docmost_mcp_url": "http://<docmost-mcp-host>:8012/mcp",
+  "docmost_parent_id": "<uuid of the page to file conversation notes under (optional)>",
+  "notes_default_user": "<name shown as the speaker in notes>",
+  "timezone": "America/New_York"
 }

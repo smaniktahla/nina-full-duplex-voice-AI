@@ -34,6 +34,7 @@ from needle_voice.session import ACTIVE, DORMANT, IDLE, SUSPENDED, SessionConfig
 from stt_stream import StreamingSTT                           # noqa: E402
 from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector            # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
+import notes_tool                                              # noqa: E402
 from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search          # noqa: E402
 
 CFG = dict(
@@ -63,7 +64,9 @@ LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak natura
              "Pending tasks appear as {pending: #id kind \"task\" ...}. If the user refines, narrows or changes what they want from a pending "
              "task, do NOT start a new tool: say a short acknowledgement then '@revise #<id> <the refinement in your own words>' "
              "(for a search give the full new query). If they drop it (never mind / cancel that), say so then '@cancel #<id>'.")
-TOOL_RE = re.compile(r"@(search|hermes|ha|weather|calendar|revise|cancel|remember|forget)\b[:\s]*(.*)$", re.S)
+TOOL_RE = re.compile(r"@(search|hermes|ha|weather|calendar|revise|cancel|remember|forget|notes)\b[:\s]*(.*)$", re.S)
+if notes_tool.enabled():
+    LIVE_NOTE += notes_tool.PROMPT
 SESSION_LOG = os.environ.get("SESSION_LOG", os.path.expanduser("~/.local/share/needle_voice/sessions.jsonl"))
 BAN_TOKENS = ["...", "\u2026", "-", "_", "~"]                 # NOT . , ! ? : forced speech must be able to finish its sentence
 DANGLING = re.compile(r"(?:\b(?:a|an|the|to|of|in|on|at|for|with|and|but|or|if|is|are|was|were|be|my|your|his|her|its|our|their|that|this|it's|i'm|you're|about|from|into|than|as|by|so)|\d|,)\s*$", re.I)   # ends mid-phrase
@@ -152,6 +155,7 @@ class Session:
                                                   idle_timeout_s=float(os.environ.get("IDLE_TIMEOUT", "20")),
                                                   suspend_ttl_s=float(os.environ.get("SUSPEND_TTL", "300"))), emit=self.on_session_event)
         self.slept_at = time.monotonic()
+        self.notes = notes_tool.NotesTool(self, CFG["llama"], http)
         self.cont_n = 0
         self.last_chunk = ""
         self.wake_det, self.dismiss_buf, self.wake_grace_until, self.wake_clean = None, "", 0.0, True
@@ -358,7 +362,7 @@ class Session:
         async def run():
             try:
                 k, g = j["kind"], j["goal"]
-                res = await (web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
+                res = await (self.notes.finish(g) if k == "notes" else web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
                              weather(self.http, g) if k == "weather" else calendar(self.http, g) if k == "calendar" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
@@ -419,6 +423,9 @@ class Session:
 
     def run_tool_call(self, action, arg):
         arg = arg.strip()
+        if action == "notes":
+            self.notes.handle(arg)
+            return
         if action in ("search", "hermes", "ha", "weather", "calendar"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
@@ -588,8 +595,10 @@ class Session:
             self.run_tool_call(tool.group(1), arg)
         if text:
             self.sess.add_turn("user", text)
+            self.notes.capture("user", text)
         if kind == "speech" and out:
             self.sess.add_turn("assistant", out)
+            self.notes.capture("assistant", out)
         if kind == "speech" and out:
             if not is_filler(out):
                 self.user_buf = ""
@@ -676,10 +685,18 @@ class Session:
         self.reset_conv()
         self.dismiss_buf = ""
 
+    async def notes_autosave(self):
+        if self.notes.active():
+            msg = await self.notes.autosave("session ended")
+            log("NOTES autosave:", msg)
+            await self.send(t="log", text=msg)
+
     async def after_transition(self, t):
         if not t:
             return
         to = t["to"]
+        if to in (DORMANT, SUSPENDED):
+            await self.notes_autosave()                                   # a recording is never lost when the conversation ends
         if to == DORMANT:
             self.reset_session_state()
         if to in (DORMANT, SUSPENDED):
@@ -812,6 +829,10 @@ class Session:
                         self.reset_conv()
                         await self.send(t="log", text="conversation reset")
         finally:
+            try:
+                await self.notes_autosave()                                # a recording is saved even if the browser just disconnects
+            except Exception as e:                                         # noqa: BLE001
+                log("notes autosave failed:", repr(e)[:100])
             self.closed = True
             if self.wake_det:
                 await self.wake_det.stop()
