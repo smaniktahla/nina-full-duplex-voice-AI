@@ -23,7 +23,6 @@
 Private keys/certs (`*.pem`), `.env`, tokens, `profile.json`, voice recordings or embeddings, model weights, server logs. `scripts/check_no_secrets.sh` enforces the obvious ones.
 The repo is **private** because `needle-voice/tests/real_snapshot.json` and `lexicon` data describe the household (device and room names).
 
-## Deploying (until `scripts/deploy.sh` exists)
-Merging does not deploy. The running copies are still `~/claude-workspace/duplex-sim` (voice server) and `~/needle-voice` (Needle, used by the live server; HA runs its own copy
-under `/config/custom_components/needle_voice`). Port merged changes there deliberately, then restart the voice server (wait for the old process to exit first, otherwise Kokoro
-can fail to load and the server silently falls back to Piper).
+## Deploying
+Merging does not deploy. See **docs/MIGRATION.md**: `scripts/deploy_voice.sh [ref] [--trial]` builds a release of a merged commit, switches `~/nina-current`, smoke-tests it and rolls back automatically on failure;
+`scripts/rollback_voice.sh [legacy]` goes back. Needle's copy inside Home Assistant is a separate, explicitly approved step.
