@@ -25,6 +25,10 @@ DEFAULTS = {
     "weather_entity": "",                       # weather.* entity for current conditions; empty = first weather.* entity
     "forecast_today_sensor": "",                # text forecast sensors; empty = first sensor.*today*forecast*
     "forecast_tomorrow_sensor": "",
+    "docmost_mcp_url": "",                      # DocMost MCP endpoint (JSON-RPC over HTTP), e.g. http://<host>:8012/mcp ; empty = notes feature off
+    "docmost_parent_id": "",                    # optional page id the conversation notes are created under
+    "notes_default_user": "",                   # who is speaking, until speaker recognition can say (shown in every note)
+    "timezone": "America/New_York",             # note dates/times are written in this zone
 }
 
 

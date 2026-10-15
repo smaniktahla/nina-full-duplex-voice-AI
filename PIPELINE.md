@@ -312,3 +312,26 @@ Behind `RESPONDER=1` (env, read by `run.sh`; default 0 = old behavior exactly):
 ## 14. GPU headroom for Kokoro (2026-10-15)
 
 Kokoro (TTS) shares GPU 0 with llama-server; at ctx 98304 the cards were 9.8 / 9.1 GB used of 10 GB and a long sentence hit CUDA OOM (silent reply). llama-server ctx reduced 98304 -> 65536 (`/etc/systemd/system/llama-server.service`, backup `.bak-1015-1153`), Hermes `context_length` (`~/.hermes/config.yaml` line 5, backup `.bak-1015-1153`) reduced to match; llama + Hermes restarted. Result: GPU0 ~7.4 GB llama (was 8.6), GPU1 ~7.7 (was 9.1). Roll back: restore both backups, `sudo systemctl daemon-reload && sudo systemctl restart llama-server hermes`. Also tts_engine.py now retries on OOM then falls back to a CPU Kokoro (`tts_engine.py.pre-oomfix` is the old file).
+
+## 15. Notes and transcripts saved to DocMost
+
+Ask Nina to "take notes", "write down this conversation" or "make a transcript". The model only emits a tag; the code does the recording, so it never depends on the model remembering:
+
+| Tag | Effect |
+|---|---|
+| `@notes start [notes\|transcript] [title]` | begin recording what is said from now on (a red "notes" chip shows in the browser) |
+| `@notes add <text>` | put one explicit point into the notes |
+| `@notes stop [title]` / `save` | stop and write the DocMost note; the result is spoken back |
+| `@notes cancel` | discard |
+
+- **Modes:** `notes` (default) = concise bullets, decisions and action items written from the conversation by one clean LLM request (plus any explicit points); `transcript` = verbatim turns with times.
+  A title is generated if none was given.
+- **Every note** is titled `MM/DD/YYYY - <title>`, filed under the configured parent page, and starts with a header: date, time (in the household time zone), speaker, source (mode, session id).
+  The speaker is `household.json` -> `notes_default_user` until speaker recognition can supply `session.speaker` (the notes code already prefers it).
+- **Nothing is lost:** the recording is flushed to a private local file as it grows (`~/.local/share/nina/notes_buffer/`, mode 0600); it is saved automatically (and the note says so) if the conversation ends
+  or the browser disconnects first; if DocMost is unreachable the note is parked as markdown in `~/.local/share/nina/notes_failed/` and the user is told.
+- **Never on its own:** recording starts only when asked, and Nina says so. Transcripts can contain other people in the room; keep this in mind before enabling it for the whole household.
+- **Config (private, not in the repo):** `docmost_mcp_url` (the DocMost MCP endpoint), optional `docmost_parent_id`, `notes_default_user`, `timezone` in `~/.config/nina/household.json`
+  (template in `live/household.example.json`). With no `docmost_mcp_url` the feature is off and the prompt does not mention it.
+- **Code:** `live/docmost.py` (client), `live/notes_tool.py` (recording, rendering, summarising, saving), small hooks in `live/server.py`; tests in `tests/test_notes.py` (fake DocMost endpoint, no network).
+- **Verified live (trial instance, real DocMost):** notes mode (asked to name it, said two facts, asked to save: note created with header + bullets + explicit points) and transcript mode ended by the browser disconnecting (autosaved).
