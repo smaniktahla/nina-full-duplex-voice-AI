@@ -67,7 +67,7 @@ stop_service() {
 }
 start_service() {
   if systemctl --user cat $UNIT >/dev/null 2>&1; then systemctl --user start $UNIT
-  else (cd "$CUR/live" && setsid nohup ./run.sh >> "$STATE/server.log" 2>&1 < /dev/null &); fi
+  else setsid nohup bash -c 'cd "$1" && exec ./run.sh' _ "$CUR/live" >> "$STATE/server.log" 2>&1 < /dev/null & fi
 }
 switch_to() { ln -sfn "$1" "$CUR.new" && mv -Tf "$CUR.new" "$CUR"; }
 

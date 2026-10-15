@@ -19,6 +19,6 @@ systemctl --user stop $UNIT 2>/dev/null
 for p in $(pgrep -f "^/home/salil/venvs/duplex-live/bin/python server.py"); do kill "$p"; done
 for i in $(seq 1 30); do pgrep -f "^/home/salil/venvs/duplex-live/bin/python server.py" >/dev/null || break; sleep 1; done; sleep 3
 ln -sfn "$T" "$CUR.new" && mv -Tf "$CUR.new" "$CUR"
-if systemctl --user cat $UNIT >/dev/null 2>&1; then systemctl --user start $UNIT; else (cd "$CUR/live" && setsid nohup ./run.sh >> "$STATE/server.log" 2>&1 < /dev/null &); fi
+if systemctl --user cat $UNIT >/dev/null 2>&1; then systemctl --user start $UNIT; else setsid nohup bash -c 'cd "$1" && exec ./run.sh' _ "$CUR/live" >> "$STATE/server.log" 2>&1 < /dev/null & fi
 for i in $(seq 1 60); do sleep 3; curl -skf -m3 "https://localhost:$PORT/api/config" >/dev/null 2>&1 && { printf 'current=%s\nprevious=%s\nwhen=%s\n' "$T" "$CURRENT" "$(date -Is)" > "$STATE/DEPLOYED"; say "OK: $T is serving"; exit 0; }; done
 say "!! $T did not come up; see $STATE/server.log"; exit 1
