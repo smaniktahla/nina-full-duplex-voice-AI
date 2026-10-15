@@ -24,5 +24,7 @@ Private keys/certs (`*.pem`), `.env`, tokens, `profile.json`, voice recordings o
 The repo is **private** because `needle-voice/tests/real_snapshot.json` and `lexicon` data describe the household (device and room names).
 
 ## Deploying
+Runtime flags that must survive a redeploy (e.g. `RESPONDER=1`) go in the private `~/.config/nina/env` (one `KEY=value` per line); `live/run.sh` reads it, explicit environment variables still win.
+
 Merging does not deploy. See **docs/MIGRATION.md**: `scripts/deploy_voice.sh [ref] [--trial]` builds a release of a merged commit, switches `~/nina-current`, smoke-tests it and rolls back automatically on failure;
 `scripts/rollback_voice.sh [legacy]` goes back. Needle's copy inside Home Assistant is a separate, explicitly approved step.
