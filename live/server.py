@@ -11,6 +11,7 @@ Browser <-> server (WebSocket /ws):
 import asyncio
 import json
 import os
+import random
 import re
 import ssl
 import struct
@@ -44,6 +45,7 @@ CFG = dict(
     stt_model=os.environ.get("STT_MODEL", "base.en"), voice=os.path.join(HERE, "voices", "en_US-lessac-medium.onnx"),
     port=int(os.environ.get("PORT", "8443")), temp=0.2,
 )
+WAKE_GREETINGS = os.environ.get("WAKE_GREETING", "Hey, what's up?|Yeah, what's up?|Hey! What can I do for you?")
 BARGE = re.compile(r"\b(wait|stop|hold on|hang on|pause|never ?mind|shut up|be quiet|enough|cancel that)\b", re.I)
 LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak naturally and helpfully in plain spoken English (no markdown, "
              "no lists). Keep each spoken chunk to one natural clause.\n"
@@ -153,8 +155,8 @@ class Session:
         self.tts_jobs = []
         self.jobs, self.job_n, self.job_tasks = [], 0, set()
         self.voice = self.sh.tts_engine.default_voice
-        wake = os.environ.get("WAKE", "hey_jarvis")
-        self.sess = SessionManager(SessionConfig(wake_enabled=wake != "off", wake_word=wake if wake != "off" else "hey_jarvis",
+        wake = os.environ.get("WAKE", "hey_nina")
+        self.sess = SessionManager(SessionConfig(wake_enabled=wake != "off", wake_word=wake if wake != "off" else "hey_nina",
                                                   active_timeout_s=float(os.environ.get("TIMEOUT", "25")),
                                                   idle_timeout_s=float(os.environ.get("IDLE_TIMEOUT", "20")),
                                                   suspend_ttl_s=float(os.environ.get("SUSPEND_TTL", "300"))), emit=self.on_session_event)
@@ -197,6 +199,9 @@ class Session:
                     log("WAKE PHRASE heard")
                     self.stt.listen_only = False
                     asyncio.ensure_future(self.activate("wake_phrase"))
+                    bare = not [w for w in text.split() if re.sub(r"[^a-z]", "", w.lower()) not in WAKE_TOKENS]
+                    if bare:                                                  # "Hey Nina" alone: greet; "Hey Nina, <command>" goes straight to the command
+                        asyncio.ensure_future(self.greet())
                 else:
                     log("(speech while asleep: not the wake phrase)")        # the text itself is never logged or kept
             return
@@ -763,7 +768,7 @@ class Session:
         if not self.sess.cfg.wake_enabled or self.phrase_mode:
             return                                                       # no acoustic detector needed
         try:
-            self.wake_det = WakeDetector(self.sess.cfg.wake_word, lambda n: asyncio.ensure_future(self.activate("wake_word")), log)
+            self.wake_det = WakeDetector(self.sess.cfg.wake_word, lambda n: asyncio.ensure_future(self._wake_and_greet()), log)
             await self.wake_det.start()
         except Exception as e:                                           # noqa: BLE001
             log("wake service unavailable, staying always-on:", repr(e)[:100])
@@ -817,6 +822,24 @@ class Session:
             await self.send(t="earcon", kind="wake")
         self.sync_listen_mode()
         await self.send_mgr()
+
+    async def _wake_and_greet(self):
+        was_asleep = self.sess.asleep
+        await self.activate("wake_word")
+        if was_asleep and not self.sess.asleep:
+            await self.greet()
+
+    async def greet(self):
+        """Spoken acknowledgement after the wake chime (WAKE_GREETING: '|'-separated variants, empty = chime only)."""
+        opts = [g.strip() for g in WAKE_GREETINGS.split("|") if g.strip()]
+        if not opts:
+            return
+        await asyncio.sleep(0.5)                                              # let the two-tone earcon finish first
+        if self.sess.asleep or self.stt.pending or self.user_buf:             # went back to sleep, or the user already started talking
+            return
+        g = random.choice(opts)
+        self.speak(g, final=True)
+        await self.send(t="assistant", text=g)
 
     async def activate(self, source):
         if self.sess.state == ACTIVE:
@@ -949,7 +972,7 @@ async def ws_handler(request):
 async def api_config(request):
     """Everything the page needs to fill its dropdowns BEFORE a conversation is started (the WebSocket hello only exists after Start)."""
     sh = request.app["shared"]
-    wake = os.environ.get("WAKE", "hey_jarvis")
+    wake = os.environ.get("WAKE", "hey_nina")
     return web.json_response({
         "tts": sh.tts_engine.kind, "tts_note": sh.tts_engine.note, "voices": sh.tts_engine.voices, "voice": sh.tts_engine.default_voice,
         "wake_words": WAKE_WORDS, "wake": wake, "active_timeout": float(os.environ.get("TIMEOUT", "25")),
