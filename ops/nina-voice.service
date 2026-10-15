@@ -1,0 +1,22 @@
+# Install:  mkdir -p ~/.config/systemd/user && cp ops/nina-voice.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+#           sudo loginctl enable-linger salil          # keep it running when nobody is logged in / start at boot
+#           systemctl --user enable --now nina-voice
+# Logs:     ~/.local/share/nina/server.log   (and journalctl --user -u nina-voice)
+[Unit]
+Description=Nina full-duplex voice server (runs whatever ~/nina-current points at)
+
+[Service]
+Type=simple
+WorkingDirectory=%h/nina-current/live
+# the voice server needs llama-server first (Kokoro also needs GPU memory that llama-server loads before it)
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 60); do curl -sf -m3 localhost:8080/health >/dev/null && exit 0; sleep 5; done; exit 1'
+ExecStart=%h/nina-current/live/run.sh
+Restart=on-failure
+RestartSec=20
+KillSignal=SIGINT
+TimeoutStopSec=20
+StandardOutput=append:%h/.local/share/nina/server.log
+StandardError=append:%h/.local/share/nina/server.log
+
+[Install]
+WantedBy=default.target

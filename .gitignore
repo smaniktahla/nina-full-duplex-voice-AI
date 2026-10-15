@@ -17,3 +17,7 @@ live/voices/*.bin
 !results/*.log
 household.json
 !household.example.json
+# biometrics / recordings (speaker recognition work): never commit
+*.wav
+*.npy
+speakers/
