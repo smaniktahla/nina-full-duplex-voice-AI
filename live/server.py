@@ -993,6 +993,8 @@ def main():
     app = web.Application()
     app.on_startup.append(on_startup)
     app.router.add_get("/", index)
+    app.router.add_get("/favicon.ico", lambda r: web.FileResponse(os.path.join(HERE, "static", "favicon.ico")))
+    app.router.add_static("/icons", os.path.join(HERE, "static", "icons"))
     app.router.add_get("/api/config", api_config)
     app.router.add_get("/ws", ws_handler)
     ctx = None

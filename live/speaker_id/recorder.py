@@ -41,6 +41,8 @@ def check(sp):
 
 @web.middleware
 async def auth(req, handler):
+    if req.path == "/favicon.ico" or req.path.startswith("/icons/"):
+        return await handler(req)
     t = req.query.get("t") or req.headers.get("X-Token", "")
     if not secrets.compare_digest(t, TOKEN):
         raise web.HTTPForbidden(text="missing or bad token")
@@ -132,6 +134,9 @@ def main():
     os.chmod(audio_dir(), 0o700)
     print(f"recorder: clips -> {audio_dir()} ({store.audio_root_source()})", flush=True)
     app = web.Application(client_max_size=20 * 1024 * 1024, middlewares=[auth])
+    static = os.path.join(os.path.dirname(HERE), "static")           # same logo as the voice page (icons are not private)
+    app.router.add_get("/favicon.ico", lambda r: web.FileResponse(os.path.join(static, "favicon.ico")))
+    app.router.add_static("/icons", os.path.join(static, "icons"))
     app.add_routes([web.get("/", page), web.get("/status", status), web.post("/clip", clip),
                     web.post("/enroll", enroll), web.post("/eval", evaluate), web.post("/delete", delete),
                     web.get("/settings", get_settings), web.post("/settings", put_settings)])
