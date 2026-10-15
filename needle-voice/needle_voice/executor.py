@@ -507,6 +507,14 @@ class RestHass:
         except ValueError as e:
             raise ExecutionError("rest_malformed_response") from e
 
+    async def calendar_events(self, entity_id: str, start: str, end: str) -> list:
+        """READ-ONLY: raw event rows from HA's calendar API for one calendar entity (ISO start/end). Raises ExecutionError."""
+        from urllib.parse import quote
+        rows = await asyncio.to_thread(self._http, "GET", "/api/calendars/%s?start=%s&end=%s" % (quote(entity_id, safe="."), quote(start), quote(end)), None)
+        if not isinstance(rows, list):
+            raise ExecutionError("rest_malformed_response")
+        return rows
+
     @staticmethod
     def _to_state(x: Any) -> "_State | None":
         if not isinstance(x, dict) or not isinstance(x.get("entity_id"), str) or not isinstance(x.get("state"), str):

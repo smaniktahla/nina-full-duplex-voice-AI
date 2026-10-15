@@ -280,6 +280,8 @@ Steps: (1) calendar_ops read-only on HA calendars: next event / day, remember th
 or HA Google Maps Travel Time integration; resolve place via Places text search, AMBIGUOUS on several, `routingPreference=TRAFFIC_AWARE` for now, `departureTime` for future, say "typical" for predictions; (3) "when should I leave" = start - ETA - buffer (config, default 10 min);
 (4) "send it to my phone" = notify.mobile_app_* navigation intent, requires the pending destination in Context and is UNVERIFIED (no read-back). Requests share `request_id` with home_requests.jsonl; log no event descriptions or street addresses.
 
+**Step 1 status (calendar_ops, PR in review).** `needle_voice/calendar_ops.py`: `handle(text, ctx, cfg, now, now_s) -> ToolResult`, read-only. Intents: list (today / rest of today / tomorrow / this week / next week / weekend / a weekday), next event, "when is my <thing>", "where is it". Create/move/cancel -> DENIED (never falls back to an agent). Events come from an injected `fetch_events` (`parse_events()` turns HA calendar rows into `Event`s; `executor.RestHass.calendar_events()` is the read-only GET). `CalContext.nav_target()` yields (location, start) for navigation_ops when the last answer was one event with a location. Telemetry: code + counts only. Not wired into the live server yet (wiring follows once navigation_ops lands).
+
 ## 12. Why results came out in odd chunks, and the fix (2026-10-15)
 
 Session 315963c3 ("It's sixty-two degrees and raining right / now.", "You have a tour at / twelve-thirty, an S / BA / payment / at / two / PM")
