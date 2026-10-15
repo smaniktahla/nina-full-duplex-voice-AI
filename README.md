@@ -4,7 +4,7 @@ A local, full-duplex voice assistant for the homelab: you talk to it from any br
 run Home Assistant requests through Needle's safety path, hand deep work to Hermes, and go to sleep until you say "Hey Jarvis" / "Hey Nina".
 
 ```
-browser mic/speaker --WSS--> live/server.py on AI2
+browser mic/speaker --WSS--> live/server.py 
    STT (faster-whisper, streaming)   Needle session manager (wake / dismiss / timeouts / tasks)
    duplex controller (600 ms ticks)  --> llama-server (Qwen3.8-27B, 2 slots)
    tools: @ha (Needle) @weather @calendar @search @hermes @remember
@@ -26,7 +26,7 @@ browser mic/speaker --WSS--> live/server.py on AI2
 live/voices/fetch_voices.sh      # once: Piper fallback voice
 live/run.sh                      # https://<host>:8443/  (self-signed cert: live/gen_cert.sh)
 ```
-Environment overrides are listed in `live/README.md`. The service shares AI2's llama-server with Hermes; see PIPELINE.md sections 9 and 12.
+Environment overrides are listed in `live/README.md`. The service shares llama-server with Hermes; see PIPELINE.md sections 9 and 12.
 
 ## Develop
 `make test` (unit tests, runs anywhere), `make lint`, `make secrets`. Read **CONTRIBUTING.md** before opening a PR: several Claude Code sessions work on
