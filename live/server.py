@@ -12,6 +12,7 @@ import asyncio
 import wave
 import io
 import json
+import numpy as np
 import os
 import random
 import re
@@ -112,6 +113,12 @@ class Shared:
         self.tts_engine = Tts(here=HERE)
         log("TTS ready:", self.tts_engine.kind, self.tts_engine.device, "rate", self.tts_engine.rate)
         self.tts_pool = ThreadPoolExecutor(max_workers=1)
+        try:
+            from speaker_id.client import SpeakerClient                     # transcript speaker labels; optional, fail-open
+            self.speaker = SpeakerClient(log=log)
+        except Exception as e:                                              # noqa: BLE001
+            log("speaker labels unavailable:", repr(e)[:80])
+            self.speaker = None
         self.sample_rate = self.tts_engine.rate
         ll = Llama(CFG["llama"])
         self.sid = ll.tokenize(CFG["sentinel"])[0]
@@ -211,7 +218,14 @@ class Session:
             return
         if kind == "speech_start":
             return
-        asyncio.ensure_future(self.send(t="stt", kind=kind, text=text))
+        if kind == "final":
+            self.utt_n = getattr(self, "utt_n", 0) + 1
+            asyncio.ensure_future(self.send(t="stt", kind=kind, text=text, id=self.utt_n))
+            audio = getattr(self.stt, "final_audio", None)
+            if audio is not None and text.strip():
+                asyncio.ensure_future(self.label_speaker(self.utt_n, audio))
+        else:
+            asyncio.ensure_future(self.send(t="stt", kind=kind, text=text))
         if kind == "partial":
             log("STT partial:", text)
             speaking = self.tts.speaking(self.now()) or self.llm_task is not None
@@ -830,6 +844,17 @@ class Session:
         await self.activate("wake_word")
         if was_asleep and not self.sess.asleep:
             await self.greet()
+
+    async def label_speaker(self, uid, audio):
+        """Who said utterance `uid`? Evidence for the transcript label only (no routing, no permissions); never delays the reply."""
+        sp = getattr(self.sh, "speaker", None)
+        if sp is None or not sp.enabled():
+            return
+        r = await sp.identify((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
+        if not r or not r.get("profiles") or r["status"] == "insufficient_audio":
+            return
+        log("SPEAKER utt %d: %s %s score=%.2f margin=%.2f" % (uid, r["status"], r.get("speaker_id") or "-", r["score"], r["margin"]))
+        await self.send(t="speaker", id=uid, status=r["status"], name=r.get("name"), score=r["score"], margin=r["margin"])
 
     async def greet(self):
         """Spoken acknowledgement after the wake chime (WAKE_GREETING: '|'-separated variants, empty = chime only)."""

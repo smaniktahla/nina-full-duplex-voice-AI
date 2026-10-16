@@ -30,6 +30,7 @@ button:disabled{opacity:.45;cursor:default}
 #log{display:grid;gap:8px;max-height:48vh;overflow:auto}
 .m{padding:8px 12px;border-radius:12px;max-width:88%;white-space:pre-wrap}
 .m.u{justify-self:end;background:var(--acc);color:#fff}.m.a{justify-self:start;background:var(--bg);border:1px solid var(--line)}
+.m .who{display:block;font-size:.72rem;font-weight:700;letter-spacing:.02em;opacity:.9;margin-bottom:2px}.m .who.dim{opacity:.6;font-weight:500}
 .m.s{justify-self:center;color:var(--mut);font-size:.85rem}
 small{color:var(--mut)}
 .num{width:70px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
@@ -88,6 +89,10 @@ h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{ba
 </main>
 <script>
 const $=id=>document.getElementById(id);
+const utt={};
+function labelSpeaker(d,m){if(d.querySelector('.who'))return;const s=document.createElement('span');s.className='who';
+  if(m.status==='identified'&&m.name){s.textContent=m.name}else if(m.status==='ambiguous'){s.textContent='unsure who';s.classList.add('dim')}else{s.textContent='unknown voice';s.classList.add('dim')}
+  s.title=m.status+' \u00b7 match '+m.score+' \u00b7 margin '+m.margin;d.insertBefore(s,d.firstChild)}
 let engine='LISTENING',mgrState='DORMANT',muted=false,ws,ctx,gain,stream,node,nextT=0,src=new Set(),analyser,running=false;
 const log=(cls,txt)=>{const d=document.createElement('div');d.className='m '+cls;d.textContent=txt;$('log').appendChild(d);$('log').scrollTop=1e9;return d};
 const setState=s=>{$('state').textContent=s;$('state').className='chip on '+s};
@@ -137,7 +142,8 @@ async function start(){
     else if(m.t==='session_event'){if(['transition','dismissed','interruption','ambient_ignored','activated'].includes(m.event))log('s','\u2699 '+m.event+(m.to?' \u2192 '+m.to:'')+(m.reason?' ('+m.reason+')':'')+(m.why?' ('+m.why+')':''))}
     else if(m.t==='earcon')beep(m.kind)
     else if(m.t==='stt'){ if(m.kind==='partial')$('live').textContent=m.text||' ';
-      else{$('live').innerHTML='&nbsp;';if(m.text)log('u',m.text)} }
+      else{$('live').innerHTML='&nbsp;';if(m.text){const d=log('u',m.text);if(m.id)utt[m.id]=d}} }
+    else if(m.t==='speaker'){const d=utt[m.id];if(d)labelSpeaker(d,m)}
     else if(m.t==='notes'){$('rec').hidden=!m.recording;$('rec').textContent='\u25cf '+(m.mode==='transcript'?'transcript':'notes')+(m.title?': '+m.title:'')}
     else if(m.t==='assistant')log('a',m.text);
     else if(m.t==='tool'){const ic={search:'\u{1F50E}',hermes:'\u{1F9E0}',ha:'\u{1F3E0}',weather:'\u{26C5}',calendar:'\u{1F4C5}'}[m.kind]||'\u{1F527}';log('s',ic+' #'+m.id+' '+m.kind+' '+m.status+(m.status==='done'?' in '+m.secs+'s':': '+m.task))}
