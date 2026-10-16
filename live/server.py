@@ -55,7 +55,7 @@ LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak natura
              "TOOLS (they run in the background; keep talking while they work). ROUTING: anything about the home (lights, switches, "
              "temperatures, what's on, the time) or current weather -> '@ha <request in plain words>'; weather forecasts -> "
              "'@weather today' / '@weather tomorrow' / '@weather week'; the user's calendar -> '@calendar today' / '@calendar tomorrow' / "
-             "'@calendar week'. These three answer in under a second: NEVER use @search or @hermes for weather, calendar or home questions. "
+             "'@calendar week'; random numbers, coin flips, dice and picking between options -> '@random <the request in plain words>' (a real random-number service answers: NEVER invent a random result yourself). These answer in under a second: NEVER use @search or @hermes for weather, calendar or home questions. "
              "@ha is ONLY for devices, sensors, the time and current weather: never use it for personal facts or general questions. Only if those fail, escalate. For the rest: "
              "(a) @search <query> looks something up on the web and returns in a few seconds: use it for anything current or that you "
              "are unsure of (news, prices, recent facts, weather, scores). "
@@ -71,7 +71,7 @@ LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak natura
              "Pending tasks appear as {pending: #id kind \"task\" ...}. If the user refines, narrows or changes what they want from a pending "
              "task, do NOT start a new tool: say a short acknowledgement then '@revise #<id> <the refinement in your own words>' "
              "(for a search give the full new query). If they drop it (never mind / cancel that), say so then '@cancel #<id>'.")
-TOOL_RE = re.compile(r"@(search|hermes|ha|weather|calendar|revise|cancel|remember|forget|notes)\b[:\s]*(.*)$", re.S)
+TOOL_RE = re.compile(r"@(search|hermes|ha|weather|calendar|random|revise|cancel|remember|forget|notes)\b[:\s]*(.*)$", re.S)
 if notes_tool.enabled():
     LIVE_NOTE += notes_tool.PROMPT
 SESSION_LOG = os.environ.get("SESSION_LOG", os.path.expanduser("~/.local/share/needle_voice/sessions.jsonl"))
@@ -463,6 +463,7 @@ class Session:
                 k, g = j["kind"], j["goal"]
                 res = await (self.notes.finish(g) if k == "notes" else web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
                              weather(self.http, g) if k == "weather" else calendar(self.http, g) if k == "calendar" else
+                             tools_mod.random_request(self.http, g) if k == "random" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
                 return
@@ -525,7 +526,7 @@ class Session:
         if action == "notes":
             self.notes.handle(arg)
             return
-        if action in ("search", "hermes", "ha", "weather", "calendar"):
+        if action in ("search", "hermes", "ha", "weather", "calendar", "random"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
             return
@@ -725,6 +726,11 @@ class Session:
                 self.speak("Let me check.", final=True)
                 self.set_state("SPEAKING")
                 await self.send(t="assistant", text="Let me check.")
+                return
+            if RESPONDER and not events and not tool and tools_mod.parse_random(user_said or ""):
+                # coin / dice / number / pick: the shared RNG service answers, never the model (it cannot be random)
+                log("   (random request without a tool tag: starting @random)")
+                self.start_tool("random", user_said)
                 return
             if RESPONDER and not events and not tool and not is_filler(out):
                 # the tick only DECIDED to speak; the words it produced are not the reply
