@@ -40,6 +40,8 @@ try:  # voluptuous ships with Home Assistant; guarded only so the package import
             vol.Optional("telemetry_path"): str,
             vol.Optional("lexicon_path"): str,
             vol.Optional("passthrough_flag_path"): str,
+            vol.Optional("random_enabled"): bool,
+            vol.Optional("rng_url"): str,
         }
     )
     CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Any(None, _SCHEMA)}, extra=vol.ALLOW_EXTRA)

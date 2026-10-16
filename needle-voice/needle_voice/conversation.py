@@ -70,6 +70,18 @@ class NeedleVoiceEntity(ConversationEntity, conversation.AbstractConversationAge
             resp.raise_for_status()
             return await resp.json()
 
+    async def _rng_fetch(self, tool: str, params: dict):
+        """Ask the shared RNG service; None if it cannot be reached (random_ops then says so instead of inventing a result)."""
+        import aiohttp
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+        try:
+            url = "%s/v1/%s" % (self._cfg_dict()["rng_url"].rstrip("/"), tool)
+            async with async_get_clientsession(self.hass).post(url, json=params, timeout=aiohttp.ClientTimeout(total=3)) as resp:
+                return await resp.json()
+        except Exception:  # noqa: BLE001
+            return None
+
     async def async_warm_up(self) -> None:
         """Prime llama-server's prompt cache with the static prefix so the first
         real request doesn't pay the cold-start cost (~2s > the 2s budget)."""
@@ -143,7 +155,8 @@ class NeedleVoiceEntity(ConversationEntity, conversation.AbstractConversationAge
         async def run_plan(p):
             return await executor.execute(self.hass, p, user_input.context)
 
-        io = IO(needle_route=needle_route, qwen_post=self._qwen_post, execute=run_plan, passthrough=lambda: passthrough)
+        io = IO(needle_route=needle_route, qwen_post=self._qwen_post, execute=run_plan, passthrough=lambda: passthrough,
+                rng=self._rng_fetch if cfg_dict.get("rng_url") else None)
         outcome = await handle(user_input.text, snapshot, cfg, io)
         if snapshot is not None:
             outcome.telemetry["snapshot"] = {"entities": len(snapshot["entities"]), "areas": len(snapshot["areas"])}

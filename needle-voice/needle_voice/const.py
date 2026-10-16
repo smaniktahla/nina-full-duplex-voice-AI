@@ -13,6 +13,9 @@ DEFAULT_CONFIG = {
     "qwen_model": "qwen-fast",
     "qwen_timeout_seconds": 2.0,
     "needle_endpoint": "http://10.10.10.105:8793",
+    "random_enabled": True,
+    # shared random-number service on AI2 (coin, dice, number, pick); "" turns the category off
+    "rng_url": "http://10.10.10.226:8794",
     "needle_timeout_seconds": 1.0,
     "hermes_agent_id": "conversation.workshop_extended_openai_conversation_hermes_on_ai2",
     # unlock/open are the dangerous direction; off until explicitly enabled.

@@ -150,112 +150,23 @@ def audit_reject(tool_text, transcript):
     return None
 
 
-# ---------------------------------------------------------------- random numbers (shared RNG service; the model must never make one up)
+# ---------------------------------------------------------------- random numbers (Needle's random_ops + the shared RNG service)
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "needle-voice"))
+from needle_voice import random_ops                                          # noqa: E402  (the parser and the spoken answers live in Needle)
+
 RNG_URL = household.get("rng_url", "RNG_URL")
-_W = {"zero": 0, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
-      "twelve": 12, "thirteen": 13, "fourteen": 14, "fifteen": 15, "sixteen": 16, "seventeen": 17, "eighteen": 18, "nineteen": 19, "twenty": 20,
-      "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
-
-
-def spoken_number(s):
-    """'7', 'twenty five', 'one hundred', 'two thousand' -> int, or None."""
-    s = (s or "").strip().lower().replace("-", " ")
-    s = re.sub(r"^(?:a|an)\s+(?=hundred|thousand)", "one ", s)
-    s = re.sub(r"^(a|an|the)\s+", "", s)
-    if re.fullmatch(r"-?\d+", s):
-        return int(s)
-    total, cur, seen = 0, 0, False
-    for w in s.split():
-        if w == "and":
-            continue
-        if w in _W:
-            cur += _W[w]; seen = True
-        elif w == "hundred" and seen:
-            cur *= 100
-        elif w == "thousand" and seen:
-            total += cur * 1000; cur = 0
-        else:
-            return None
-    return total + cur if seen else None
-
-
-_RNG_NOUN = r"(?:number|digit|integer)"
-_FILLER = re.compile(r"\b(?:a|an|the|one|random|randomly|please|for me|at random|you)\b", re.I)
-
-
-def parse_random(text):
-    """A spoken request for randomness -> (tool, params) for the RNG service, or None. Deterministic, so the model never guesses a result."""
-    t = " ".join(re.sub(r"[?!.]", " ", (text or "").lower()).replace(",", " , ").split())
-    if not t or len(t.split()) > 24:
-        return None
-    if re.search(r"\b(?:flip|toss|spin)\b[^,]{0,20}\bcoin\b|\bheads (?:or|and) tails\b|\bcoin (?:flip|toss)\b", t):
-        return "coin", {}
-    m = re.search(r"\b(\d{0,2})\s*d\s*(\d{1,4})\s*(?:(kh|kl)\s*(\d+))?\s*([+-]\s*\d+)?\b", t)
-    if m and re.search(r"\b(?:roll|dice|die|d\s*\d)\b", t):
-        expr = "%sd%s%s%s" % (m.group(1) or "", m.group(2), (m.group(3) + m.group(4)) if m.group(3) else "", (m.group(5) or "").replace(" ", ""))
-        return "dice", {"expr": expr}
-    m = re.search(r"\broll\b[^,]*?\b(\w+)\s+(?:(\w+)[ -]sided\s+)?(?:die|dice)\b", t)
-    if m:
-        n = spoken_number(m.group(1)) if m.group(1) not in ("a", "an") else 1
-        sides = spoken_number(m.group(2)) if m.group(2) else 6
-        if n and sides:
-            return "dice", {"expr": "%dd%d" % (n, sides)}
-    if re.search(r"\broll\b[^,]{0,12}\b(?:a )?(?:die|dice)\b", t):
-        return "dice", {"expr": "1d6"}
-    m = re.search(r"\b%s\b[^,]{0,15}?\b(?:between|from)\s+(.+?)\s+(?:and|to|through|thru)\s+(.+)$" % _RNG_NOUN, t) \
-        or re.search(r"\b%s\s+(\S+(?: \S+)?)\s+(?:to|through|thru)\s+(\S+(?: \S+)?)$" % _RNG_NOUN, t)
-    if m and re.search(r"\b(?:random|pick|choose|give|say|name|think|generate|come up)\b", t):
-        lo, hi = spoken_number(m.group(1)), spoken_number(m.group(2))
-        if lo is not None and hi is not None:
-            return "integer", {"min": min(lo, hi), "max": max(lo, hi)}
-    if re.search(r"\brandom %s\b" % _RNG_NOUN, t) and not re.search(r"\b(?:between|from)\b", t):
-        return "integer", {"min": 1, "max": 100}
-    m = re.search(r"\b(?:pick|choose|decide|select|settle)\b(?:[^,]{0,30}?\b(?:between|from|of)\b)?\s*(.+)$", t)
-    if m and re.search(r"\b(?:or|between)\b", t):
-        tail = re.sub(r"\bfor me\b|\bplease\b|\bat random\b", " ", m.group(1))
-        if re.match(r"(?:whether|if|how|what|why|when|which)\b", tail.strip()):
-            return None
-        parts = [p for p in re.split(r"\s*,\s*|\s+or\s+|\s+and\s+", tail) if p.strip()]
-        items = [" ".join(_FILLER.sub(" ", p).split()) for p in parts]
-        items = [i for i in items if i]
-        if 2 <= len(items) <= 12:
-            return "choice", {"items": items}
-    return None
-
-
-def _say_list(xs):
-    xs = [str(x) for x in xs]
-    return xs[0] if len(xs) == 1 else ", ".join(xs[:-1]) + " and " + xs[-1]
-
-
-def describe_random(tool, params, out):
-    r = out.get("result")
-    if tool == "coin":
-        return "Coin flip: %s." % r
-    if tool == "dice":
-        rolls = out.get("rolls", [])
-        if len(rolls) == 1 and not out.get("modifier"):
-            return "Rolled a %s: %s." % (str(out.get("expr", "d6")).lstrip("1"), r)
-        return "Rolled %s: %s%s, total %s." % (out.get("expr"), _say_list(rolls), (" (kept %s)" % _say_list(out["kept"])) if out.get("kept") != rolls else "", r)
-    if tool == "integer":
-        return "Random number between %s and %s: %s." % (params["min"], params["max"], r)
-    return "Picked at random from %s: %s." % (_say_list(params["items"]), r)
 
 
 async def random_request(http, text):
-    """Spoken request -> the RNG service. If the service is down we say so: a made-up number would be worse than none."""
-    parsed = parse_random(text)
-    if not parsed:
-        return "(I could not tell what random thing was wanted)"
-    tool, params = parsed
-    try:
-        async with http.post("%s/v1/%s" % (RNG_URL.rstrip("/"), tool), json=params, timeout=aiohttp.ClientTimeout(total=5)) as r:
-            out = await r.json()
-        if not out.get("ok"):
-            return "(the random number service refused: %s)" % out.get("error", "unknown")
-        return describe_random(tool, params, out)
-    except Exception as e:                                                   # noqa: BLE001
-        return "(the random number service is not reachable right now (%s); do not make up a random result)" % type(e).__name__
+    """Spoken request -> Needle's random_ops -> the RNG service. If the service is down the answer says so: a made-up number is worse."""
+    async def fetch(tool, params):
+        try:
+            async with http.post("%s/v1/%s" % (RNG_URL.rstrip("/"), tool), json=params, timeout=aiohttp.ClientTimeout(total=5)) as r:
+                return await r.json()
+        except Exception:                                                    # noqa: BLE001
+            return None
+    res = await random_ops.handle(text, fetch)
+    return res.speech or "(I could not tell what random thing was wanted)"
 
 
 async def ha_say(http, text):

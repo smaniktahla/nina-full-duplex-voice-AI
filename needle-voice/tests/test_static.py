@@ -20,7 +20,7 @@ def test_only_the_executor_can_change_the_house():
 
 def test_pure_logic_modules_import_only_stdlib_and_siblings():
     allowed = {"__future__", "json", "os", "re", "time", "asyncio", "dataclasses", "typing", "urllib", "uuid", "datetime"}
-    for name in ("guards.py", "candidates.py", "qwen.py", "intents.py", "executor.py", "router.py", "telemetry.py"):
+    for name in ("guards.py", "candidates.py", "qwen.py", "intents.py", "executor.py", "router.py", "telemetry.py", "random_ops.py"):
         for node in ast.walk(ast.parse(src(name))):
             if isinstance(node, ast.Import):
                 for a in node.names:
