@@ -33,7 +33,7 @@ def save_profile(speaker_id, display_name, role, embeddings, model="ecapa-tdnn")
     init()
     prof = {"speaker_id": speaker_id, "display_name": display_name, "role": role,
             "embedding_model": model, "embedding_version": 1,
-            "enrollment_samples": len(embeddings), "enabled": True}
+            "enrollment_samples": len(embeddings), "enabled": True, "created": int(__import__("time").time())}
     fp = _p("profiles", f"{speaker_id}.json")
     json.dump(prof, open(fp, "w"), indent=2); _secure(fp)
     ep = _p("embeddings", f"{speaker_id}.npy")

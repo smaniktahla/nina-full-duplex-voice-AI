@@ -30,6 +30,20 @@ def voiced_ms(x: np.ndarray, frame_ms=20, thresh=0.01) -> int:
     return int((np.sqrt((f ** 2).mean(1)) > thresh).sum() * frame_ms)
 
 
+def clip_quality(x: np.ndarray, frame_ms=20) -> dict:
+    """Blank/no-speech check for a recorded clip (float32 mono 16 kHz). Adaptive to the mic: speech must stand clearly above the
+    clip's own noise floor, so quiet or far-field speech passes while silence, a muted mic and steady hum do not."""
+    n = int(SR * frame_ms / 1000)
+    if len(x) < n:
+        return {"voiced_ms": 0, "level_db": -120.0, "floor_db": -120.0, "blank": True}
+    f = x[: len(x) // n * n].reshape(-1, n)
+    rms = np.sqrt((f ** 2).mean(1))
+    p95, floor = float(np.percentile(rms, 95)), float(np.percentile(rms, 10))
+    voiced = int((rms > max(0.004, floor * 1.6)).sum() * frame_ms)
+    db = lambda v: round(20 * float(np.log10(v + 1e-9)), 1)
+    return {"voiced_ms": voiced, "level_db": db(p95), "floor_db": db(floor), "blank": bool(p95 < 0.004 or voiced < 600)}
+
+
 def to_float(pcm) -> np.ndarray:
     a = np.asarray(pcm)
     return a.astype(np.float32) / 32768.0 if a.dtype == np.int16 else a.astype(np.float32)
