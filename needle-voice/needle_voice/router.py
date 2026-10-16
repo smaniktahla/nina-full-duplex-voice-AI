@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
 from . import candidates as cand_mod
-from . import entity_resolver, guards, policy_engine, qwen
+from . import entity_resolver, guards, policy_engine, qwen, random_ops
 from .const import DEFAULT_CONFIG
 from .executor import ExecutionError, PlanError, ValidatedIntent, plan
 from .intents import ALL_TARGET_DOMAINS
@@ -40,6 +40,7 @@ class RouterConfig:
     qwen_timeout_seconds: float = 2.0
     needle_timeout_seconds: float = 1.0
     allow_sensitive_intents: bool = False
+    random_enabled: bool = True                    # coin / dice / number / pick -> the RNG service (never an LLM)
 
     @classmethod
     def from_dict(cls, d: dict | None) -> "RouterConfig":
@@ -53,11 +54,12 @@ class IO:
     qwen_post: Callable[[dict, float], Awaitable[dict]]           # (payload, timeout_s) -> parsed JSON
     execute: Callable[[Any], Awaitable[str]]                      # (Plan) -> speech
     passthrough: Callable[[], bool] = lambda: False
+    rng: Callable[[str, dict], Awaitable[Any]] | None = None       # (tool, params) -> RNG service JSON, None if unreachable
 
 
 @dataclass
 class Outcome:
-    route: str                       # "needle" | "qwen_fast" | "hermes"
+    route: str                       # "random" | "rules" | "needle" | "qwen_fast" | "hermes"
     speech: str | None               # None => caller must delegate to Hermes
     fallback_reason: str | None
     telemetry: dict
@@ -87,6 +89,15 @@ async def handle(text: str, snapshot: dict | None, cfg: RouterConfig, io: IO) ->
             return hermes("disabled")
         if io.passthrough():
             return hermes("passthrough_flag")
+        # ---------------- rules: randomness (coin, dice, number, pick) ----------------
+        # Before the guards and the snapshot: it needs neither, and a language model must never answer it. A service failure is
+        # spoken honestly (handled=True) instead of falling through to an agent that would invent a "random" result.
+        if cfg.random_enabled and io.rng is not None:
+            rr = await random_ops.handle(text, io.rng)
+            if rr.reason != "not_random":
+                tel["random"] = {"status": rr.status.value, "code": rr.telemetry.get("code")}
+            if rr.handled:
+                return done("random", rr.speech)
         g = guards.pre_guard(text)
         tel["guard"] = g
         if g:

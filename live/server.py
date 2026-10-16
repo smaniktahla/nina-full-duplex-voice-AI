@@ -39,6 +39,7 @@ from needle_voice.session import ACTIVE, DORMANT, IDLE, SUSPENDED, SessionConfig
 from stt_stream import StreamingSTT                           # noqa: E402
 from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector            # noqa: E402
 import responder                                                                         # noqa: E402
+from needle_voice import random_ops                               # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
 import notes_tool                                              # noqa: E402
 from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search          # noqa: E402
@@ -727,7 +728,7 @@ class Session:
                 self.set_state("SPEAKING")
                 await self.send(t="assistant", text="Let me check.")
                 return
-            if RESPONDER and not events and not tool and tools_mod.parse_random(user_said or ""):
+            if RESPONDER and not events and not tool and random_ops.parse(user_said or ""):
                 # coin / dice / number / pick: the shared RNG service answers, never the model (it cannot be random)
                 log("   (random request without a tool tag: starting @random)")
                 self.start_tool("random", user_said)
