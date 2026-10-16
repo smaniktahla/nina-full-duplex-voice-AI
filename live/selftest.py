@@ -5,6 +5,18 @@ import asyncio, json, ssl, sys, time
 import aiohttp, numpy as np
 from scipy.signal import resample_poly
 from piper import PiperVoice
+import os
+
+def _svc_headers():
+    """Server-side scripts authenticate with the service token (live/auth.py)."""
+    try:
+        return {"X-Nina-Service": open(os.path.join(os.path.expanduser(os.environ.get("NINA_AUTH_DIR", "~/.config/nina")), "service_token")).read().strip()}
+    except OSError:
+        return {}
+
+
+_H = _svc_headers()
+
 
 URL = sys.argv[1] if len(sys.argv) > 1 else "wss://localhost:8443/ws"
 v = PiperVoice.load("voices/en_US-lessac-medium.onnx")
@@ -18,7 +30,7 @@ async def main():
     ctx = ssl.create_default_context(); ctx.check_hostname = False; ctx.verify_mode = ssl.CERT_NONE
     t0 = time.time(); ev = []
     def stamp(*a): print("%6.2fs" % (time.time() - t0), *a, flush=True)
-    async with aiohttp.ClientSession() as s, s.ws_connect(URL, ssl=ctx, max_msg_size=1 << 22) as ws:
+    async with aiohttp.ClientSession() as s, s.ws_connect(URL, headers=_H, ssl=ctx, max_msg_size=1 << 22) as ws:
         audio_bytes = {"n": 0, "last": 0.0}
         async def reader():
             async for m in ws:

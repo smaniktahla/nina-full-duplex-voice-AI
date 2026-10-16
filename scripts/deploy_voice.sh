@@ -76,14 +76,14 @@ stop_service
 switch_to "$R"
 start_service
 ok=0
-for i in $(seq 1 60); do sleep 3; curl -skf -m3 "https://localhost:$PORT/api/config" >/dev/null 2>&1 && { ok=1; break; }; done
+for i in $(seq 1 60); do sleep 3; curl -sk -m3 -o /dev/null "https://localhost:$PORT/api/config" >/dev/null 2>&1 && { ok=1; break; }; done
 if [ $ok = 1 ]; then
   /home/salil/venvs/duplex-live/bin/python "$R/scripts/smoke_voice.py" --port "$PORT" && ok=2
 fi
 if [ $ok != 2 ]; then
   say "NEW RELEASE FAILED its smoke test: rolling back to $PREV"
   stop_service; switch_to "$PREV"; start_service
-  for i in $(seq 1 60); do sleep 3; curl -skf -m3 "https://localhost:$PORT/api/config" >/dev/null 2>&1 && { say "ROLLED BACK: $PREV is serving again"; exit 1; }; done
+  for i in $(seq 1 60); do sleep 3; curl -sk -m3 -o /dev/null "https://localhost:$PORT/api/config" >/dev/null 2>&1 && { say "ROLLED BACK: $PREV is serving again"; exit 1; }; done
   die "rollback target did not come up either: check $STATE/server.log and journalctl --user -u $UNIT"
 fi
 printf 'current=%s\nprevious=%s\nwhen=%s\n' "$R" "$PREV" "$(date -Is)" > "$STATE/DEPLOYED"

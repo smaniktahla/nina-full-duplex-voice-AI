@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nina - sign in</title>
+<link rel="icon" href="/favicon.ico" sizes="any"><link rel="apple-touch-icon" href="/icons/nina-180.png"><meta name="theme-color" content="#00081c">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#16181d;--mut:#667085;--line:#e2e5ea;--acc:#2563eb;--bad:#dc2626}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a21;--ink:#e8eaef;--mut:#8b93a3;--line:#262b36;--acc:#5b8cff;--bad:#f87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px}
+main{max-width:380px;margin:12vh auto 0}
+.logo{display:flex;align-items:center;gap:12px;margin-bottom:16px}.logo img{border-radius:12px}.logo b{font-size:1.4rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:10px}
+input{font:inherit;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+button{font:inherit;border:1px solid var(--acc);background:var(--acc);color:#fff;font-weight:600;padding:11px;border-radius:10px;cursor:pointer}
+button:disabled{opacity:.5}small{color:var(--mut)}#msg{color:var(--bad);min-height:1.3em}
+</style></head><body><main>
+<div class="logo"><img src="/icons/nina-64.png" width="48" height="48" alt=""><b>Nina</b></div>
+<form class="card" id="f" autocomplete="on">
+  <div id="title" style="font-weight:650">Sign in</div>
+  <small id="sub"></small>
+  <input id="u" placeholder="username" autocomplete="username" autocapitalize="none" required>
+  <input id="p" type="password" placeholder="password" autocomplete="current-password" required>
+  <input id="p2" type="password" placeholder="repeat password" autocomplete="new-password" hidden>
+  <div id="msg"></div>
+  <button id="go">Sign in</button>
+</form>
+<script>
+const $=id=>document.getElementById(id);let setup=false;
+function mode(s){setup=s;$('title').textContent=s?'Welcome - create the admin account':'Sign in';
+  $('sub').textContent=s?'Nobody has an account yet. The account you create now is the administrator and can add everyone else. At least 10 characters.':'';
+  $('p2').hidden=!s;$('p2').required=s;$('go').textContent=s?'Create admin account':'Sign in';$('p').autocomplete=s?'new-password':'current-password'}
+(async()=>{try{const j=await (await fetch('/api/auth/me')).json();if(j.user){location.replace('/');return}mode(j.setup_needed)}catch(e){$('msg').textContent='Cannot reach the server.'}})();
+$('f').onsubmit=async e=>{e.preventDefault();$('msg').textContent='';
+  if(setup&&$('p').value!==$('p2').value){$('msg').textContent='Passwords do not match.';return}
+  $('go').disabled=true;
+  try{const r=await fetch(setup?'/api/auth/setup':'/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify({username:$('u').value,password:$('p').value})});
+    const j=await r.json().catch(()=>({}));if(r.ok)location.replace('/');else $('msg').textContent=j.error||'Sign-in failed'}
+  catch(err){$('msg').textContent='Cannot reach the server.'}$('go').disabled=false};
+</script></main></body></html>
