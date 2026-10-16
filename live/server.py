@@ -78,7 +78,10 @@ SESSION_LOG = os.environ.get("SESSION_LOG", os.path.expanduser("~/.local/share/n
 BAN_TOKENS = ["...", "\u2026", "-", "_", "~"]                 # NOT . , ! ? : forced speech must be able to finish its sentence
 DANGLING = re.compile(r"(?:\b(?:a|an|the|to|of|in|on|at|for|with|and|but|or|if|is|are|was|were|be|my|your|his|her|its|our|their|that|this|it's|i'm|you're|about|from|into|than|as|by|so)|\d|,)\s*$", re.I)   # ends mid-phrase
 DANGER = re.compile(r"\b(bleach|ammonia|fire|gas leak|knife|electric|plug|burn|choke|poison|danger|hurt|poisonous|toxic)\b", re.I)
-CAL_RE = re.compile(r"\b(calendar|schedule|appointments?|events?|meetings?|agenda)\b", re.I)
+_EVENT_WORDS = "workout|practice|lesson|class|game|dentist|doctor|haircut|appointment|meeting|event|breakfast|lunch|dinner|recital|match|session"
+CAL_RE = re.compile(r"\b(calendar|schedule|appointments?|events?|meetings?|agenda)\b"
+                    r"|\b(where|when|what time|location|address)\b[^?.!]{0,40}\b(%s)\b" % _EVENT_WORDS, re.I)     # also "where is my workout?"
+
 RESPONDER = os.environ.get("RESPONDER", "0") == "1"      # reply = ONE clean generation spoken per sentence, decoupled from the tick loop
 PROFILE = os.environ.get("PROFILE", os.path.expanduser("~/.local/share/needle_voice/profile.json"))
 
@@ -708,7 +711,9 @@ class Session:
                 self.cont_n = 0
             if RESPONDER and not events and not tool and CAL_RE.search(user_said or ""):
                 # asking about the calendar needs the calendar tool, not a model guess (the reply model has no calendar and used to say so)
-                when = "tomorrow" if "tomorrow" in user_said.lower() else ("week" if re.search(r"\b(week|weekend)\b", user_said.lower()) else "today")
+                low = user_said.lower()
+                when = ("tomorrow" if "tomorrow" in low else "today" if re.search(r"\b(today|tonight|this morning|this afternoon)\b", low) else "week"
+                        if re.search(r"\b(week|weekend)\b", low) or not re.search(r"\b(calendar|schedule|agenda)\b", low) else "today")
                 log("   (calendar question without a tool tag: starting @calendar %s)" % when)
                 self.start_tool("calendar", when)
                 self.speak("Let me check.", final=True)
