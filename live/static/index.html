@@ -39,7 +39,7 @@ h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{ba
 </head>
 <body>
 <main>
-  <h1><img src="/icons/nina-64.png" alt="" width="32" height="32" style="vertical-align:-9px;border-radius:7px;margin-right:8px">Nina <small id="info"></small><a href="#settings" id="tosettings" class="navlink">Settings</a><a href="#" id="toback" class="navlink" hidden>&larr; Back</a></h1>
+  <h1><img src="/icons/nina-64.png" alt="" width="32" height="32" style="vertical-align:-9px;border-radius:7px;margin-right:8px">Nina <small id="info"></small><a href="#settings" id="tosettings" class="navlink">Settings</a><button id="signout" class="navlink" style="margin-right:8px;background:var(--card);min-height:0" title="Sign out">Sign out</button><small id="whoami" style="float:right;margin:2px 10px 0 0"></small><a href="#" id="toback" class="navlink" hidden>&larr; Back</a></h1>
   <div class="card row" id="v-main-controls">
     <button id="go" class="primary">Start conversation</button>
     <button id="stop" disabled>Stop talking</button>
@@ -60,10 +60,11 @@ h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{ba
       <div class="row"><label for="wake">Wake word</label><select id="wake"></select></div>
       <div class="row" style="margin-top:8px"><label for="tmo" title="Active -> idle after this much silence from the assistant side">Idle after</label><input id="tmo" type="number" min="0" max="600" step="5" value="25" class="num"><span>s</span><label for="tmo2" title="Idle -> asleep">Sleep after</label><input id="tmo2" type="number" min="0" max="600" step="5" value="20" class="num"><span>s</span><label for="tmo3" title="How long a suspended session (with pending tasks) is kept">Keep session</label><input id="tmo3" type="number" min="0" max="3600" step="30" value="300" class="num"><span>s</span></div>
       <div class="row" style="margin-top:8px"><button id="wakebtn" disabled>Wake now</button><button id="sleepbtn" disabled>Sleep now</button><small>Only while a conversation is running.</small></div></div>
-    <div class="card" id="enrlogin"><h3>Voice enrollment (who is speaking)</h3>
-      <p><small id="enrlognote">Sign in to record and manage household voices.</small></p>
-      <div class="row"><input id="lu" placeholder="username" autocomplete="username" autocapitalize="none" style="width:11em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><input id="lp" type="password" placeholder="password" autocomplete="current-password" style="width:11em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="lbtn" class="primary">Sign in</button><small id="lmsg"></small></div></div>
-    <div class="card" id="enr" hidden><div class="row" style="justify-content:space-between"><h3 style="margin:0">Voice enrollment (who is speaking)</h3><span><small id="whoami"></small> <button id="lout">Sign out</button></span></div>
+    <div class="card"><h3>My account</h3><div class="row"><small id="acct"></small></div>
+      <div class="row" style="margin-top:8px"><input id="pwcur" type="password" placeholder="current password" autocomplete="current-password" style="width:12em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><input id="pwnew" type="password" placeholder="new password (10+)" autocomplete="new-password" style="width:12em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="pwbtn">Change password</button><small id="pwmsg"></small></div></div>
+    <div class="card" id="usr" hidden><h3>Users</h3><div id="ulist"></div>
+      <div class="row" style="margin-top:10px"><input id="nu" placeholder="new username" autocapitalize="none" style="width:10em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><input id="np" type="password" placeholder="password (10+)" autocomplete="new-password" style="width:11em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><select id="nr"><option>user</option><option>admin</option></select><button id="nadd" class="primary">Add user</button><small id="umsg"></small></div></div>
+    <div class="card" id="enr" hidden><h3>Voice enrollment (who is speaking)</h3>
       <p><small>Nina can learn who is speaking from a short recording of each person. Voiceprints are biometric data: they stay on this server, a child should only be recorded with a parent present, and everything for a person can be deleted below.</small></p>
       <label><input type="checkbox" id="econsent"> This person (or their parent) agrees to record and store their voice for Nina.</label>
       <div class="row" style="margin-top:8px"><input id="esp" placeholder="who (lowercase, e.g. alex)" autocapitalize="none" style="width:12em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><select id="erole"><option>adult</option><option>child</option></select><select id="epurpose"><option value="enroll">Enrollment (~40 s)</option><option value="test">Test clips</option></select><select id="econd"><option>normal</option><option>quiet</option><option>far</option><option>noisy</option></select></div>
@@ -192,7 +193,7 @@ const ETIPS={normal:"Normal voice, about an arm's length from the mic.",quiet:'S
 let ei=0,ectx,estream,eproc,echunks=[],erecording=false;
 const eshow=()=>{$('eprompt').textContent=EP[ei%EP.length];$('etip').textContent=ETIPS[$('econd').value]};
 $('econd').onchange=eshow;$('eprev').onclick=()=>{ei=(ei+EP.length-1)%EP.length;eshow()};$('enext').onclick=()=>{ei++;eshow()};eshow();
-const eapi=async(p,body)=>{const r=await fetch('/api/speakers/'+p,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify(body)});if(r.status===401)showAuth(null);return{ok:r.ok,j:await r.json().catch(()=>({}))}};
+const eapi=async(p,body)=>{const r=await fetch('/api/speakers/'+p,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify(body)});if(r.status===401)location.replace('/login');return{ok:r.ok,j:await r.json().catch(()=>({}))}};
 async function erefresh(){try{const j=await (await fetch('/api/speakers/status')).json();
   $('ecounts').textContent=(Object.entries(j.counts).map(([s,v])=>s+': '+Object.entries(v).map(([k,n])=>k+' x'+n).join(', ')).join('\n')||'(no clips yet)')+'\n\nprofiles: '+(j.profiles.map(p=>p.speaker_id+' ('+p.role+', '+p.enrollment_samples+' clips)').join('; ')||'none')}catch(e){$('ecounts').textContent='enrollment unavailable'}}
 async function ecfgload(){try{const j=await (await fetch('/api/speakers/settings')).json();$('eaudiodir').value=j.audio_dir_source==='settings'?j.audio_dir:'';$('eaudiodir').placeholder=j.audio_dir;$('esrc').textContent='In use: '+j.audio_dir+' (from '+j.audio_dir_source+'). Profiles are stored in '+j.profile_dir+'.';$('ekeep').checked=j.keep_audio_after_enroll}catch(e){}}
@@ -213,7 +214,7 @@ async function etoggle(){
   const n=echunks.reduce((a,c)=>a+c.length,0),all=new Float32Array(n);let o=0;for(const c of echunks){all.set(c,o);o+=c.length}
   const pcm=edown(all,ectx.sampleRate,16000);
   const r=await fetch('/api/speakers/clip?speaker='+sp+'&purpose='+$('epurpose').value+'&condition='+$('econd').value,{method:'POST',headers:{'X-Nina-CSRF':'1'},body:pcm.buffer});
-  if(r.status===401)showAuth(null);
+  if(r.status===401)location.replace('/login');
   if(r.ok){const j=await r.json();$('emsg').textContent='Saved '+j.seconds+'s ('+(j.voiced_ms/1000).toFixed(1)+'s of speech). Next prompt…';ei++;eshow();erefresh()}else $('emsg').textContent='Not saved: '+await r.text()}
 $('erec').onclick=etoggle;
 $('ebuild').onclick=async()=>{$('ereport').textContent='Building profile (a few seconds)…';const r=await eapi('enroll',{speaker:$('esp').value.trim(),role:$('erole').value});$('ereport').textContent=r.ok?'Profile built. '+(r.j.message||''):'Failed: '+(r.j.error||'error');erefresh()};
@@ -221,13 +222,22 @@ $('eeval').onclick=async()=>{$('ereport').textContent='Evaluating (can take a mi
 $('ecal').onclick=async()=>{if(!confirm('Save these thresholds for Nina to use?'))return;$('ereport').textContent='Evaluating…';const r=await eapi('eval',{write:true});$('ereport').textContent=r.j.report||'Failed'};
 $('edelbtn').onclick=async()=>{const id=$('edel').value.trim();if(!id||!confirm('Delete all clips and the voice profile for '+id+'?'))return;await eapi('delete',{speaker:id});erefresh()};
 $('esavecfg').onclick=async()=>{const r=await eapi('settings',{audio_dir:$('eaudiodir').value,keep_audio_after_enroll:$('ekeep').checked});$('ecfgmsg').textContent=r.ok?' Saved.':' Not saved: '+(r.j.error||'error');if(r.ok)ecfgload()};
-function showAuth(u,hasAccounts){$('enr').hidden=!u;$('enrlogin').hidden=!!u;if(u){$('whoami').textContent='signed in as '+u.name;erefresh();ecfgload()}
-  else if(hasAccounts===false)$('enrlognote').textContent='No login accounts exist yet. On the server run: python -m auth add <name>'}
-async function authInit(){try{const j=await (await fetch('/api/me')).json();showAuth(j.user,j.accounts)}catch(e){}}
-async function dologin(){$('lmsg').textContent='';const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify({username:$('lu').value,password:$('lp').value})});
-  const j=await r.json().catch(()=>({}));if(r.ok){$('lp').value='';authInit()}else $('lmsg').textContent=' '+(j.error||'sign-in failed')}
-$('lbtn').onclick=dologin;$('lp').onkeydown=e=>{if(e.key==='Enter')dologin()};
-$('lout').onclick=async()=>{await fetch('/api/logout',{method:'POST',headers:{'X-Nina-CSRF':'1'}});authInit()};
+let me=null;
+const post=async(p,body)=>{const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify(body)});if(r.status===401){location.replace('/login');return{ok:false,j:{}}}return{ok:r.ok,j:await r.json().catch(()=>({}))}};
+function renderUsers(us){$('ulist').innerHTML='';us.forEach(u=>{const row=document.createElement('div');row.className='row';row.style.cssText='margin:4px 0;justify-content:space-between';
+  row.innerHTML='<span><b></b> <small></small></span><span class="row"></span>';row.querySelector('b').textContent=u.name;row.querySelector('small').textContent=u.role;
+  const act=row.querySelector('.row');
+  const mk=(t,f,cls)=>{const b=document.createElement('button');b.textContent=t;if(cls)b.className=cls;b.style.minHeight='34px';b.style.padding='4px 10px';b.onclick=f;act.appendChild(b)};
+  mk(u.role==='admin'?'Make user':'Make admin',async()=>{const r=await post('/api/users/update',{username:u.name,role:u.role==='admin'?'user':'admin'});if(r.ok)renderUsers(r.j.users);else $('umsg').textContent=' '+(r.j.error||'failed')});
+  mk('Reset password',async()=>{const p=prompt('New password for '+u.name+' (10+ characters):');if(!p)return;const r=await post('/api/users/update',{username:u.name,password:p});$('umsg').textContent=r.ok?' Password reset.':' '+(r.j.error||'failed')});
+  mk('Delete',async()=>{if(!confirm('Delete user '+u.name+'?'))return;const r=await post('/api/users/delete',{username:u.name});if(r.ok)renderUsers(r.j.users);else $('umsg').textContent=' '+(r.j.error||'failed')},'danger');
+  $('ulist').appendChild(row)})}
+async function authInit(){try{const j=await (await fetch('/api/auth/me')).json();if(!j.user){location.replace('/login');return}me=j.user;
+  $('whoami').textContent=me.name;$('acct').textContent='Signed in as '+me.name+' ('+me.role+')';
+  if(me.role==='admin'){$('usr').hidden=false;$('enr').hidden=false;erefresh();ecfgload();const r=await fetch('/api/users');if(r.ok)renderUsers((await r.json()).users)}}catch(e){}}
+$('signout').onclick=async()=>{await fetch('/api/auth/logout',{method:'POST',headers:{'X-Nina-CSRF':'1'}});location.replace('/login')};
+$('nadd').onclick=async()=>{const r=await post('/api/users/add',{username:$('nu').value,password:$('np').value,role:$('nr').value});if(r.ok){$('nu').value=$('np').value='';$('umsg').textContent=' Added.';renderUsers(r.j.users)}else $('umsg').textContent=' '+(r.j.error||'failed')};
+$('pwbtn').onclick=async()=>{const r=await post('/api/auth/password',{current:$('pwcur').value,new:$('pwnew').value});$('pwmsg').textContent=r.ok?' Password changed.':' '+(r.j.error||'failed');if(r.ok)$('pwcur').value=$('pwnew').value=''};
 authInit();
 let vaudio=null;
 $('vplay').onclick=async()=>{const b=$('vplay');b.disabled=true;$('vmsg').textContent=' loading…';

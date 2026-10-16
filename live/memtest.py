@@ -1,7 +1,19 @@
 import asyncio, json, ssl, aiohttp, time, sys
+import os
+
+def _svc_headers():
+    """Server-side scripts authenticate with the service token (live/auth.py)."""
+    try:
+        return {"X-Nina-Service": open(os.path.join(os.path.expanduser(os.environ.get("NINA_AUTH_DIR", "~/.config/nina")), "service_token")).read().strip()}
+    except OSError:
+        return {}
+
+
+_H = _svc_headers()
+
 async def session(lines, waits):
     ctx=ssl.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=ssl.CERT_NONE; t0=time.time()
-    async with aiohttp.ClientSession() as s, s.ws_connect("wss://localhost:8443/ws",ssl=ctx,max_msg_size=1<<24) as ws:
+    async with aiohttp.ClientSession() as s, s.ws_connect("wss://localhost:8443/ws", headers=_H,ssl=ctx,max_msg_size=1<<24) as ws:
         async def rd():
             async for m in ws:
                 if m.type==aiohttp.WSMsgType.TEXT:
