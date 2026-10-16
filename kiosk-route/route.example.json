@@ -1,0 +1,73 @@
+{
+ "id": "example01",
+ "updated": "2026-10-16T22:09:52Z",
+ "selected": 0,
+ "origin": {
+  "lat": 40.7536,
+  "lng": -73.9832,
+  "label": "Start"
+ },
+ "destination": {
+  "lat": 40.7794,
+  "lng": -73.9632,
+  "label": "Example Museum"
+ },
+ "routes": [
+  {
+   "id": "r0",
+   "summary": "Broadway",
+   "duration_s": 1260,
+   "static_duration_s": 840,
+   "distance_m": 5200,
+   "polyline": "_uvwF~ypbMoZjM_g@od@oi@c`@gr@wcA",
+   "steps": [
+    {
+     "instruction": "Head north on 5th Ave",
+     "distance_m": 300
+    },
+    {
+     "instruction": "Turn right onto W 57th St",
+     "distance_m": 900
+    },
+    {
+     "instruction": "Turn left onto Central Park S",
+     "distance_m": 1500
+    },
+    {
+     "instruction": "Continue onto Central Park W",
+     "distance_m": 1800
+    },
+    {
+     "instruction": "Turn right and arrive at the destination",
+     "distance_m": 700
+    }
+   ]
+  },
+  {
+   "id": "r1",
+   "summary": "Madison Ave",
+   "duration_s": 1500,
+   "static_duration_s": 1200,
+   "distance_m": 5900,
+   "polyline": "_uvwF~ypbMnU_l@od@_q@_jA_XgfA_D",
+   "steps": [
+    {
+     "instruction": "Head east on E 42nd St",
+     "distance_m": 800
+    },
+    {
+     "instruction": "Turn left onto Madison Ave",
+     "distance_m": 3400
+    },
+    {
+     "instruction": "Arrive at the destination",
+     "distance_m": 1700
+    }
+   ]
+  }
+ ],
+ "actions": {
+  "close": "action/close",
+  "phone": "action/phone"
+ }
+}

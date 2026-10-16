@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="route.css">
+</head>
+<body>
+<div id="app">
+  <div id="map"></div>
+  <aside id="panel">
+    <header>
+      <div id="dest">No active route</div>
+      <div id="eta-row"><span id="eta"></span><span id="dist"></span></div>
+      <div id="traffic"></div>
+    </header>
+    <nav id="tabs" aria-label="Routes"></nav>
+    <ol id="steps"></ol>
+    <footer>
+      <button id="phone" type="button">Send to phone</button>
+      <button id="close" type="button">Close</button>
+    </footer>
+    <div id="msg" role="status"></div>
+  </aside>
+</div>
+<script src="vendor/leaflet.js"></script>
+<script src="route.js"></script>
+</body>
+</html>
