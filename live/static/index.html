@@ -107,7 +107,7 @@ h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{ba
 const $=id=>document.getElementById(id);
 const utt={};
 function labelSpeaker(d,m){if(d.querySelector('.who'))return;const s=document.createElement('span');s.className='who';
-  if(m.status==='identified'&&m.name){s.textContent=m.name}else if(m.status==='ambiguous'){s.textContent='unsure who';s.classList.add('dim')}else{s.textContent='unknown voice';s.classList.add('dim')}
+  if(m.status==='identified'&&m.name){s.textContent=m.name+': '}else if(m.status==='ambiguous'){s.textContent='(unsure who) ';s.classList.add('dim')}else{s.textContent='(unknown voice) ';s.classList.add('dim')}
   s.title=m.status+' \u00b7 match '+m.score+' \u00b7 margin '+m.margin;d.insertBefore(s,d.firstChild)}
 let engine='LISTENING',mgrState='DORMANT',muted=false,ws,ctx,gain,stream,node,nextT=0,src=new Set(),analyser,running=false;
 const log=(cls,txt)=>{const d=document.createElement('div');d.className='m '+cls;d.textContent=txt;$('log').appendChild(d);$('log').scrollTop=1e9;return d};

@@ -306,6 +306,14 @@ async def weather(http, when="today"):
     return " ".join(out)
 
 
+def compact_location(loc):
+    """'5501 Main St\nSpringfield, VA 22041\nUSA' -> '5501 Main St, Springfield, VA 22041' (one speakable line, no country)."""
+    parts = [p.strip() for p in str(loc or "").replace("\r", "").split("\n") if p.strip()]
+    if parts and parts[-1].upper() in ("USA", "US", "UNITED STATES"):
+        parts.pop()
+    return ", ".join(parts)[:120]
+
+
 async def calendar(http, when="today"):
     import datetime as dt
     when = (when or "today").lower()
@@ -328,7 +336,7 @@ async def calendar(http, when="today"):
                  key=lambda p: (p[0].get("start", {}).get("dateTime") or p[0].get("start", {}).get("date") or ""))
     if not evs:
         return "No events on the calendar for %s." % when
-    lines = []
+    lines, locs = [], []
     for e, _ in evs[:8]:
         s = e.get("start", {})
         when_s = s.get("dateTime", "")
@@ -338,4 +346,10 @@ async def calendar(http, when="today"):
         else:
             when_s = "all day"
         lines.append("%s: %s" % (when_s, e.get("summary", "event")))
-    return "; ".join(lines)
+        loc = compact_location(e.get("location"))
+        if loc:
+            locs.append("%s: %s" % (e.get("summary", "event"), loc))
+    out = "; ".join(lines)
+    if locs:                                       # in the payload for follow-ups, but kept apart so a summary doesn't read addresses out
+        out += " || LOCATIONS (private; say one only if the user asks where an event is): " + "; ".join(locs)
+    return out
