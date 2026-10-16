@@ -37,6 +37,7 @@ def test_calendar_payload_keeps_locations_apart():
     class Http:
         def get(s, *a, **k): return R()
     tools.CALENDARS = ["calendar.x"]
+    tools._hdr = lambda: {}                                                   # no HA token in CI
     out = asyncio.run(tools.calendar(Http(), "today"))
     head, _, locs = out.partition(" || ")
     assert "5501" not in head and head.count(":") >= 2                            # the readable list has no address
