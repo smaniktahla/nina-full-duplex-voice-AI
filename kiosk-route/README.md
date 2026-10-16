@@ -20,7 +20,7 @@ last route and says so. While the document is unchanged nothing is redrawn, so a
 ```
 
 `routes[0]` is the fastest; the rest are alternates. `selected` is the route Needle says is active ("show me the alternate" changes it). The two action
-URLs are opaque capability URLs the page POSTs to (no-cors); whatever hosts the document supplies them, so the page needs no Home Assistant token.
+URLs are POSTed to by the page; a non-2xx answer shows "That didn't go through". Served by `live/kiosk.py` they are relative to a signed link (see that module); a 401/403 on the document shows "This link has expired".
 Tiles are CARTO dark (OpenStreetMap data); Leaflet 1.9.4 is vendored in `vendor/` (BSD-2, licence included).
 
 ## Test

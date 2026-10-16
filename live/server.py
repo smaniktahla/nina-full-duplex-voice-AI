@@ -1097,6 +1097,8 @@ def main():
     app.router.add_get("/api/config", api_config)
     app.router.add_get("/api/voice_sample", api_voice_sample)
     auth.add_routes(app)
+    import kiosk                                                   # signed-link route viewer for the kitchen kiosk, own plain-http listener (opt-in: KIOSK_PORT)
+    kiosk.attach(app, kiosk.Hooks(document=kiosk.file_document(os.path.expanduser("~/.local/share/needle_voice/active_route.json"))))
     try:
         from speaker_id import web as speaker_web                  # enrollment routes; optional, the voice server runs without it
         speaker_web.add_routes(app)
