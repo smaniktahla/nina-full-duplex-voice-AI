@@ -71,7 +71,7 @@ def save_thresholds(d):
     json.dump(d, open(fp, "w"), indent=2); _secure(fp)
 
 
-# ---- settings (edited from the recorder's Settings page) ----
+# ---- settings (edited from the Settings page) ----
 # Voice-sample storage: SPEAKER_AUDIO_DIR seeds the default; a value saved on the Settings page (settings.json) overrides it.
 # Embeddings/profiles always stay under SPEAKER_DIR. Changing the folder does NOT move existing clips.
 DEFAULT_SETTINGS = {"audio_dir": None, "keep_audio_after_enroll": True}
