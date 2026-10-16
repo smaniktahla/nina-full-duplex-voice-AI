@@ -230,6 +230,65 @@ async def _weather_entities(http):
     return w, t_, m
 
 
+_COND = {"rainy": "rain", "pouring": "heavy rain", "partlycloudy": "partly cloudy", "clear-night": "clear", "lightning": "thunderstorms",
+         "lightning-rainy": "thunderstorms with rain", "snowy": "snow", "snowy-rainy": "rain and snow", "exceptional": "unusual weather"}
+
+
+def _usable(st):
+    return bool(st) and st.get("state") not in (None, "", "unknown", "unavailable")
+
+
+def compose_forecast(entries, date):
+    """One spoken sentence from HA twice_daily forecast entries for local date 'YYYY-MM-DD', or None."""
+    day = [e for e in entries if (e.get("datetime") or "")[:10] == date]
+    if not day:
+        return None
+    conds, highs, lows, pops = [], [], [], []
+    for e in day:
+        c = _COND.get(e.get("condition"), e.get("condition"))
+        if c and c not in conds:
+            conds.append(c)
+        if e.get("temperature") is not None:
+            (lows if e.get("is_daytime") is False else highs).append(e["temperature"])
+        if e.get("precipitation_probability") is not None:
+            pops.append(e["precipitation_probability"])
+    bits = [" then ".join(conds)] if conds else []
+    if highs:
+        bits.append("high %d" % max(highs))
+    if lows:
+        bits.append("low %d" % min(lows))
+    if pops and max(pops) >= 20:
+        bits.append("%d percent chance of precipitation" % max(pops))
+    return ", ".join(bits) or None
+
+
+async def _forecast_service(http, ent_w, date):
+    try:
+        async with http.post(HA_URL + "/api/services/weather/get_forecasts?return_response", headers=_hdr(), json={"entity_id": ent_w, "type": "twice_daily"},
+                             timeout=aiohttp.ClientTimeout(total=10)) as r:
+            return compose_forecast((await r.json())["service_response"][ent_w]["forecast"], date)
+    except Exception:
+        return None
+
+
+async def _day_forecast(http, day, primary_state, ent_w, ent_primary):
+    """Forecast text for 'today'|'tomorrow'. The configured sensor first; HA's text sensors can go 'unknown' (e.g. the detailed
+    ones in the evening), so fall back to any other NWS forecast sensor for that day, then HA's own forecast service."""
+    if _usable(primary_state):
+        return primary_state["state"]
+    try:
+        for i in await _states_list(http):
+            if i != ent_primary and i.startswith("sensor.") and day in i and "forecast" in i:
+                st = await _state(http, i)
+                if _usable(st):
+                    return st["state"]
+    except Exception:
+        pass
+    import datetime as dt
+    date = (dt.datetime.now().astimezone().date() + dt.timedelta(days=1 if day == "tomorrow" else 0)).isoformat()
+    return await _forecast_service(http, ent_w, date) or "no forecast available right now"
+
+
 async def weather(http, when="today"):
     """Real NWS data already in HA: current conditions + today/tomorrow text forecasts."""
     when = (when or "today").lower()
@@ -241,9 +300,9 @@ async def weather(http, when="today"):
     out = []
     if "tomorrow" not in when:
         out.append(cur)
-        out.append("Today: " + today.get("state", "unknown"))
+        out.append("Today: " + await _day_forecast(http, "today", today, ent_w, ent_t))
     if "tomorrow" in when or "week" in when or "weekend" in when:
-        out.append("Tomorrow: " + tomorrow.get("state", "unknown"))
+        out.append("Tomorrow: " + await _day_forecast(http, "tomorrow", tomorrow, ent_w, ent_m))
     return " ".join(out)
 
 
