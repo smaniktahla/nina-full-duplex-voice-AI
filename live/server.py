@@ -1013,13 +1013,18 @@ async def on_startup(app):
 
 
 def main():
-    app = web.Application()
+    app = web.Application(client_max_size=20 * 1024 * 1024)      # enrollment clips are uploaded as raw PCM
     app.on_startup.append(on_startup)
     app.router.add_get("/", index)
     app.router.add_get("/favicon.ico", lambda r: web.FileResponse(os.path.join(HERE, "static", "favicon.ico")))
     app.router.add_static("/icons", os.path.join(HERE, "static", "icons"))
     app.router.add_get("/api/config", api_config)
     app.router.add_get("/api/voice_sample", api_voice_sample)
+    try:
+        from speaker_id import web as speaker_web                  # enrollment routes; optional, the voice server runs without it
+        speaker_web.add_routes(app)
+    except Exception as e:                                          # noqa: BLE001
+        log("speaker enrollment routes unavailable:", repr(e)[:100])
     app.router.add_get("/ws", ws_handler)
     ctx = None
     cert, key = os.path.join(HERE, "cert.pem"), os.path.join(HERE, "key.pem")
