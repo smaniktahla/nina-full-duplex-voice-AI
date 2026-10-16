@@ -42,7 +42,7 @@ import responder                                                                
 from needle_voice import random_ops                               # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
 import notes_tool                                              # noqa: E402
-from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search          # noqa: E402
+from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search, nas_archive          # noqa: E402
 
 CFG = dict(
     llama="http://localhost:8080", tick_ms=600, sentinel="~", gate_lo=0.3, gate_hi=0.95,
@@ -58,6 +58,8 @@ LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak natura
              "'@weather today' / '@weather tomorrow' / '@weather week'; the user's calendar -> '@calendar today' / '@calendar tomorrow' / "
              "'@calendar week'; random numbers, coin flips, dice and picking between options -> '@random <the request in plain words>' (a real random-number service answers: NEVER invent a random result yourself). These answer in under a second: NEVER use @search or @hermes for weather, calendar or home questions. "
              "@ha is ONLY for devices, sensors, the time and current weather: never use it for personal facts or general questions. Only if those fail, escalate. For the rest: "
+             "For finding files in the personal archive use @archive <the full search request>. "
+             "Archive returns indexed filenames rather than web results. For document analysis use @hermes. "
              "(a) @search <query> looks something up on the web and returns in a few seconds: use it for anything current or that you "
              "are unsure of (news, prices, recent facts, weather, scores). "
              "(b) @hermes <task> hands a harder job to a deeper-thinking agent that can take 30 seconds to several minutes: use it for "
@@ -72,7 +74,7 @@ LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak natura
              "Pending tasks appear as {pending: #id kind \"task\" ...}. If the user refines, narrows or changes what they want from a pending "
              "task, do NOT start a new tool: say a short acknowledgement then '@revise #<id> <the refinement in your own words>' "
              "(for a search give the full new query). If they drop it (never mind / cancel that), say so then '@cancel #<id>'.")
-TOOL_RE = re.compile(r"@(search|hermes|ha|weather|calendar|random|revise|cancel|remember|forget|notes)\b[:\s]*(.*)$", re.S)
+TOOL_RE = re.compile(r"@(search|archive|hermes|ha|weather|calendar|random|revise|cancel|remember|forget|notes)\b[:\s]*(.*)$", re.S)
 if notes_tool.enabled():
     LIVE_NOTE += notes_tool.PROMPT
 SESSION_LOG = os.environ.get("SESSION_LOG", os.path.expanduser("~/.local/share/needle_voice/sessions.jsonl"))
@@ -462,7 +464,7 @@ class Session:
         async def run():
             try:
                 k, g = j["kind"], j["goal"]
-                res = await (self.notes.finish(g) if k == "notes" else web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
+                res = await (nas_archive(self.http, g) if k == "archive" else self.notes.finish(g) if k == "notes" else web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
                              weather(self.http, g) if k == "weather" else calendar(self.http, g) if k == "calendar" else
                              tools_mod.random_request(self.http, g) if k == "random" else
                              ask_hermes(self.http, self.compose(j)))

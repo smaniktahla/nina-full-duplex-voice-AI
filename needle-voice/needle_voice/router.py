@@ -55,6 +55,7 @@ class IO:
     execute: Callable[[Any], Awaitable[str]]                      # (Plan) -> speech
     passthrough: Callable[[], bool] = lambda: False
     rng: Callable[[str, dict], Awaitable[Any]] | None = None       # (tool, params) -> RNG service JSON, None if unreachable
+    archive_search: Callable[[str], Awaitable[Any]] | None = None
 
 
 @dataclass
@@ -102,6 +103,11 @@ async def handle(text: str, snapshot: dict | None, cfg: RouterConfig, io: IO) ->
         tel["guard"] = g
         if g:
             return hermes(f"guard:{g}")
+        if io.archive_search is not None:
+            archive = await io.archive_search(text)
+            if archive.handled:
+                tel["archive"] = {"status": archive.status.value, **archive.telemetry}
+                return done("archive", archive.speech)
         if not isinstance(snapshot, dict):
             return hermes("no_snapshot")
 

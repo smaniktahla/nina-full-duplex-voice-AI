@@ -373,3 +373,12 @@ async def calendar(http, when="today"):
     if locs:                                       # in the payload for follow-ups, but kept apart so a summary doesn't read addresses out
         out += " || LOCATIONS (private; say one only if the user asks where an event is): " + "; ".join(locs)
     return out
+
+
+async def nas_archive(http, text):
+    """Read-only lookup through Needle's archive domain; never falls through to HA."""
+    from needle_voice.archive_ops import ArchiveAgent
+    result = await ArchiveAgent().handle(text, explicit=True)
+    if not result.handled:
+        return "Please give a filename, topic, artist or year to search in the archive."
+    return result.speech
