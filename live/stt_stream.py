@@ -149,6 +149,7 @@ class StreamingSTT:
                     self.ref = level if self.ref is None else 0.7 * self.ref + 0.3 * level
                 new = hyp[len(self.committed):]
                 self._commit(new)
+                self.final_audio = audio[:-int(0.2 * SR)]                   # the utterance (without the 0.2 s pad) for speaker identification
                 self.on_event("final", " ".join(hyp))
                 self.reset_utt()
             else:
