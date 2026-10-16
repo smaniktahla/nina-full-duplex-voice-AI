@@ -28,7 +28,7 @@ def cmd_enroll(a):
     if len(embs) < 3:
         sys.exit(f"only {len(embs)} usable clips; need >=3 (aim for 30-60 s of varied speech)")
     p = store.save_profile(a.speaker, a.name or a.speaker.capitalize(), a.role, embs)
-    print(f"enrolled {a.speaker}: {p['enrollment_samples']} clips (audio not retained)")
+    print(f"enrolled {a.speaker}: {p['enrollment_samples']} clips")
 
 
 def cmd_list(a):

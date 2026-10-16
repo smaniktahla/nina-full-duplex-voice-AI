@@ -36,7 +36,19 @@ small{color:var(--mut)}
 .num{width:70px;padding:8px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
 #sinfo{color:var(--mut);font-size:.85rem}.navlink{float:right;font-size:.9rem;font-weight:500;color:var(--acc);text-decoration:none;padding:6px 10px;border:1px solid var(--line);border-radius:10px;margin-top:-4px}
 h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{background:var(--bg);padding:1px 5px;border-radius:5px}
-#v-set{display:grid;gap:12px}[hidden]{display:none!important}</style>
+#v-set{display:grid;gap:12px}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.pcard{border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--bg);display:grid;gap:4px}
+.pcard.ready{border-color:var(--ok)}.pcard.todo{border-color:var(--warn)}.pcard.flash{animation:flash 1.6s ease-out}
+.pcard .nm{font-weight:700;font-size:1.05rem}.pcard .badge{display:inline-block;font-size:.72rem;padding:1px 8px;border-radius:99px;color:#fff;margin-left:6px;vertical-align:middle}
+.pcard .badge.ready{background:var(--ok)}.pcard .badge.todo{background:var(--warn)}
+@keyframes flash{0%{box-shadow:0 0 0 4px var(--ok)}100%{box-shadow:0 0 0 0 transparent}}
+.estat{padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-height:3em}
+.estat.rec{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:650;animation:pulse 1s ease-in-out infinite}
+.estat.ok{border-color:var(--ok);color:var(--ok);font-weight:600}.estat.bad{border-color:var(--bad);color:var(--bad);font-weight:600}.estat.info{color:var(--mut)}
+@keyframes pulse{50%{opacity:.72}}
+.emeterwrap{display:flex;align-items:center;gap:10px;margin-top:8px}.emeterwrap .mut{color:var(--mut);font-size:.8rem;min-width:4.5em}
+#emeter{height:14px;border-radius:7px;background:var(--line);overflow:hidden;flex:1}#emeter i{display:block;height:100%;width:0;background:var(--ok);transition:width .08s}[hidden]{display:none!important}</style>
 </head>
 <body>
 <main>
@@ -71,9 +83,13 @@ h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{ba
       <div class="row" style="margin-top:8px"><input id="esp" placeholder="who (lowercase, e.g. alex)" autocapitalize="none" style="width:12em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><select id="erole"><option>adult</option><option>child</option></select><select id="epurpose"><option value="enroll">Enrollment (~40 s)</option><option value="test">Test clips</option></select><select id="econd"><option>normal</option><option>quiet</option><option>far</option><option>noisy</option></select></div>
       <p><small id="etip"></small></p>
       <div id="eprompt" style="font-size:1.1rem;min-height:3em"></div>
-      <div class="row"><button id="eprev">Previous</button><button id="erec" class="primary">Record</button><button id="enext">Next</button><small id="emsg"></small></div>
-      <div id="emeter" style="height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:8px"><i style="display:block;height:100%;width:0;background:var(--ok)"></i></div>
-      <h3 style="margin-top:16px">Saved so far</h3><pre id="ecounts" style="white-space:pre-wrap;font-size:.8rem;margin:0">&hellip;</pre>
+      <div id="estatus" class="estat">Ready. Tick the consent box, enter a name, then press Record and read the phrase aloud.</div>
+      <div class="row" style="margin-top:8px"><button id="eprev">Previous</button><button id="erec" class="primary" style="min-width:9em;font-size:1.05rem">Record</button><button id="enext">Next phrase</button></div>
+      <div class="emeterwrap"><span id="emic" class="mut">mic off</span><div id="emeter"><i></i></div></div>
+      <h3 style="margin-top:16px">Voice profiles</h3><div id="eprofiles" class="pgrid"></div>
+      <h3 style="margin-top:16px">Recordings saved so far</h3><div id="eprog"></div><pre id="ecounts" style="white-space:pre-wrap;font-size:.8rem;margin:0">&hellip;</pre>
+      <div class="row" style="margin-top:8px"><button id="ereview">Review recordings</button><button id="epurge">Remove blank recordings</button><small id="ereviewmsg"></small></div>
+      <div id="eclips"></div>
       <div class="row" style="margin-top:8px"><button id="ebuild" class="primary">Build profile</button><button id="eeval">Evaluate</button><button id="ecal">Evaluate + save thresholds</button></div>
       <pre id="ereport" style="white-space:pre-wrap;font-size:.8rem"></pre>
       <div class="row"><input id="edel" placeholder="id to delete" style="width:10em;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit"><button id="edelbtn" class="danger">Delete person</button></div>
@@ -117,7 +133,7 @@ function play(buf){
 }
 
 async function start(){
-  $('go').disabled=true;
+  $('go').disabled=true;if(typeof eclose==='function')eclose();
   ctx=new (window.AudioContext||window.webkitAudioContext)({latencyHint:'interactive'});await ctx.resume();
   gain=ctx.createGain();gain.connect(ctx.destination);
   try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true,channelCount:1}})}
@@ -190,43 +206,105 @@ const setMute=v=>{muted=v;$('mute').textContent=v?'Unmute':'Mute';$('mute').clas
 $('mute').onclick=()=>setMute(!muted);
 document.addEventListener('keydown',e=>{if(e.key==='m'&&document.activeElement.tagName!=='INPUT'&&running)setMute(!muted)});
 $('sens').oninput=()=>{store.set('sens',$('sens').value);$('sensv').textContent=(+$('sens').value).toFixed(2);ws&&ws.readyState===1&&ws.send(JSON.stringify({t:'sens',v:+$('sens').value}))};
-function view(){const s=location.hash==='#settings';
+function view(){const s=location.hash==='#settings';if(!s&&typeof eclose==='function')eclose();
   $('v-set').hidden=!s;$('toback').hidden=!s;$('tosettings').hidden=s;
   ['v-main-controls','v-sens','v-live','v-log','hint'].forEach(i=>{const e=$(i);if(e)e.hidden=s})}
 addEventListener('hashchange',view);
 const EP=['What time is it, and what’s the weather going to be like today?','Turn on the living room lights.','Can you tell me how big Jupiter is?','Stop. Wait, never mind, go ahead.','Please add milk, eggs, and a loaf of bread to the shopping list.','Set a timer for ten minutes.','Who won the game last night, and what time does the next one start?','Nina, what’s on my calendar tomorrow afternoon?','The quick brown fox jumps over the lazy dog.','How many days are left until the weekend?','Good morning! Did you sleep well? I think it might rain later.','Tell me a short story about a very sleepy dragon.'];
 const ETIPS={normal:"Normal voice, about an arm's length from the mic.",quiet:'Speak softly, as if someone is sleeping nearby.',far:'Stand 2–3 metres from the mic, as in a real room.',noisy:'With the TV or music on at ordinary volume.'};
-let ei=0,ectx,estream,eproc,echunks=[],erecording=false;
+let emax=0,ei=0,ectx,estream,eproc,eanalyser,echunks=[],erecording=false,etimer=null,et0=0,esaving=false;
 const eshow=()=>{$('eprompt').textContent=EP[ei%EP.length];$('etip').textContent=ETIPS[$('econd').value]};
-$('econd').onchange=eshow;$('eprev').onclick=()=>{ei=(ei+EP.length-1)%EP.length;eshow()};$('enext').onclick=()=>{ei++;eshow()};eshow();
-const eapi=async(p,body)=>{const r=await fetch('/api/speakers/'+p,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify(body)});if(r.status===401)location.replace('/login');return{ok:r.ok,j:await r.json().catch(()=>({}))}};
+const enorm=s=>s.trim().toLowerCase().replace(/[^a-z0-9]+/g,'_').replace(/^_+|_+$/g,'').slice(0,24);
+function estat(kind,text){const e=$('estatus');e.className='estat '+kind;e.textContent=text}
+const efmt=s=>Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');
+function eadvance(d){ei=(ei+d+EP.length)%EP.length;eshow()}
+$('econd').onchange=eshow;eshow();
+const eapi=async(p,body)=>{const r=await fetch('/api/speakers/'+p,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify(body)});if(r.status===401)location.replace('/login');const t=await r.text();let j={};try{j=JSON.parse(t)}catch(e){j={error:t||('HTTP '+r.status)}}return{ok:r.ok,j}};
+let lastBuilt=null;
+function renderProfiles(j){const box=$('eprofiles');box.innerHTML='';const have=new Set(j.profiles.map(p=>p.speaker_id));const sec=j.seconds||{};
+  j.profiles.forEach(p=>{const c=document.createElement('div');c.className='pcard ready'+(p.speaker_id===lastBuilt?' flash':'');
+    const when=p.updated?new Date(p.updated*1000).toLocaleString([],{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'unknown';
+    c.innerHTML='<div><span class="nm"></span><span class="badge ready">ready</span></div><small class="meta"></small><small class="when"></small><div class="row" style="margin-top:6px"></div>';
+    c.querySelector('.nm').textContent=p.display_name||p.speaker_id;
+    c.querySelector('.meta').textContent=p.role+' \u00b7 '+p.enrollment_samples+' voice samples \u00b7 '+p.embedding_model+(p.enabled===false?' \u00b7 disabled':'');
+    c.querySelector('.when').textContent='built '+when;
+    const act=c.querySelector('.row');
+    const mk=(t,f,cls)=>{const b=document.createElement('button');b.textContent=t;if(cls)b.className=cls;b.style.cssText='min-height:30px;padding:2px 10px;font-size:.85rem';b.onclick=f;act.appendChild(b)};
+    mk('Rebuild',async()=>{$('esp').value=p.speaker_id;$('erole').value=p.role;$('ebuild').click()});
+    mk('Delete',async()=>{if(!confirm('Delete the voice profile and all recordings for '+p.speaker_id+'?'))return;await eapi('delete',{speaker:p.speaker_id});erefresh()},'danger');
+    box.appendChild(c)});
+  Object.keys(sec).filter(s=>!have.has(s)).forEach(s=>{const c=document.createElement('div');c.className='pcard todo';
+    c.innerHTML='<div><span class="nm"></span><span class="badge todo">no profile yet</span></div><small class="meta"></small><div class="row" style="margin-top:6px"></div>';
+    c.querySelector('.nm').textContent=s;c.querySelector('.meta').textContent=Math.round(sec[s].enroll||0)+' s of enrollment recorded (about 40 s is a good start)';
+    const b=document.createElement('button');b.textContent='Build profile';b.className='primary';b.style.cssText='min-height:30px;padding:2px 10px;font-size:.85rem';b.onclick=()=>{$('esp').value=s;$('ebuild').click()};c.querySelector('.row').appendChild(b);box.appendChild(c)});
+  if(!box.children.length)box.innerHTML='<small>No voice profiles yet. Record about 40 seconds of enrollment for each person, then press Build profile.</small>'}
 async function erefresh(){try{const j=await (await fetch('/api/speakers/status')).json();
-  $('ecounts').textContent=(Object.entries(j.counts).map(([s,v])=>s+': '+Object.entries(v).map(([k,n])=>k+' x'+n).join(', ')).join('\n')||'(no clips yet)')+'\n\nprofiles: '+(j.profiles.map(p=>p.speaker_id+' ('+p.role+', '+p.enrollment_samples+' clips)').join('; ')||'none')}catch(e){$('ecounts').textContent='enrollment unavailable'}}
+  $('ecounts').textContent=(Object.entries(j.counts).map(([s,v])=>s+': '+Object.entries(v).map(([k,n])=>k+' x'+n).join(', ')).join('\n')||'(no clips yet)')+'\n\nprofiles: '+(j.profiles.map(p=>p.speaker_id+' ('+p.role+', '+p.enrollment_samples+' clips)').join('; ')||'none');
+  renderProfiles(j);const sec=j.seconds||{};$('eprog').innerHTML=Object.keys(sec).map(s=>{const e=Math.round(sec[s].enroll||0),t=Math.round(sec[s].test||0),pct=Math.min(100,e/40*100);
+    return '<div style="margin:4px 0"><b>'+s+'</b> <small>enrollment '+e+' s of ~40 s'+(t?' \u00b7 test '+t+' s':'')+'</small><div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden"><i style="display:block;height:100%;width:'+pct+'%;background:'+(e>=40?'var(--ok)':'var(--acc)')+'"></i></div></div>'}).join('')}catch(e){$('ecounts').textContent='enrollment unavailable'}}
 async function ecfgload(){try{const j=await (await fetch('/api/speakers/settings')).json();$('eaudiodir').value=j.audio_dir_source==='settings'?j.audio_dir:'';$('eaudiodir').placeholder=j.audio_dir;$('esrc').textContent='In use: '+j.audio_dir+' (from '+j.audio_dir_source+'). Profiles are stored in '+j.profile_dir+'.';$('ekeep').checked=j.keep_audio_after_enroll}catch(e){}}
 function edown(buf,from,to){const r=from/to,n=Math.floor(buf.length/r),o=new Int16Array(n);for(let k=0;k<n;k++){const a=Math.floor(k*r),b=Math.min(buf.length,Math.floor((k+1)*r));let s=0;for(let j=a;j<b;j++)s+=buf[j];o[k]=Math.max(-1,Math.min(1,s/Math.max(1,b-a)))*32767}return o}
-async function etoggle(){
-  const sp=$('esp').value.trim();
-  if(running){$('emsg').textContent='End the conversation first (the microphone is in use).';return}
-  if(!$('econsent').checked){$('emsg').textContent='Please tick the consent box first.';return}
-  if(!/^[a-z0-9_]{1,24}$/.test(sp)){$('emsg').textContent='Use lowercase letters/digits for the name.';return}
-  if(!erecording){
-    try{if(!ectx){estream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
-      ectx=new AudioContext();const s=ectx.createMediaStreamSource(estream);eproc=ectx.createScriptProcessor(4096,1,1);
-      eproc.onaudioprocess=e=>{if(!erecording)return;const d=e.inputBuffer.getChannelData(0);echunks.push(new Float32Array(d));let q=0;for(const v of d)q+=v*v;$('emeter').firstElementChild.style.width=Math.min(100,Math.sqrt(q/d.length)*400)+'%'};
-      s.connect(eproc);eproc.connect(ectx.destination)}}catch(e){$('emsg').textContent='Microphone blocked: '+e.message;return}
-    await ectx.resume();echunks=[];erecording=true;$('erec').textContent='Stop';$('erec').className='danger';$('emsg').textContent='Recording…';return}
-  erecording=false;$('erec').textContent='Record';$('erec').className='primary';$('emeter').firstElementChild.style.width='0';
-  if(ectx)ectx.suspend();
+async function eopen(){
+  if(estream)return true;
+  try{estream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,channelCount:1}});
+    ectx=new AudioContext();const s=ectx.createMediaStreamSource(estream);eanalyser=ectx.createAnalyser();eanalyser.fftSize=512;
+    eproc=ectx.createScriptProcessor(4096,1,1);eproc.onaudioprocess=e=>{if(erecording){const d=new Float32Array(e.inputBuffer.getChannelData(0));echunks.push(d);for(let i=0;i<d.length;i+=16)if(Math.abs(d[i])>emax)emax=Math.abs(d[i])}};
+    s.connect(eanalyser);s.connect(eproc);eproc.connect(ectx.destination);$('emic').textContent='mic live';$('emic').className='';eloop();return true}
+  catch(e){estream=null;estat('bad','Microphone blocked or unavailable: '+e.message+(isSecureContext?'':' (this page needs https)'));return false}}
+function eclose(){if(erecording){erecording=false;clearInterval(etimer)}try{estream&&estream.getTracks().forEach(t=>t.stop())}catch(e){}try{ectx&&ectx.close()}catch(e){}
+  estream=ectx=eproc=eanalyser=null;$('emic').textContent='mic off';$('emic').className='mut';$('emeter').firstElementChild.style.width='0';$('erec').textContent='Record';$('erec').className='primary'}
+function eloop(){const buf=new Uint8Array(512);(function f(){if(!eanalyser)return;eanalyser.getByteTimeDomainData(buf);let m=0;for(const v of buf)m=Math.max(m,Math.abs(v-128));
+  $('emeter').firstElementChild.style.width=Math.min(100,m*1.6)+'%';requestAnimationFrame(f)})()}
+function echeck(){
+  if(running){estat('bad','End the conversation first: the microphone is in use.');return null}
+  if(!$('econsent').checked){estat('bad','Please tick the consent box first.');return null}
+  const sp=enorm($('esp').value);$('esp').value=sp;
+  if(!sp){estat('bad','Enter the name of the person being recorded.');return null}
+  return sp}
+async function estart(){
+  const sp=echeck();if(!sp||esaving)return;
+  if(!await eopen())return;
+  await ectx.resume();echunks=[];emax=0;erecording=true;et0=Date.now();
+  $('erec').textContent='\u25a0 Stop & save';$('erec').className='danger';
+  const tick=()=>estat('rec','\u25cf RECORDING '+sp+'  '+efmt((Date.now()-et0)/1000)+'  \u2014 read the phrase, then press Stop (or Next phrase)'+((Date.now()-et0>2500&&emax<0.01)?'   \u26a0 NO SOUND from the microphone yet':''));tick();etimer=setInterval(tick,250)}
+async function estop(){
+  if(!erecording)return true;
+  const sp=enorm($('esp').value);erecording=false;clearInterval(etimer);esaving=true;
+  $('erec').textContent='Record';$('erec').className='primary';
   const n=echunks.reduce((a,c)=>a+c.length,0),all=new Float32Array(n);let o=0;for(const c of echunks){all.set(c,o);o+=c.length}
+  const secs=n/ectx.sampleRate;
+  if(secs<0.8){estat('bad','That was only '+secs.toFixed(1)+' s: nothing saved. Press Record, speak the whole phrase, then Stop.');esaving=false;return false}
+  estat('info','Saving\u2026');
   const pcm=edown(all,ectx.sampleRate,16000);
-  const r=await fetch('/api/speakers/clip?speaker='+sp+'&purpose='+$('epurpose').value+'&condition='+$('econd').value,{method:'POST',headers:{'X-Nina-CSRF':'1'},body:pcm.buffer});
-  if(r.status===401)location.replace('/login');
-  if(r.ok){const j=await r.json();$('emsg').textContent='Saved '+j.seconds+'s ('+(j.voiced_ms/1000).toFixed(1)+'s of speech). Next prompt…';ei++;eshow();erefresh()}else $('emsg').textContent='Not saved: '+await r.text()}
-$('erec').onclick=etoggle;
-$('ebuild').onclick=async()=>{$('ereport').textContent='Building profile (a few seconds)…';const r=await eapi('enroll',{speaker:$('esp').value.trim(),role:$('erole').value});$('ereport').textContent=r.ok?'Profile built. '+(r.j.message||''):'Failed: '+(r.j.error||'error');erefresh()};
+  try{const r=await fetch('/api/speakers/clip?speaker='+sp+'&purpose='+$('epurpose').value+'&condition='+$('econd').value,{method:'POST',headers:{'X-Nina-CSRF':'1'},body:pcm.buffer});
+    if(r.status===401)location.replace('/login');
+    if(r.ok){const j=await r.json();const quiet=j.voiced_ms<1000;
+      estat(quiet?'bad':'ok',(quiet?'\u26a0 Saved, but only '+(j.voiced_ms/1000).toFixed(1)+' s of speech was detected: check the meter moves when speaking. ':'\u2713 Saved '+j.seconds+' s ('+(j.voiced_ms/1000).toFixed(1)+' s of speech) for '+sp+'. ')+'Press Record for the next phrase.');
+      erefresh();esaving=false;return true}
+    {const t=await r.text();let m=t;try{m=JSON.parse(t).error||t}catch(e){}estat('bad','\u26a0 Not saved: '+m)}}catch(e){estat('bad','Not saved: '+e.message)}
+  esaving=false;return false}
+async function ereview(){
+  const r=await eapi('clips');const box=$('eclips');box.innerHTML='';if(!r.ok){$('ereviewmsg').textContent=' '+(r.j.error||'failed');return}
+  const cs=r.j.clips||[];$('ereviewmsg').textContent=' '+cs.length+' recording(s), '+cs.filter(c=>c.blank).length+' blank';
+  cs.forEach(c=>{const row=document.createElement('div');row.className='row';row.style.cssText='margin:3px 0;font-size:.85rem;justify-content:space-between';
+    const lab=document.createElement('span');lab.innerHTML='<b></b> <small></small>';lab.querySelector('b').textContent=c.speaker;
+    lab.querySelector('small').textContent=c.purpose+'/'+c.condition+' \u00b7 '+c.seconds+' s \u00b7 '+(c.voiced_ms/1000).toFixed(1)+' s speech \u00b7 '+c.level_db+' dB';
+    if(c.blank){const t=document.createElement('span');t.textContent=' BLANK';t.style.cssText='color:var(--bad);font-weight:700';lab.appendChild(t)}
+    const act=document.createElement('span');act.className='row';
+    const q=new URLSearchParams({speaker:c.speaker,purpose:c.purpose,condition:c.condition,file:c.file});
+    const play=document.createElement('button');play.textContent='\u25b6';play.style.cssText='min-height:30px;padding:2px 10px';play.onclick=()=>{new Audio('/api/speakers/clips/audio?'+q).play()};
+    const del=document.createElement('button');del.textContent='Delete';del.className='danger';del.style.cssText='min-height:30px;padding:2px 10px';
+    del.onclick=async()=>{await eapi('clips/delete',{speaker:c.speaker,purpose:c.purpose,condition:c.condition,file:c.file});erefresh();ereview()};
+    act.append(play,del);row.append(lab,act);box.appendChild(row)})}
+$('ereview').onclick=ereview;
+$('epurge').onclick=async()=>{const r=await eapi('clips/purge_blank',{});$('ereviewmsg').textContent=r.ok?' Removed '+r.j.removed+' blank recording(s).':' '+(r.j.error||'failed');erefresh();if($('eclips').children.length)ereview()};
+$('erec').onclick=()=>erecording?estop().then(ok=>{if(ok)eadvance(1)}):estart();
+$('enext').onclick=async()=>{if(erecording){const ok=await estop();if(ok)eadvance(1)}else eadvance(1)};
+$('eprev').onclick=async()=>{if(erecording)await estop();eadvance(-1)};
+$('ebuild').onclick=async()=>{$('ereport').textContent='Building profile (a few seconds)…';const sp=enorm($('esp').value);$('esp').value=sp;if(!sp){$('ereport').textContent='Enter the name first.';return}const r=await eapi('enroll',{speaker:sp,role:$('erole').value});$('ereport').textContent=r.ok?'\u2713 Profile built for '+sp+'. '+(r.j.message||''):'Failed: '+(r.j.error||'error');if(r.ok){lastBuilt=sp;estat('ok','\u2713 Voice profile for '+sp+' is ready (see Voice profiles below).')}erefresh()};
 $('eeval').onclick=async()=>{$('ereport').textContent='Evaluating (can take a minute)…';const r=await eapi('eval',{write:false});$('ereport').textContent=r.j.report||'Failed'};
 $('ecal').onclick=async()=>{if(!confirm('Save these thresholds for Nina to use?'))return;$('ereport').textContent='Evaluating…';const r=await eapi('eval',{write:true});$('ereport').textContent=r.j.report||'Failed'};
-$('edelbtn').onclick=async()=>{const id=$('edel').value.trim();if(!id||!confirm('Delete all clips and the voice profile for '+id+'?'))return;await eapi('delete',{speaker:id});erefresh()};
+$('edelbtn').onclick=async()=>{const id=enorm($('edel').value);if(!id||!confirm('Delete all clips and the voice profile for '+id+'?'))return;await eapi('delete',{speaker:id});erefresh()};
 $('esavecfg').onclick=async()=>{const r=await eapi('settings',{audio_dir:$('eaudiodir').value,keep_audio_after_enroll:$('ekeep').checked});$('ecfgmsg').textContent=r.ok?' Saved.':' Not saved: '+(r.j.error||'error');if(r.ok)ecfgload()};
 let me=null;
 const post=async(p,body)=>{const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json','X-Nina-CSRF':'1'},body:JSON.stringify(body)});if(r.status===401){location.replace('/login');return{ok:false,j:{}}}return{ok:r.ok,j:await r.json().catch(()=>({}))}};

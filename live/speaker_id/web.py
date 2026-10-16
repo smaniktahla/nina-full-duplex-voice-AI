@@ -53,8 +53,27 @@ async def _cli(*args, timeout=600):
     return p.returncode, text.strip()
 
 
+def seconds():
+    out = {}
+    for f in glob.glob(audio_dir("*", "*", "*", "*.wav")):
+        sp, purpose = f.split(os.sep)[-4], f.split(os.sep)[-3]
+        try:
+            with wave.open(f) as w:
+                out.setdefault(sp, {}).setdefault(purpose, 0.0)
+                out[sp][purpose] += w.getnframes() / w.getframerate()
+        except Exception:
+            pass
+    return out
+
+
 async def status(_):
-    return web.json_response({"counts": counts(), "profiles": store.list_profiles(), "conditions": CONDITIONS})
+    profiles = store.list_profiles()
+    for p in profiles:                                          # when the voiceprint was last built (older profiles have no "created")
+        try:
+            p["updated"] = int(os.path.getmtime(store._p("embeddings", p["speaker_id"] + ".npy")))
+        except OSError:
+            p["updated"] = p.get("created")
+    return web.json_response({"counts": counts(), "seconds": seconds(), "profiles": profiles, "conditions": CONDITIONS})
 
 
 async def clip(req):
@@ -65,6 +84,10 @@ async def clip(req):
     pcm = np.frombuffer(await req.read(), dtype=np.int16)
     if len(pcm) < 16000 * 0.8:
         raise web.HTTPBadRequest(text="clip too short")
+    q = embed.clip_quality(embed.to_float(pcm))
+    if q["blank"]:
+        return web.json_response({"ok": False, "blank": True, "quality": q, "error": "No speech was detected in that recording, so it was not saved. "
+                                  "Check that the microphone is not muted and the level meter moves when you speak."}, status=422)
     d = audio_dir(sp, purpose, cond)
     os.makedirs(d, exist_ok=True)
     for p in (store.ROOT, audio_dir(), audio_dir(sp), audio_dir(sp, purpose), d):
@@ -73,8 +96,7 @@ async def clip(req):
     with wave.open(fp, "wb") as w:
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(16000); w.writeframes(pcm.tobytes())
     os.chmod(fp, 0o600)
-    return web.json_response({"ok": True, "seconds": round(len(pcm) / 16000, 1),
-                              "voiced_ms": embed.voiced_ms(embed.to_float(pcm))})
+    return web.json_response({"ok": True, "seconds": round(len(pcm) / 16000, 1), "voiced_ms": q["voiced_ms"], "quality": q})
 
 
 async def enroll(req):
@@ -130,10 +152,80 @@ async def put_settings(req):
     return web.json_response({"ok": True, **settings_view()})
 
 
+# ---- reviewing / deleting individual clips ----
+FILE_RE = re.compile(r"^\d+_[0-9a-f]{4}\.wav$")
+_qcache = {}
+
+
+def _clip_path(sp, purpose, cond, name):
+    if not (SAFE.match(sp or "") and purpose in PURPOSES and cond in CONDITIONS and FILE_RE.match(name or "")):
+        raise web.HTTPBadRequest(text="bad clip reference")
+    return audio_dir(sp, purpose, cond, name)
+
+
+def _quality(path):
+    key = (path, os.path.getmtime(path))
+    if key not in _qcache:
+        with wave.open(path) as w:
+            pcm = np.frombuffer(w.readframes(w.getnframes()), dtype=np.int16)
+            secs = w.getnframes() / w.getframerate()
+        _qcache[key] = dict(embed.clip_quality(embed.to_float(pcm)), seconds=round(secs, 1))
+    return _qcache[key]
+
+
+def list_clips():
+    out = []
+    for f in sorted(glob.glob(audio_dir("*", "*", "*", "*.wav"))):
+        parts = f.split(os.sep)
+        sp, purpose, cond, name = parts[-4], parts[-3], parts[-2], parts[-1]
+        if not (SAFE.match(sp) and purpose in PURPOSES and cond in CONDITIONS and FILE_RE.match(name)):
+            continue
+        try:
+            out.append(dict(speaker=sp, purpose=purpose, condition=cond, file=name, **_quality(f)))
+        except Exception:
+            out.append(dict(speaker=sp, purpose=purpose, condition=cond, file=name, seconds=0, voiced_ms=0, level_db=-120.0, floor_db=-120.0, blank=True))
+    return out
+
+
+async def clips(_):
+    return web.json_response({"clips": list_clips()})
+
+
+async def clip_audio(req):
+    q = req.query
+    p = _clip_path(q.get("speaker"), q.get("purpose"), q.get("condition"), q.get("file"))
+    if not os.path.exists(p):
+        raise web.HTTPNotFound()
+    return web.FileResponse(p, headers={"Content-Type": "audio/wav", "Cache-Control": "no-store"})
+
+
+async def clip_delete(req):
+    b = await req.json()
+    p = _clip_path(b.get("speaker"), b.get("purpose"), b.get("condition"), b.get("file"))
+    if os.path.exists(p):
+        os.remove(p)
+    return web.json_response({"ok": True})
+
+
+async def purge_blank(req):
+    n = 0
+    for c in list_clips():
+        if c["blank"]:
+            p = _clip_path(c["speaker"], c["purpose"], c["condition"], c["file"])
+            if os.path.exists(p):
+                os.remove(p)
+                n += 1
+    return web.json_response({"ok": True, "removed": n})
+
+
 def add_routes(app, prefix="/api/speakers"):
     store.init()
     app.router.add_get(prefix + "/status", status)
     app.router.add_post(prefix + "/clip", clip)
+    app.router.add_get(prefix + "/clips", clips)
+    app.router.add_get(prefix + "/clips/audio", clip_audio)
+    app.router.add_post(prefix + "/clips/delete", clip_delete)
+    app.router.add_post(prefix + "/clips/purge_blank", purge_blank)
     app.router.add_post(prefix + "/enroll", enroll)
     app.router.add_post(prefix + "/eval", evaluate)
     app.router.add_post(prefix + "/delete", delete)
