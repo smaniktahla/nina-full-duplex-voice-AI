@@ -94,8 +94,8 @@
     var url = doc && doc.actions && doc.actions[name];
     if (!url) return;
     btn.disabled = true; msg(name === "close" ? "Closing…" : "Sending…");
-    fetch(url, { method: "POST", mode: "no-cors", keepalive: true })
-      .then(function () { msg(name === "close" ? "" : "Sent. Check your phone."); })
+    fetch(url, { method: "POST", keepalive: true })           // same origin as the page, so the real result is readable
+      .then(function (r) { if (!r.ok) throw new Error("http " + r.status); msg(name === "close" ? "" : "Sent. Check your phone."); })
       .catch(function () { msg("That didn't go through."); })
       .then(function () { btn.disabled = false; });
   }
@@ -104,6 +104,7 @@
 
   function poll() {
     fetch(SRC, { cache: "no-store" }).then(function (r) {
+      if (r.status === 401 || r.status === 403) { var e = new Error("expired"); e.expired = true; throw e; }
       if (r.status === 404 || r.status === 204) return null;
       if (!r.ok) throw new Error("http " + r.status);
       return r.text().then(function (t) { return t.trim() ? JSON.parse(t) : null; });
@@ -113,7 +114,9 @@
       lastKey = key; doc = d;
       selected = d && typeof d.selected === "number" ? d.selected : 0;
       if (d) { msg(""); render(); } else renderEmpty();
-    }).catch(function () { msg("Can't reach the route service. Showing the last route."); });
+    }).catch(function (e) {
+      msg(e && e.expired ? "This link has expired. Ask Nina to show the route again." : "Can't reach the route service. Showing the last route.");
+    });
   }
   poll(); setInterval(poll, POLL_MS);
   window.__routeViewer = { render: render, state: function () { return { doc: doc, selected: selected }; } };   // test hook

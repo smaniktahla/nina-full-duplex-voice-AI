@@ -59,6 +59,10 @@ with sync_playwright() as p:
     # 6. route removed -> empty again
     os.remove(os.path.join(tmp, "route.json")); pg.wait_for_function("document.getElementById('dest').textContent==='No active route'", timeout=5000)
     check("route removed -> empty state", pg.is_disabled("#close"))
+    # 6b. an expired signed link (401) says so, and keeps the route
+    put(doc); pg.wait_for_function("document.getElementById('dest').textContent==='Example Museum'", timeout=5000)
+    pg.route("**/route.json*", lambda r: r.fulfill(status=401, body="expired")); pg.wait_for_function("document.getElementById('msg').textContent.includes('expired')", timeout=6000)
+    check("expired link is reported and the route stays", pg.inner_text("#dest") == "Example Museum"); pg.unroute("**/route.json*")
     # 7. server error keeps last route and says so
     put(doc); pg.wait_for_function("document.getElementById('dest').textContent==='Example Museum'", timeout=5000)
     srv.shutdown(); srv.server_close(); pg.wait_for_function("document.getElementById('msg').textContent.includes('Showing the last route')", timeout=6000)
