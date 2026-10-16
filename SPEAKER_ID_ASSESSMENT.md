@@ -1,6 +1,8 @@
 # Nina speaker recognition: Phase 0 architecture assessment (2026-10-15)
 
-Status: inspection only. No production change, no restart, nothing installed.
+> **Status update 2026-10-16:** Phase 1 is done and in use (enrollment, calibrated identification, Settings UI, blank-clip handling) and transcript labels are live (display only). Phase 2 (per-speaker sessions in Needle) has **not** started. The "open decisions" below were answered by doing the work; current state, data locations, measurements and limits are in `PIPELINE.md` section 16.
+
+Status when written (2026-10-15): inspection only. No production change, no restart, nothing installed.
 
 ## 1. What is actually deployed (differs from the brief)
 
