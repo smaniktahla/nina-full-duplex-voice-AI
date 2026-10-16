@@ -31,7 +31,49 @@ PROMPT = ("\nNOTES (only when the user asks you to take notes, write down / reco
           "write '@notes start notes <title if they gave one>' (or '@notes start transcript <title>' if they said transcript). While recording, "
           "if the user states something to put in the notes, '@notes add <it>'. When they say stop / that's enough notes / save it, say a short "
           "acknowledgement and write '@notes stop <title if given>'; the result is spoken back to you. '@notes cancel' discards. Never start "
-          "recording on your own, and tell the user when you do.")
+          "recording on your own, and tell the user when you do. Spoken commands such as \"take notes\", \"write down the following\" and \"write that down\" are handled automatically by the system, so do not answer or tag them yourself.")
+
+
+# ---------------------------------------------------------------- voice commands (deterministic: the code decides, not the model)
+_DOCMOST = r"(?:doc\s*-?\s*most|dock\s*most|docs?\s*most|dark\s*most)"
+_NOTE = r"(?:notes?|dictation|transcript|recording|%s)" % _DOCMOST
+START_RE = re.compile(
+    r"\b(?:write|jot|put|take|type)\s+down\s+(?:the\s+following|what\s+i\s+(?:say|tell)|this|a\s+note)\b"
+    r"|\b(?:write|jot|put|type)\s+(?:this|the\s+following|what\s+i\s+say)\s+down\b"
+    r"|\b(?:take|start|begin|open|make|create)\s+(?:a\s+|some\s+|new\s+)*(?:notes?|dictation|transcript)\b"
+    r"|\b(?:start|begin|keep)\s+(?:taking|writing|making)\s+(?:a\s+|some\s+)?(?:notes?|transcript)\b"
+    r"|\b(?:i\s+(?:want|need)\s+to\s+dictate|let'?s\s+dictate|dictate\s+(?:a\s+)?note)\b", re.I)
+FINISH_RE = re.compile(
+    r"\b(?:write|save|put|add|type|send|file|record)\b[^.?!]{0,30}\b(?:that|this|it|all\s+(?:of\s+)?(?:that|this|it)|everything|the\s+notes?|the\s+transcript)\b[^.?!]{0,30}\b(?:down|in|into|to|on|up)\b"
+    r"|\b(?:save|finish|finali[sz]e|wrap\s+up|close|end|stop|complete|create|make|write)\b[^.?!]{0,25}\b(?:the\s+|my\s+|these\s+|a\s+)?(?:notes?|dictation|transcript|recording)\b"
+    r"|^(?:ok(?:ay)?[, ]+|alright[, ]+|and\s+)?(?:that'?s\s+(?:all|it|everything)|i'?m\s+(?:done|finished)|(?:we'?re\s+)?(?:done|finished)|that\s+is\s+all)\W*$", re.I)
+CANCEL_RE = re.compile(r"\b(?:cancel|discard|throw\s+away|scrap|delete|forget)\b[^.?!]{0,20}\b(?:the\s+|those\s+|my\s+|these\s+)?(?:notes?|dictation|transcript|recording)\b", re.I)
+NOTE_WORDS_RE = re.compile(r"\b(?:notes?|%s)\b" % _DOCMOST, re.I)
+TITLE_RE = re.compile(r"\b(?:call|name|title)\s+(?:it|the\s+notes?|this)\s+[\"']?(.{3,80}?)[\"']?\W*$", re.I)
+
+
+def voice_command(text: str, recording: bool):
+    """Spoken commands for dictation/notes. -> None | ('start', mode, title) | ('finish', title) | ('cancel', '') | ('not_recording', '').
+    Only short utterances count (a long sentence that merely mentions saving notes is content, not a command)."""
+    t = " ".join((text or "").lower().replace("-", " ").split())
+    words = len(t.split())
+    if not t:
+        return None
+    title = ""
+    mt = TITLE_RE.search(text or "")
+    if mt:
+        title = clean_title(mt.group(1))
+    if recording:
+        if words <= 12 and CANCEL_RE.search(t):
+            return ("cancel", "")
+        if words <= 14 and FINISH_RE.search(t):
+            return ("finish", title)
+        return None
+    if words <= 16 and START_RE.search(t):
+        return ("start", "transcript" if re.search(r"\b(transcript|verbatim|word\s+for\s+word)\b", t) else "notes", title)
+    if words <= 14 and FINISH_RE.search(t) and NOTE_WORDS_RE.search(t):
+        return ("not_recording", "")
+    return None
 
 
 def enabled() -> bool:
@@ -78,10 +120,13 @@ class Recording:
     turns: list = field(default_factory=list)            # (epoch seconds, who, text)
     points: list = field(default_factory=list)           # explicit "@notes add" points
     path: str = ""
+    dictating: bool = False                              # started by voice: Nina stays quiet and just listens
+    last_heard: float = field(default_factory=time.time)  # last dictated sentence (a long silence ends the dictation's hold on the session)
+    frozen: bool = False                                 # finish was commanded: nothing more is added (not even the command itself)
 
     def add(self, who: str, text: str):
         text = (text or "").strip()
-        if not text:
+        if not text or self.frozen:
             return
         if self.turns and self.turns[-1][1] == who and self.turns[-1][2] == text:
             return
@@ -89,6 +134,8 @@ class Recording:
         self._flush({"t": self.turns[-1][0], "who": who, "text": text})
 
     def add_point(self, text: str):
+        if self.frozen:
+            return
         self.points.append(text.strip())
         self._flush({"t": time.time(), "who": "note", "text": text.strip()})
 
@@ -153,6 +200,31 @@ class NotesTool:
 
     def active(self) -> bool:
         return self.rec is not None
+
+    def dictating(self) -> bool:
+        return self.rec is not None and self.rec.dictating and not self.rec.frozen
+
+    def holding(self, silence_s: float = 300.0) -> bool:
+        """True while a dictation should keep the conversation open: speech within the last few minutes."""
+        return self.dictating() and time.time() - self.rec.last_heard < silence_s
+
+    def dictate(self, text: str):
+        """One finished utterance said while dictating: a verbatim point (and a turn, for the transcript mode)."""
+        if self.rec and text.strip():
+            self.rec.last_heard = time.time()
+            self.rec.add_point(text.strip())
+            self.rec.add("user", text.strip())
+
+    def begin_dictation(self, mode: str, title: str):
+        if not self.rec:
+            self.handle("start %s %s" % (mode or "notes", title or ""))
+        if self.rec:
+            self.rec.dictating, self.rec.last_heard = True, time.time()
+
+    def finish_dictation(self, title: str):
+        if self.rec:
+            self.rec.dictating, self.rec.frozen = False, True
+            self.handle("save " + (title or ""))
 
     def _ui(self):
         r = self.rec

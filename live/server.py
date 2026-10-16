@@ -222,6 +222,7 @@ class Session:
         if kind == "speech_start":
             return
         if kind == "final":
+            self.notes_utterance(text)
             self.utt_n = getattr(self, "utt_n", 0) + 1
             asyncio.ensure_future(self.send(t="stt", kind=kind, text=text, id=self.utt_n))
             audio = getattr(self.stt, "final_audio", None)
@@ -572,6 +573,11 @@ class Session:
             if ws:
                 self.wake_clean = True
             text, words = " ".join(ws), ws
+        if self.notes.dictating():                                       # dictation: no replies, no ambient timeouts, no dismissal phrases
+            if text or self.stt.in_utt or self.notes.holding():          # stays open between sentences; 5 min of silence lets it time out (and autosave)
+                self.sess.engage("dictation")
+            self.user_buf = ""
+            return
         if text:
             self.dismiss_buf = (self.dismiss_buf + " " + text)[-160:]
             if self.sess.check_dismissal(self.dismiss_buf):
@@ -850,6 +856,37 @@ class Session:
         if was_asleep and not self.sess.asleep:
             await self.greet()
 
+    def notes_utterance(self, text):
+        """One finished utterance (spoken or typed): a dictation/notes command, or a sentence of the dictation in progress."""
+        if notes_tool.enabled() and text.strip():
+            cmd = notes_tool.voice_command(text, self.notes.active())
+            if cmd:
+                asyncio.ensure_future(self.notes_command(cmd))
+            elif self.notes.dictating():
+                self.notes.dictate(text)
+
+    async def notes_command(self, cmd):
+        """Spoken dictation/notes commands (notes_tool.voice_command): decided by code so they never depend on the model."""
+        kind = cmd[0]
+        if kind == "start":
+            if self.notes.active():
+                return
+            self.notes.begin_dictation(cmd[1], cmd[2])
+            msg = "Okay, I'm listening. Say write that down when you're done."
+        elif kind == "finish":
+            self.notes.finish_dictation(cmd[1])
+            msg = "Okay, writing that down."
+        elif kind == "cancel":
+            self.notes.handle("cancel")
+            msg = "Okay, I threw those notes away."
+        else:
+            msg = "I'm not taking notes right now. Say take notes, or write down the following, and I'll start."
+        if self.state == "SPEAKING":
+            self.interrupt("notes command")
+        self.speak(msg, final=True)
+        self.set_state("SPEAKING")
+        await self.send(t="assistant", text=msg)
+
     async def label_speaker(self, uid, audio):
         """Who said utterance `uid`? Evidence for the transcript label only (no routing, no permissions); never delays the reply."""
         sp = getattr(self.sh, "speaker", None)
@@ -974,6 +1011,7 @@ class Session:
                     elif m.get("t") == "text" and m.get("text", "").strip():       # typed input: same path as recognised speech
                         await self.activate("typed")
                         self.stt.pending += m["text"].split()
+                        self.notes_utterance(m["text"])
                         await self.send(t="stt", kind="final", text=m["text"])
                     elif m.get("t") == "reset":
                         self.interrupt("reset")
