@@ -169,3 +169,10 @@ def test_handle_routing_and_referents():
 def test_module_never_computes_routes():
     src = open(os.path.join(os.path.dirname(d.__file__), "display_ops.py")).read()
     assert "navigation_ops" not in src.replace('"navigation_ops"', "") and "routes.googleapis" not in src and "post_json" not in src
+
+
+def test_owns_matches_handle_rule():
+    e, s = rs.RouteStore(), store()
+    assert d.owns("show me the route", e) and not d.owns("put that on the kitchen display", e) and d.owns("put that on the kitchen display", s)
+    assert d.owns("yes show me", e, offered=True) and not d.owns("yes show me", e) and not d.owns("show me the weather map", s)
+    assert d.owns("close the map", e)                                           # closing needs no referent: it answers 'nothing to close'

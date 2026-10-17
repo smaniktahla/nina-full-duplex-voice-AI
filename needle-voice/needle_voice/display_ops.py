@@ -278,13 +278,24 @@ async def resume_rotation(io: DisplayIO, cfg: DisplayConfig, target: Optional[st
 
 
 # ----------------------------------------------------------------------------------------------- the request
+def owns(text: str, store, offered: bool = False) -> bool:
+    """True when this module should answer `text` (callers use it to decide whether to route the request here at all). A pronoun-only request with no
+    active route is not ours: 'that' may mean anything."""
+    intent = parse(text, offered)
+    if not intent:
+        return False
+    if intent in ("show", "alternate", "state") and store.get() is None and not (offered or _mentions_route(text)):
+        return False
+    return True
+
+
 async def handle(text: str, store, io: DisplayIO, cfg: DisplayConfig, offered: bool = False) -> ToolResult:
     """Spoken request -> one operation. A request this module does not own comes back UNSUPPORTED with speech None (the caller may try other agents);
     a pronoun-only request ('put that on the kitchen display') with no active route is also left to others, since 'that' may mean something else."""
     intent = parse(text, offered)
     if not intent:
         return ToolResult(Status.UNSUPPORTED, None, reason="not_display", domain=DOMAIN)
-    if intent in ("show", "alternate", "state") and store.get() is None and not (offered or _mentions_route(text)):
+    if not owns(text, store, offered):
         return ToolResult(Status.UNSUPPORTED, None, reason="no_referent", domain=DOMAIN)
     if intent in ("show", "alternate"):
         return await (show_alternate(store, io, cfg) if intent == "alternate" else show_route(store, io, cfg))

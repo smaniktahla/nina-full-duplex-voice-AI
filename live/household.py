@@ -29,6 +29,8 @@ DEFAULTS = {
     "docmost_parent_id": "",                    # optional page id the conversation notes are created under
     "notes_default_user": "",                   # who is speaking, until speaker recognition can say (shown in every note)
     "rng_url": "http://127.0.0.1:8794",         # the shared random-number service (coin, dice, numbers, picks); never invent a random result
+    "kiosk_targets": {},                         # {"kitchen": "sensor.<browser id>_browser_path"}: displays Nina may show routes on (empty = route display off)
+    "route_store_path": "~/.local/share/needle_voice/route_store.json",   # the active route (holds home coordinates: private, never in the repo)
     "timezone": "America/New_York",             # note dates/times are written in this zone
 }
 
