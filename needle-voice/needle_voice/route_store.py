@@ -102,7 +102,7 @@ def parse_routes(data: dict) -> tuple:
 
 
 def _now() -> str:
-    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")      # sub-second: two selections in one second still differ
 
 
 class RouteStore:
