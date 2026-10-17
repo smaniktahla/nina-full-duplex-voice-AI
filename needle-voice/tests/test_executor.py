@@ -177,3 +177,27 @@ def test_missing_state_counts_as_unavailable():
     h.states = types.SimpleNamespace(get=h._get)
     with pytest.raises(ExecutionError):
         run(h, P("turn_on", "light.den_lamp"))
+
+
+# ---------------- display actions (the kiosk) ----------------
+def test_display_actions_use_a_fixed_table_and_matching_entity_domains():
+    h = FakeHass()
+    assert asyncio.run(ex.execute_display(h, "show", "script.kiosk_route_show")) is True
+    assert asyncio.run(ex.execute_display(h, "close", "script.kiosk_route_close")) is True
+    assert asyncio.run(ex.execute_display(h, "pause", "input_boolean.rot_paused")) and asyncio.run(ex.execute_display(h, "resume", "input_boolean.rot_paused"))
+    assert h.calls == [("script", "turn_on", {"entity_id": "script.kiosk_route_show"}), ("script", "turn_on", {"entity_id": "script.kiosk_route_close"}),
+                       ("input_boolean", "turn_on", {"entity_id": "input_boolean.rot_paused"}), ("input_boolean", "turn_off", {"entity_id": "input_boolean.rot_paused"})]
+
+
+@pytest.mark.parametrize("action,entity", [("unlock", "lock.front"), ("show", "lock.front"), ("show", "light.kitchen"), ("pause", "script.x"), ("show", "script.a.b"),
+                                           ("show", ""), ("show", None), ("turn_on", "script.x")])
+def test_display_actions_refuse_anything_else_before_calling(action, entity):
+    h = FakeHass()
+    with pytest.raises(ExecutionError):
+        asyncio.run(ex.execute_display(h, action, entity))
+    assert h.calls == []
+
+
+def test_display_call_failure_is_an_execution_error():
+    with pytest.raises(ExecutionError):
+        asyncio.run(ex.execute_display(FakeHass(fail_on=("script", "turn_on")), "show", "script.kiosk_route_show"))

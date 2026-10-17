@@ -234,6 +234,30 @@ async def execute(hass: Any, p: Plan, context: Any = None) -> str:
     return _say(p) + note
 
 
+# The kiosk display: the only house-changing calls display_ops may make. display_ops names an ACTION and an entity; the (domain, service) pair comes from
+# this fixed table and the entity must belong to the pair's domain, so a display request can start/stop one of the kiosk scripts or flip the rotation
+# pause flag and nothing else. Entity ids come from household config, never from a model or from what was said.
+DISPLAY_ACTIONS = {
+    "show": ("script", "turn_on"),
+    "close": ("script", "turn_on"),
+    "pause": ("input_boolean", "turn_on"),
+    "resume": ("input_boolean", "turn_off"),
+}
+
+
+async def execute_display(hass: Any, action: str, entity_id: str, context: Any = None) -> bool:
+    """Run one fixed display action. True once HA accepted the call; ExecutionError if the action/entity is not allowed or the call failed.
+    Acceptance is not an outcome: display_ops verifies the result itself before claiming success."""
+    spec = DISPLAY_ACTIONS.get(action)
+    if not spec or not isinstance(entity_id, str) or entity_id.split(".", 1)[0] != spec[0] or entity_id.count(".") != 1:
+        raise ExecutionError(f"display_action_refused:{action}")
+    try:
+        await hass.services.async_call(spec[0], spec[1], {"entity_id": entity_id}, blocking=True, context=context)
+    except Exception as e:  # noqa: BLE001
+        raise ExecutionError(f"service_call_failed:{type(e).__name__}") from e
+    return True
+
+
 def _is_available(hass: Any, entity_id: str) -> bool:
     st = hass.states.get(entity_id)
     return st is not None and str(st.state) != "unavailable"

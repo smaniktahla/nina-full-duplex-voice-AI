@@ -21,23 +21,23 @@ class Fake:
     def __init__(self, mode="ok", path="/dashboard-weather/0", online=True):
         self.mode, self.state, self.calls, self.docs, self.t = mode, {SENSOR: path if online else "unavailable", CFG.active_flag: "off", CFG.pause_flag: "off"}, [], [], 0.0
         self.key, self.key_t, self.pending = None, -99.0, None
-        self.io = d.DisplayIO(self.call_service, self.get_state, self.write_document, self.served, self.sleep)
+        self.io = d.DisplayIO(self.act, self.get_state, self.write_document, self.served, self.sleep)
 
-    async def call_service(self, domain, service, data):
-        self.calls.append((domain, service, data))
+    async def act(self, action, entity):
+        self.calls.append((action, entity))
         if self.mode == "reject":
             return False
         if self.mode == "ignore":
             return True
-        if (domain, service) == ("script", "kiosk_route_show"):
+        if action == "show":
             self.state[CFG.active_flag], self.state[CFG.pause_flag] = "on", "on"
             self.state[SENSOR] = CFG.route_path + "/"
             if self.mode != "no_viewer":
                 self.pending = (self.t + 1.0, self.docs[-1])
-        elif (domain, service) == ("script", "kiosk_route_close"):
+        elif action == "close":
             self.state[CFG.active_flag] = "off"; self.state[SENSOR] = "/dashboard-news/0"
-        elif domain == "input_boolean":
-            self.state[data["entity_id"]] = "on" if service == "turn_on" else "off"
+        elif action in ("pause", "resume"):
+            self.state[entity] = "on" if action == "pause" else "off"
         return True
 
     async def get_state(self, e):
@@ -85,7 +85,7 @@ def test_show_success_is_observed_not_assumed():
     f, s = Fake(), store()
     r = run(d.show_route(s, f.io, CFG))
     assert r.status is Status.SUCCESS and r.side_effect and r.speech == "It's on the kitchen screen." and r.telemetry["code"] == "shown"
-    assert f.calls == [("script", "kiosk_route_show", {})] and f.docs[-1]["id"] == s.get().id
+    assert f.calls == [("show", CFG.show_script)] and f.docs[-1]["id"] == s.get().id
     assert "Secret Destination" not in str(r.telemetry) and "40." not in str(r.telemetry)
 
 
@@ -114,7 +114,7 @@ def test_already_showing_sends_no_call_and_new_route_replaces():
     run(d.show_route(s, f.io, CFG)); f.calls.clear()
     r = run(d.show_route(s, f.io, CFG)); assert r.reason == "already_showing" and r.status is Status.SUCCESS and not f.calls
     s.set("Another", rs.parse_routes(RESP)[0]); r = run(d.show_route(s, f.io, CFG))
-    assert r.reason == "shown" and f.docs[-1]["id"] == s.get().id and f.calls == [("script", "kiosk_route_show", {})]
+    assert r.reason == "shown" and f.docs[-1]["id"] == s.get().id and f.calls == [("show", CFG.show_script)]
 
 
 def test_alternate_switches_stored_route_without_recompute():
@@ -130,7 +130,7 @@ def test_alternate_switches_stored_route_without_recompute():
 # ---------------------------------------------------------------- close, state, pause
 def test_close_variants():
     f, s = Fake(), store(); run(d.show_route(s, f.io, CFG)); f.calls.clear()
-    r = run(d.close_route(f.io, CFG)); assert r.status is Status.SUCCESS and r.reason == "closed" and f.calls == [("script", "kiosk_route_close", {})] and s.get() is not None
+    r = run(d.close_route(f.io, CFG)); assert r.status is Status.SUCCESS and r.reason == "closed" and f.calls == [("close", CFG.close_script)] and s.get() is not None
     f.calls.clear(); r = run(d.close_route(f.io, CFG)); assert r.reason == "nothing_to_close" and not f.calls
     f = Fake(); run(d.show_route(store(), f.io, CFG)); f.mode = "reject"; r = run(d.close_route(f.io, CFG)); assert r.status is Status.EXECUTION_FAILED
     f = Fake(); run(d.show_route(store(), f.io, CFG)); f.mode = "ignore"; r = run(d.close_route(f.io, CFG)); assert r.status is Status.UNVERIFIED and r.side_effect

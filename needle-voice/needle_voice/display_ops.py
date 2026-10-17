@@ -4,7 +4,8 @@ display", "show me the alternate route", "close the map", "go back to the normal
 Same contract as home_ops / calendar_ops (result.ToolResult, honest speech). The pieces:
 
   * The route comes from route_store.RouteStore: a display command acts on the route the user was just told about and NEVER computes a new one.
-  * Nothing here talks to Home Assistant or the disk directly. I/O is injected (`DisplayIO`): call_service, get_state, write_document, served, sleep.
+  * Nothing here talks to Home Assistant or the disk directly. I/O is injected (`DisplayIO`): act, get_state, write_document, served, sleep. `act` names one of
+    four fixed ACTIONS (show/close/pause/resume) and an entity; the service behind each lives in executor.DISPLAY_ACTIONS, the only place that may call HA.
   * Which kiosk is which comes from `DisplayConfig.targets` ({"kitchen": "<browser path sensor entity>"}): household config, never code. Anything
     other than a configured target is refused.
   * Success is only claimed when it was OBSERVED: the kiosk's browser-path sensor shows the route page AND the viewer has fetched the document that was just
@@ -30,7 +31,7 @@ VERIFY_TIMEOUT_S = 12.0          # the viewer polls every ~3 s; the rotator navi
 POLL_S = 0.5
 SERVED_MAX_AGE_S = 15.0
 
-CallService = Callable[[str, str, dict], Awaitable[bool]]
+Act = Callable[[str, str], Awaitable[bool]]
 GetState = Callable[[str], Awaitable[Optional[str]]]
 WriteDocument = Callable[[Optional[dict]], Awaitable[bool]]
 Served = Callable[[], tuple]
@@ -39,7 +40,7 @@ Sleep = Callable[[float], Awaitable[None]]
 
 @dataclass
 class DisplayIO:
-    call_service: CallService                  # (domain, service, data) -> True if HA accepted the call
+    act: Act                                   # (action, entity_id) -> True if HA accepted the call; raises/returns False otherwise
     get_state: GetState                        # entity_id -> state string, None if it cannot be read
     write_document: WriteDocument              # publish the route document the viewer reads (None = clear); True if written
     served: Served                             # () -> (key|None, age_seconds): the last document key a viewer fetched
@@ -172,7 +173,7 @@ async def show_route(store, io: DisplayIO, cfg: DisplayConfig, route_id: Optiona
     if already:                                                    # same route already up: nothing to send
         return _res(Status.SUCCESS, "It's already on the kitchen screen.", "already_showing", route_id=active.id)
     try:
-        accepted = await io.call_service("script", cfg.show_script.split(".", 1)[1], {})
+        accepted = await io.act("show", cfg.show_script)
     except Exception:                                              # noqa: BLE001
         accepted = False
     if not accepted:
@@ -219,7 +220,7 @@ async def close_route(io: DisplayIO, cfg: DisplayConfig, target: Optional[str] =
     if (await io.get_state(cfg.active_flag)) != "on" and not p.startswith(cfg.route_path):
         return _res(Status.SUCCESS, "There's no route on the kitchen screen.", "nothing_to_close")
     try:
-        accepted = await io.call_service("script", cfg.close_script.split(".", 1)[1], {})
+        accepted = await io.act("close", cfg.close_script)
     except Exception:                                              # noqa: BLE001
         accepted = False
     if not accepted:
@@ -254,7 +255,7 @@ async def _set_pause(io, cfg, want_on: bool) -> ToolResult:
         return _res(Status.UNSUPPORTED, "A route is on the screen, so the dashboards are already held. Say close the map to bring them back.",
                     "route_active")
     try:
-        accepted = await io.call_service("input_boolean", "turn_on" if want_on else "turn_off", {"entity_id": flag})
+        accepted = await io.act("pause" if want_on else "resume", flag)
     except Exception:                                              # noqa: BLE001
         accepted = False
     if not accepted:
