@@ -703,7 +703,14 @@ class Session:
                 if len(utter.split()) >= 3 and (set(re.findall(r"[a-z]+", arg.lower())) & cmd) - uw:
                     log("   (ha request %r adds command words not in the user's words; using %r)" % (arg, utter[:80]))
                     arg = utter
-            self.run_tool_call(tool.group(1), arg)
+            utter_d = (self.user_buf + " " + text).strip()
+            if tool.group(1) != "display" and RESPONDER and tools_mod.display_owns(utter_d):
+                # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): a route display request is display_ops' to
+                # answer, deterministically, and must never go to an agent that could improvise
+                log("   (route display request: @%s replaced by @display)" % tool.group(1))
+                self.run_tool_call("display", utter_d)
+            else:
+                self.run_tool_call(tool.group(1), arg)
         if text:
             self.sess.add_turn("user", text)
             self.notes.capture("user", text)

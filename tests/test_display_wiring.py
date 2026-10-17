@@ -76,3 +76,4 @@ def test_viewer_close_button_is_true_only_when_seen_to_close():
 def test_server_routes_display_requests_deterministically():
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
     assert 'tools_mod.display_owns(user_said' in src and 'start_tool("display"' in src and 'k == "display"' in src and 'on_close=kiosk_close' in src
+    assert 'replaced by @display' in src                                   # a model-chosen tool tag must not take a route display request
