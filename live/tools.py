@@ -157,6 +157,73 @@ from needle_voice import random_ops                                          # n
 RNG_URL = household.get("rng_url", "RNG_URL")
 
 
+# ---------------------------------------------------------------- route on the kitchen display (Needle's display_ops + route_store + kiosk.py)
+KIOSK_TARGETS = household.get("kiosk_targets")
+_disp = {}
+
+
+def route_store():
+    """The one active route for this process (persisted, so a restart keeps what the kiosk shows). Whoever computes a route puts it here."""
+    from needle_voice import route_store as rs
+    if "store" not in _disp:
+        _disp["store"] = rs.RouteStore(os.path.expanduser(household.get("route_store_path")))
+    return _disp["store"]
+
+
+def display_env(http):
+    """(store, io, cfg) for display_ops. All I/O is injected here: HA through Needle's executor (the only module allowed to call services), states over REST,
+    the document straight from the store (the kiosk listener reads it live, so 'writing' it is already done), what the viewer fetched from kiosk.served()."""
+    from needle_voice import display_ops as d, executor
+    import kiosk
+    if "io" not in _disp:
+        hass = executor.RestHass(HA_URL, _ha_token())
+
+        async def act(action, entity):
+            return await executor.execute_display(hass, action, entity)
+
+        async def get_state(entity):
+            try:
+                async with http.get(HA_URL + "/api/states/" + entity, headers=_hdr(), timeout=aiohttp.ClientTimeout(total=5)) as r:
+                    return (await r.json()).get("state") if r.status == 200 else None
+            except Exception:                                                # noqa: BLE001
+                return None
+
+        async def write_document(doc):
+            return bool(doc) and route_store().to_document() is not None
+
+        _disp["io"] = d.DisplayIO(act, get_state, write_document, kiosk.served, asyncio.sleep)
+        _disp["cfg"] = d.DisplayConfig(targets=dict(KIOSK_TARGETS or {}))
+    return route_store(), _disp["io"], _disp["cfg"]
+
+
+def display_owns(text, offered=False):
+    """Should this utterance be answered by display_ops? Only when a display is configured."""
+    from needle_voice import display_ops as d
+    return bool(KIOSK_TARGETS) and d.owns(text, route_store(), offered)
+
+
+async def display_request(http, text, offered=False, env=None):
+    """Spoken display request -> display_ops. Same reply convention as ha_say: '[DONE] ...' only for a verified result, '[NOT DONE] ...' otherwise (relay it
+    as written, never claim it happened, never retry)."""
+    from needle_voice import display_ops as d
+    from needle_voice.result import Status
+    if not KIOSK_TARGETS and env is None:
+        return "[NOT DONE] The kitchen display isn't set up for routes yet."
+    store, io, cfg = env or display_env(http)
+    res = await d.handle(text, store, io, cfg, offered)
+    if res.status is Status.SUCCESS:
+        return "[DONE] " + res.speech
+    return "[NOT DONE] " + (res.speech or "I couldn't do that on the display.")
+
+
+async def kiosk_close(http, env=None):
+    """The viewer's Close button: same operation as saying 'close the map'. True only if the route was seen to close."""
+    from needle_voice import display_ops as d
+    from needle_voice.result import Status
+    store, io, cfg = env or display_env(http)
+    return (await d.close_route(io, cfg)).status is Status.SUCCESS
+
+
 async def random_request(http, text):
     """Spoken request -> Needle's random_ops -> the RNG service. If the service is down the answer says so: a made-up number is worse."""
     async def fetch(tool, params):

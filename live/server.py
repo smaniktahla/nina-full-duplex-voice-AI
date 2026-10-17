@@ -465,6 +465,7 @@ class Session:
                 res = await (self.notes.finish(g) if k == "notes" else web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
                              weather(self.http, g) if k == "weather" else calendar(self.http, g) if k == "calendar" else
                              tools_mod.random_request(self.http, g) if k == "random" else
+                             tools_mod.display_request(self.http, g) if k == "display" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
                 return
@@ -527,7 +528,7 @@ class Session:
         if action == "notes":
             self.notes.handle(arg)
             return
-        if action in ("search", "hermes", "ha", "weather", "calendar", "random"):
+        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
             return
@@ -717,6 +718,11 @@ class Session:
             self.last_chunk = out
             if not self.answer_open:
                 self.cont_n = 0
+            if RESPONDER and not events and not tool and tools_mod.display_owns(user_said or ""):
+                # show / switch / close the route on the kitchen display: display_ops acts on the active route and only claims what it observed
+                log("   (display request without a tool tag: starting @display)")
+                self.start_tool("display", user_said)
+                return
             if RESPONDER and not events and not tool and CAL_RE.search(user_said or ""):
                 # asking about the calendar needs the calendar tool, not a model guess (the reply model has no calendar and used to say so)
                 low = user_said.lower()
@@ -1098,7 +1104,10 @@ def main():
     app.router.add_get("/api/voice_sample", api_voice_sample)
     auth.add_routes(app)
     import kiosk                                                   # signed-link route viewer for the kitchen kiosk, own plain-http listener (opt-in: KIOSK_PORT)
-    kiosk.attach(app, kiosk.Hooks(document=kiosk.file_document(os.path.expanduser("~/.local/share/needle_voice/active_route.json"))))
+
+    async def kiosk_close():                                       # the viewer's Close button = "close the map"
+        return await tools_mod.kiosk_close(app["http"])
+    kiosk.attach(app, kiosk.Hooks(document=lambda: tools_mod.route_store().to_document(), on_close=kiosk_close if tools_mod.KIOSK_TARGETS else None))
     try:
         from speaker_id import web as speaker_web                  # enrollment routes; optional, the voice server runs without it
         speaker_web.add_routes(app)
