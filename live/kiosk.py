@@ -34,6 +34,15 @@ DEFAULT_DAYS = 30
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
 
 
+SERVED = {"key": None, "t": 0.0}                                            # the last route document a kiosk fetched: ("<id>|<updated>", monotonic time)
+
+
+def served() -> tuple:
+    """(key, age_seconds) of the last route document a viewer actually fetched; (None, inf) if none yet. The viewer polls every few seconds, so a key that
+    matches the document just written is the closest thing to observing that the screen is showing it."""
+    return SERVED["key"], (time.monotonic() - SERVED["t"]) if SERVED["key"] else float("inf")
+
+
 @dataclass
 class Hooks:
     document: Callable[[], Optional[dict]]                                   # the viewer document, or None when no route is active
@@ -109,6 +118,7 @@ def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path:
             doc = hooks.document()
             if not doc:
                 return web.Response(status=204, headers=_headers({"Cache-Control": "no-store"}))
+            SERVED["key"], SERVED["t"] = "%s|%s" % (doc.get("id"), doc.get("updated")), time.monotonic()
             doc = dict(doc)
             acts = {}
             if hooks.on_close:

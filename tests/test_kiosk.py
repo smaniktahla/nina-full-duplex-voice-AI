@@ -69,6 +69,7 @@ def test_viewer_files_and_isolation():
 
 def test_route_json_204_document_and_actions():
     state = {"doc": None}
+    kiosk.SERVED.update(key=None, t=0.0); assert kiosk.served()[0] is None and kiosk.served()[1] == float("inf")
 
     async def go(s, base):
         tok = kiosk.make_token(1, key=KEY); url = "%s/kiosk/%s/route.json" % (base, tok)
@@ -79,6 +80,7 @@ def test_route_json_204_document_and_actions():
             d = await r.json()
             assert r.status == 200 and d["id"] == "r1" and d["actions"] == {"close": "action/close"} and r.headers["Cache-Control"] == "no-store"   # no phone hook
         assert "actions" not in DOC                                                      # the stored document is not mutated
+        assert kiosk.served()[0] == "r1|t" and kiosk.served()[1] < 5                      # display_ops verifies "the screen has this document" through this
         async with s.get("%s/kiosk/bad.token/route.json" % base) as r:
             assert r.status == 401
     run(_with(kiosk.Hooks(document=lambda: state["doc"], on_close=lambda: _ret(True)), go))
