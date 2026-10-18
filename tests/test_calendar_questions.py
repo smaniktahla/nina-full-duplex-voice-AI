@@ -1,10 +1,8 @@
 """Which spoken questions start the calendar tool, and how event locations are condensed (no HA, no models)."""
 import os, re, sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "live"))
-src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
-ns = {"re": re}
-exec(src[src.index("_EVENT_WORDS ="):src.index("RESPONDER =")], ns)
-CAL_RE = ns["CAL_RE"]
+import claims                                                                   # noqa: E402  (the calendar pattern lives in live/claims.py, shared with the server)
+CAL_RE = claims.CAL_RE
 import tools                                                                   # noqa: E402
 
 

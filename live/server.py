@@ -79,9 +79,7 @@ SESSION_LOG = os.environ.get("SESSION_LOG", os.path.expanduser("~/.local/share/n
 BAN_TOKENS = ["...", "\u2026", "-", "_", "~"]                 # NOT . , ! ? : forced speech must be able to finish its sentence
 DANGLING = re.compile(r"(?:\b(?:a|an|the|to|of|in|on|at|for|with|and|but|or|if|is|are|was|were|be|my|your|his|her|its|our|their|that|this|it's|i'm|you're|about|from|into|than|as|by|so)|\d|,)\s*$", re.I)   # ends mid-phrase
 DANGER = re.compile(r"\b(bleach|ammonia|fire|gas leak|knife|electric|plug|burn|choke|poison|danger|hurt|poisonous|toxic)\b", re.I)
-_EVENT_WORDS = "workout|practice|lesson|class|game|dentist|doctor|haircut|appointment|meeting|event|breakfast|lunch|dinner|recital|match|session"
-CAL_RE = re.compile(r"\b(calendar|schedule|appointments?|events?|meetings?|agenda)\b"
-                    r"|\b(where|when|what time|location|address)\b[^?.!]{0,40}\b(%s)\b" % _EVENT_WORDS, re.I)     # also "where is my workout?"
+import claims                                                                                  # noqa: E402  which deterministic tool claims a request (claims.py)
 
 RESPONDER = os.environ.get("RESPONDER", "0") == "1"      # reply = ONE clean generation spoken per sentence, decoupled from the tick loop
 PROFILE = os.environ.get("PROFILE", os.path.expanduser("~/.local/share/needle_voice/profile.json"))
@@ -706,12 +704,12 @@ class Session:
                     log("   (ha request %r adds command words not in the user's words; using %r)" % (arg, utter[:80]))
                     arg = utter
             utter_d = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf     # same de-duplication as user_said below
-            owned = ("display" if tools_mod.display_owns(utter_d, tools_mod.offer_fresh()) else "nav" if tools_mod.nav_owns(utter_d) else "") if RESPONDER else ""
-            if owned and tool.group(1) != owned:
-                # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): route display and navigation requests belong to
-                # display_ops / navigation_ops, deterministically, and must never go to an agent that could improvise
-                log("   (route %s request: @%s replaced by @%s)" % (owned, tool.group(1), owned))
-                self.run_tool_call(owned, utter_d)
+            owned = tools_mod.claim(utter_d) if RESPONDER else ""
+            if owned and owned != tool.group(1):
+                # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): a request a deterministic tool claims belongs to that tool
+                # (display_ops / navigation_ops / calendar / weather / random), and must never go to an agent that could improvise
+                log("   (%s request: @%s replaced by @%s)" % (owned, tool.group(1), owned))
+                self.run_tool_call(owned, claims.calendar_when(utter_d) if owned == "calendar" else claims.weather_when(utter_d) if owned == "weather" else utter_d)
             else:
                 self.run_tool_call(tool.group(1), arg)
         if text:
@@ -728,31 +726,20 @@ class Session:
             self.last_chunk = out
             if not self.answer_open:
                 self.cont_n = 0
-            if RESPONDER and not events and not tool and tools_mod.display_owns(user_said or "", tools_mod.offer_fresh()):
-                # show / switch / close the route on the kitchen display: display_ops acts on the active route and only claims what it observed
-                log("   (display request without a tool tag: starting @display)")
-                self.start_tool("display", user_said)
+            claimed = tools_mod.claim(user_said or "") if (RESPONDER and not events and not tool) else ""
+            if claimed in ("display", "nav", "random"):
+                # show/close the route, distance and travel time, coin/dice: code and a tool answer; the model cannot know and must not guess
+                log("   (%s request without a tool tag: starting @%s)" % (claimed, claimed))
+                self.start_tool(claimed, user_said)
                 return
-            if RESPONDER and not events and not tool and tools_mod.nav_owns(user_said or ""):
-                # how long to X / send it to my phone: navigation_ops answers from the Routes API and keeps the route; the model cannot know traffic
-                log("   (navigation request without a tool tag: starting @nav)")
-                self.start_tool("nav", user_said)
-                return
-            if RESPONDER and not events and not tool and CAL_RE.search(user_said or ""):
-                # asking about the calendar needs the calendar tool, not a model guess (the reply model has no calendar and used to say so)
-                low = user_said.lower()
-                when = ("tomorrow" if "tomorrow" in low else "today" if re.search(r"\b(today|tonight|this morning|this afternoon)\b", low) else "week"
-                        if re.search(r"\b(week|weekend)\b", low) or not re.search(r"\b(calendar|schedule|agenda)\b", low) else "today")
-                log("   (calendar question without a tool tag: starting @calendar %s)" % when)
-                self.start_tool("calendar", when)
+            if claimed in ("calendar", "weather"):
+                # the reply model has neither a calendar nor a forecast, so it used to say so or invent one
+                when = claims.calendar_when(user_said) if claimed == "calendar" else claims.weather_when(user_said)
+                log("   (%s question without a tool tag: starting @%s %s)" % (claimed, claimed, when))
+                self.start_tool(claimed, when)
                 self.speak("Let me check.", final=True)
                 self.set_state("SPEAKING")
                 await self.send(t="assistant", text="Let me check.")
-                return
-            if RESPONDER and not events and not tool and random_ops.parse(user_said or ""):
-                # coin / dice / number / pick: the shared RNG service answers, never the model (it cannot be random)
-                log("   (random request without a tool tag: starting @random)")
-                self.start_tool("random", user_said)
                 return
             if RESPONDER and not events and not tool and not is_filler(out):
                 # the tick only DECIDED to speak; the words it produced are not the reply
