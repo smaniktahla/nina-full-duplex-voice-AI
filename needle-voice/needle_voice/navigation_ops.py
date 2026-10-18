@@ -109,8 +109,9 @@ def nav_uri(destination: str) -> str:
 
 
 def nav_app_uri(destination: str) -> str:
-    """Android path: tapping the notification starts turn-by-turn in the Google Maps app."""
-    return "google.navigation:q=" + urllib.parse.quote(destination, safe="")
+    """Android path: tapping the notification starts turn-by-turn in the Google Maps app. The Companion app does not open bare custom schemes
+    (google.navigation: errored on tap, verified on a real phone), but it does open Android intent: URIs, which carry the scheme and the Maps package."""
+    return "intent:q=" + urllib.parse.quote(destination, safe="") + "#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end"
 
 
 def build_request(home: tuple, destination: str, depart: dt.datetime | None) -> dict:
