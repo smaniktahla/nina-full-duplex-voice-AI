@@ -21,6 +21,7 @@ doc = {
     "destination": {"lat": main[-1][0], "lng": main[-1][1], "label": "Example Museum"},
     "routes": [
         {"id": "r0", "summary": "Broadway", "duration_s": 1260, "static_duration_s": 840, "distance_m": 5200, "polyline": enc(main),
+         "traffic": [[0, 2, "NORMAL"], [2, 3, "SLOW"], [3, 4, "TRAFFIC_JAM"]],
          "steps": [{"instruction": "Head north on 5th Ave", "distance_m": 300}, {"instruction": "Turn right onto W 57th St", "distance_m": 900},
                    {"instruction": "Turn left onto Central Park S", "distance_m": 1500}, {"instruction": "Continue onto Central Park W", "distance_m": 1800},
                    {"instruction": "Turn right and arrive at the destination", "distance_m": 700}]},

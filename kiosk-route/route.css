@@ -10,6 +10,8 @@ header { padding:16px 18px 8px; }
 #eta { font-size:2.2rem; font-weight:700; color:var(--accent); }
 #dist { font-size:1.1rem; color:var(--dim); }
 #traffic { min-height:1.2em; color:var(--warn); font-size:.95rem; }
+#legend { display:flex; gap:14px; align-items:center; flex-wrap:wrap; min-height:1.2em; font-size:.85rem; color:var(--dim); }
+#legend i { display:inline-block; width:14px; height:6px; border-radius:3px; margin-right:5px; vertical-align:middle; }
 #tabs { display:flex; gap:8px; padding:6px 18px; flex-wrap:wrap; }
 #tabs button { background:#202a34; color:var(--fg); border:1px solid #2c3845; border-radius:8px; padding:8px 12px; font-size:.95rem; }
 #tabs button[aria-pressed="true"] { border-color:var(--accent); background:#173049; }

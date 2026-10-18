@@ -25,14 +25,17 @@ from dataclasses import dataclass, field
 
 DETAIL_FIELD_MASK = ",".join((
     "routes.duration", "routes.staticDuration", "routes.distanceMeters", "routes.description", "routes.polyline.encodedPolyline",
-    "routes.legs.startLocation", "routes.legs.endLocation", "routes.legs.steps.distanceMeters", "routes.legs.steps.navigationInstruction"))
+    "routes.legs.startLocation", "routes.legs.endLocation", "routes.legs.steps.distanceMeters", "routes.legs.steps.navigationInstruction",
+    "routes.travelAdvisory.speedReadingIntervals"))                      # live traffic along the polyline (billed at Google's Routes Preferred rate)
 MAX_ROUTES = 3
 MAX_POINTS = 6000          # an encoded polyline is cheap, but a runaway response should not become a huge document
 
 
 def detail_request(base_body: dict) -> dict:
-    """Turn navigation_ops.build_request(...) into the request that also returns alternates."""
-    return dict(base_body, computeAlternativeRoutes=True)
+    """Turn navigation_ops.build_request(...) into the request that also returns alternates and the traffic along each route
+    (TRAFFIC_ON_POLYLINE needs DRIVE/TWO_WHEELER and a TRAFFIC_AWARE preference, which navigation_ops already sets)."""
+    extra = [c for c in (base_body.get("extraComputations") or []) if c != "TRAFFIC_ON_POLYLINE"] + ["TRAFFIC_ON_POLYLINE"]
+    return dict(base_body, computeAlternativeRoutes=True, extraComputations=extra)
 
 
 @dataclass
@@ -49,6 +52,7 @@ class RouteDetail:
     summary: str = ""
     polyline: str = ""                                   # Google encoded polyline, passed through to the viewer untouched
     steps: list = field(default_factory=list)
+    traffic: list = field(default_factory=list)          # [[start_point_index, end_point_index, "NORMAL"|"SLOW"|"TRAFFIC_JAM"], ...] over the decoded polyline; empty = unknown
 
 
 @dataclass
@@ -78,6 +82,24 @@ def _latlng(o) -> tuple | None:
         return None
 
 
+_SPEEDS = ("NORMAL", "SLOW", "TRAFFIC_JAM")
+MAX_INTERVALS = 2000
+
+
+def parse_traffic(route: dict) -> list:
+    """Google's speedReadingIntervals -> [[start, end, speed], ...]. start is inclusive (missing = 0), end exclusive. Intervals that are malformed, empty, or whose
+    speed is not one of NORMAL/SLOW/TRAFFIC_JAM (SPEED_UNSPECIFIED) are dropped, so an unknown stretch is shown as unknown, never as 'clear'."""
+    out = []
+    for i in ((route.get("travelAdvisory") or {}).get("speedReadingIntervals") or [])[:MAX_INTERVALS]:
+        try:
+            start, end = int(i.get("startPolylinePointIndex") or 0), int(i["endPolylinePointIndex"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if end > start >= 0 and i.get("speed") in _SPEEDS:
+            out.append([start, end, i["speed"]])
+    return out
+
+
 def parse_routes(data: dict) -> tuple:
     """Routes API response -> (routes, origin, destination). Routes without a parsable duration are dropped; the first is the API's recommended route."""
     out, origin, dest = [], None, None
@@ -95,7 +117,7 @@ def parse_routes(data: dict) -> tuple:
         poly = ((r.get("polyline") or {}).get("encodedPolyline")) or ""
         if len(poly) > MAX_POINTS * 8:
             poly = ""
-        out.append(RouteDetail(secs, _secs(r.get("staticDuration")) or secs, int(r.get("distanceMeters") or 0), (r.get("description") or "").strip(), poly, steps))
+        out.append(RouteDetail(secs, _secs(r.get("staticDuration")) or secs, int(r.get("distanceMeters") or 0), (r.get("description") or "").strip(), poly, steps, parse_traffic(r)))
         if not out[1:] and legs:                         # endpoints come from the recommended route
             origin, dest = _latlng(legs[0].get("startLocation")), _latlng(legs[-1].get("endLocation"))
     return out, origin, dest
@@ -160,7 +182,8 @@ class RouteStore:
         doc = {"id": a.id, "updated": a.updated, "selected": a.selected,
                "origin": pt(a.origin, "Start"), "destination": pt(a.destination, a.destination_label) or {"label": a.destination_label},
                "routes": [{"id": "r%d" % i, "summary": r.summary, "duration_s": r.duration_s, "static_duration_s": r.static_duration_s,
-                           "distance_m": r.distance_m, "polyline": r.polyline, "steps": [{"instruction": s.instruction, "distance_m": s.distance_m} for s in r.steps]}
+                           "distance_m": r.distance_m, "polyline": r.polyline, "steps": [{"instruction": s.instruction, "distance_m": s.distance_m} for s in r.steps],
+                           **({"traffic": r.traffic} if r.traffic else {})}
                           for i, r in enumerate(a.routes)]}
         if not doc["origin"]:
             del doc["origin"]
@@ -197,7 +220,7 @@ class RouteStore:
         try:
             b = json.load(open(self.path))
             routes = [RouteDetail(r["duration_s"], r["static_duration_s"], r["distance_m"], r.get("summary", ""), r.get("polyline", ""),
-                                  [Step(s["instruction"], s.get("distance_m", 0)) for s in r.get("steps", [])]) for r in b["routes"]]
+                                  [Step(s["instruction"], s.get("distance_m", 0)) for s in r.get("steps", [])], [list(t) for t in r.get("traffic", [])]) for r in b["routes"]]
             if routes:
                 tup = lambda p: tuple(p) if p else None
                 self._active = ActiveRoute(b["id"], b["created"], b["label"], tup(b.get("origin")), tup(b.get("destination")), routes,

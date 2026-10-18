@@ -1,6 +1,6 @@
 {
  "id": "example01",
- "updated": "2026-10-16T22:09:52Z",
+ "updated": "2026-10-18T18:40:56Z",
  "selected": 0,
  "origin": {
   "lat": 40.7536,
@@ -20,6 +20,23 @@
    "static_duration_s": 840,
    "distance_m": 5200,
    "polyline": "_uvwF~ypbMoZjM_g@od@oi@c`@gr@wcA",
+   "traffic": [
+    [
+     0,
+     2,
+     "NORMAL"
+    ],
+    [
+     2,
+     3,
+     "SLOW"
+    ],
+    [
+     3,
+     4,
+     "TRAFFIC_JAM"
+    ]
+   ],
    "steps": [
     {
      "instruction": "Head north on 5th Ave",

@@ -128,6 +128,7 @@ def test_eta_keeps_the_route_and_offers_to_show_it():
     assert r.status == Status.SUCCESS and "23 minutes" in r.speech and r.speech.endswith("Want me to show it on the kitchen screen?")
     url, headers, body = log[0]
     assert headers["X-Goog-FieldMask"] == rs.DETAIL_FIELD_MASK and body["computeAlternativeRoutes"] is True      # polylines, steps, alternates
+    assert body["extraComputations"] == ["TRAFFIC_ON_POLYLINE"] and body["routingPreference"] == "TRAFFIC_AWARE"                 # traffic along the route
     a = store.get()
     assert a.destination_label == "Example Museum" and len(a.routes) == 2 and a.routes[0].polyline == "abc" and a.origin == (40.1, -73.1)
     assert r.telemetry["offer"] is True and r.telemetry["routes"] == 2 and r.telemetry["route_id"] == a.id and "Museum" not in str(r.telemetry)
