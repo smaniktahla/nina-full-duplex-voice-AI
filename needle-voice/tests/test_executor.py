@@ -205,7 +205,7 @@ def test_display_call_failure_is_an_execution_error():
 
 # ---------------- navigation push to the owner's phone ----------------
 WEB = "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=X"
-APP = "google.navigation:q=X"
+APP = "intent:q=X#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end"
 
 
 def test_notify_has_two_ways_to_open_and_only_goes_to_a_mobile_app_service():
@@ -219,7 +219,7 @@ def test_notify_has_two_ways_to_open_and_only_goes_to_a_mobile_app_service():
 
 @pytest.mark.parametrize("service,app,web", [
     ("mobile_app_phone", APP, "https://evil.example/x"), ("mobile_app_phone", "https://evil.example/x", WEB), ("mobile_app_phone", WEB, WEB),
-    ("mobile_app_phone", APP, APP), ("mobile_app_phone", APP, None), ("mobile_app_phone", None, WEB), ("mobile_app_phone", "intent://x#Intent;end", WEB),
+    ("mobile_app_phone", APP, APP), ("mobile_app_phone", "google.navigation:q=X", WEB), ("mobile_app_phone", "intent:q=X#Intent;scheme=google.navigation;package=com.evil.app;end", WEB), ("mobile_app_phone", "intent:q=X#Intent;scheme=http;package=com.google.android.apps.maps;end", WEB), ("mobile_app_phone", APP + ";S.x=y", WEB), ("mobile_app_phone", APP, None), ("mobile_app_phone", None, WEB), ("mobile_app_phone", "intent://x#Intent;end", WEB),
     ("persistent_notification", APP, WEB), ("notify.mobile_app_phone", APP, WEB), ("mobile_app_", APP, WEB), ("", APP, WEB), (None, APP, WEB), ("mobile_app_Phone", APP, WEB)])
 def test_notify_refuses_anything_else_before_calling(service, app, web):
     h = FakeHass()

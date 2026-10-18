@@ -261,16 +261,16 @@ async def execute_display(hass: Any, action: str, entity_id: str, context: Any =
 
 # One more fixed, narrow write: a navigation push to the owner's phone (the Home Assistant Companion app). The service must be a mobile_app_* notify target
 # (from household config, never from what was said). Two ways to open it: tapping the notification starts turn-by-turn in the Google Maps app on Android
-# (a google.navigation: link), and an "Open in browser" button opens the Google Maps directions web link (any browser, desktop included). Both links are
+# (an intent: link naming the Maps package; bare custom schemes are not opened by the Companion app), and an "Open in browser" button opens the Google Maps directions web link (any browser, desktop included). Both links are
 # checked, so this can message the owner's phone with directions and nothing else.
 _NOTIFY_SERVICE = re.compile(r"^mobile_app_[a-z0-9_]+$")
 NOTIFY_WEB_PREFIX = "https://www.google.com/maps/dir/"
-NOTIFY_APP_PREFIX = "google.navigation:q="
+_NOTIFY_APP = re.compile(r"^intent:q=[A-Za-z0-9%._~-]*#Intent;scheme=google\.navigation;package=com\.google\.android\.apps\.maps;end$")
 
 
 async def execute_notify(hass: Any, service: str, title: str, message: str, app_uri: str, web_uri: str, context: Any = None) -> bool:
     """Send a directions notification. True once HA accepted the call (there is no read-back: callers must not call this a verified delivery)."""
-    if (not isinstance(service, str) or not _NOTIFY_SERVICE.match(service) or not isinstance(app_uri, str) or not app_uri.startswith(NOTIFY_APP_PREFIX)
+    if (not isinstance(service, str) or not _NOTIFY_SERVICE.match(service) or not isinstance(app_uri, str) or not _NOTIFY_APP.match(app_uri)
             or not isinstance(web_uri, str) or not web_uri.startswith(NOTIFY_WEB_PREFIX)):
         raise ExecutionError("notify_refused")
     data = {"title": str(title)[:60], "message": str(message)[:200],
