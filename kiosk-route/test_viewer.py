@@ -41,11 +41,15 @@ with sync_playwright() as p:
     check("traffic note", "+7 min from traffic" in pg.inner_text("#traffic"))
     check("ordered steps", pg.locator("#steps li").count() == 5 and pg.locator("#steps li").first.inner_text().startswith("Head north"))
     check("polylines drawn (selected + alternate)", pg.locator("path.leaflet-interactive").count() >= 4)   # 2 lines + 2 markers
+    strokes = pg.evaluate("Array.from(document.querySelectorAll('path.leaflet-interactive')).map(p => p.getAttribute('stroke'))")
+    check("selected route is coloured by traffic (clear, slow, heavy)", all(c in strokes for c in ("#3ddc84", "#ffb020", "#ff4d4f")))
+    legend = pg.inner_text("#legend"); check("legend names clear, slow and heavy", "clear" in legend and "slow" in legend and "heavy" in legend)
     check("two route tabs", pg.locator("#tabs button").count() == 2)
     pg.screenshot(path=sys.argv[sys.argv.index("--shot") + 1] if "--shot" in sys.argv else os.path.join(tmp, "a.png"))
     # 3. alternative route tab
     pg.locator("#tabs button").nth(1).click()
     check("alternate selected", pg.inner_text("#eta") == "25 min" and pg.locator("#steps li").count() == 3)
+    check("no traffic data: no colours and no legend (unknown is not 'clear')", pg.inner_text("#legend") == "" and not pg.evaluate("Array.from(document.querySelectorAll('path.leaflet-interactive')).some(p => ['#3ddc84', '#ffb020', '#ff4d4f'].includes(p.getAttribute('stroke')))"))
     # 4. same document re-polled keeps the user's tab; a new route id replaces it
     pg.wait_for_timeout(2200)
     check("poll does not reset tab", pg.inner_text("#eta") == "25 min")

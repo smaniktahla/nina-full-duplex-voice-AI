@@ -6,6 +6,8 @@ from needle_voice import route_store as rs
 
 RESP = {"routes": [
     {"duration": "1260s", "staticDuration": "840s", "distanceMeters": 5200, "description": "Broadway", "polyline": {"encodedPolyline": "abc"},
+     "travelAdvisory": {"speedReadingIntervals": [{"endPolylinePointIndex": 2, "speed": "NORMAL"}, {"startPolylinePointIndex": 2, "endPolylinePointIndex": 3, "speed": "SLOW"},
+                                                  {"startPolylinePointIndex": 3, "endPolylinePointIndex": 4, "speed": "TRAFFIC_JAM"}]},
      "legs": [{"startLocation": {"latLng": {"latitude": 40.1, "longitude": -73.1}}, "endLocation": {"latLng": {"latitude": 40.2, "longitude": -73.2}},
                "steps": [{"distanceMeters": 300, "navigationInstruction": {"instructions": "Head north"}}, {"distanceMeters": 50},
                          {"distanceMeters": 900, "navigationInstruction": {"instructions": "Turn right"}}]}]},
@@ -70,7 +72,7 @@ def test_document_matches_viewer_contract():
     assert d["selected"] == 1 and d["destination"] == {"lat": 40.2, "lng": -73.2, "label": "Example Museum"} and d["origin"]["lat"] == 40.1
     assert d["actions"] == {"close": "u/close", "phone": "u/phone"}                          # empty action dropped
     r0 = d["routes"][0]
-    assert set(r0) == {"id", "summary", "duration_s", "static_duration_s", "distance_m", "polyline", "steps"} and r0["steps"][0] == {"instruction": "Head north", "distance_m": 300}
+    assert set(r0) == {"id", "summary", "duration_s", "static_duration_s", "distance_m", "polyline", "steps", "traffic"} and r0["steps"][0] == {"instruction": "Head north", "distance_m": 300}
     ex = json.load(open(os.path.join(os.path.dirname(__file__), "..", "..", "kiosk-route", "route.example.json")))
     assert set(ex["routes"][0]) == set(r0) and set(ex) - {"actions"} <= set(d)               # same shape as the viewer's own example
     json.dumps(d)
@@ -99,3 +101,32 @@ def test_corrupt_file_means_no_route(tmp_path):
 def test_summary_has_no_location():
     s = store_with_route(); t = json.dumps(s.summary())
     assert "Museum" not in t and "40." not in t and s.summary()["routes"] == 2
+
+
+def test_traffic_intervals_are_parsed_defensively():
+    routes = rs.parse_routes(RESP)[0]
+    assert routes[0].traffic == [[0, 2, "NORMAL"], [2, 3, "SLOW"], [3, 4, "TRAFFIC_JAM"]]            # a missing start index means 0
+    assert routes[1].traffic == []                                                                    # no data = unknown, never 'clear'
+    t = rs.parse_traffic({"travelAdvisory": {"speedReadingIntervals": [
+        {"endPolylinePointIndex": 3, "speed": "SPEED_UNSPECIFIED"}, {"startPolylinePointIndex": 3, "endPolylinePointIndex": 3, "speed": "SLOW"},
+        {"startPolylinePointIndex": 5, "endPolylinePointIndex": 2, "speed": "SLOW"}, {"startPolylinePointIndex": -1, "endPolylinePointIndex": 2, "speed": "SLOW"},
+        {"speed": "SLOW"}, {"endPolylinePointIndex": "x", "speed": "SLOW"}, {"startPolylinePointIndex": 1, "endPolylinePointIndex": 4, "speed": "SLOW"}]}})
+    assert t == [[1, 4, "SLOW"]]                                                                      # unspecified, empty, backwards, negative, malformed all dropped
+    assert rs.parse_traffic({}) == [] and rs.parse_traffic({"travelAdvisory": None}) == []
+
+
+def test_request_asks_for_traffic_on_the_polyline():
+    d = rs.detail_request({"travelMode": "DRIVE", "routingPreference": "TRAFFIC_AWARE"})
+    assert d["extraComputations"] == ["TRAFFIC_ON_POLYLINE"] and d["computeAlternativeRoutes"] is True
+    assert rs.detail_request({"extraComputations": ["TRAFFIC_ON_POLYLINE", "FUEL_CONSUMPTION"]})["extraComputations"] == ["FUEL_CONSUMPTION", "TRAFFIC_ON_POLYLINE"]    # no duplicate, others kept
+    assert "routes.travelAdvisory.speedReadingIntervals" in rs.DETAIL_FIELD_MASK
+
+
+def test_traffic_reaches_the_document_and_survives_a_restart(tmp_path):
+    p = str(tmp_path / "r.json"); s = store_with_route(p)
+    d = s.to_document(); assert d["routes"][0]["traffic"] == [[0, 2, "NORMAL"], [2, 3, "SLOW"], [3, 4, "TRAFFIC_JAM"]] and "traffic" not in d["routes"][1]
+    assert rs.RouteStore(p).get().routes[0].traffic == [[0, 2, "NORMAL"], [2, 3, "SLOW"], [3, 4, "TRAFFIC_JAM"]]
+    old = json.load(open(p))
+    for r in old["routes"]:
+        r.pop("traffic", None)                                                                        # a store file written before traffic existed still loads
+    json.dump(old, open(p, "w")); assert rs.RouteStore(p).get().routes[0].traffic == []

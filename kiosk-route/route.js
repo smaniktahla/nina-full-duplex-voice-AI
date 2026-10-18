@@ -17,6 +17,7 @@
   map.setView([39.5, -98.35], 4);
   var layers = L.layerGroup().addTo(map);
 
+  var TRAFFIC_COLORS = { NORMAL: "#3ddc84", SLOW: "#ffb020", TRAFFIC_JAM: "#ff4d4f" };      // clear / slow / heavy
   var doc = null, selected = 0, lastKey = null, fitPoints = null, userMoved = false;
 
   function decode(str) {                       // Google encoded polyline, precision 1e5
@@ -38,10 +39,31 @@
   function ft(m) { var f = m * 3.28084; return f < 1000 ? Math.round(f / 10) * 10 + " ft" : miles(m); }
   function msg(t) { $("msg").textContent = t || ""; }
 
+  // The selected route: a dark casing, the plain blue line, then coloured stretches on top where Google reported the speed (so a stretch it did not report stays blue,
+  // never green). Intervals index the decoded polyline: [start inclusive, end exclusive), so each stretch is drawn through its end point to join the next.
+  function drawSelected(pts, traffic) {
+    L.polyline(pts, { color: "#0b0f14", weight: 12, opacity: .85 }).addTo(layers);
+    L.polyline(pts, { color: "#3aa0ff", weight: 7, opacity: .95 }).addTo(layers);
+    (traffic || []).forEach(function (t) {
+      var seg = pts.slice(t[0], t[1] + 1);
+      if (seg.length > 1 && TRAFFIC_COLORS[t[2]]) L.polyline(seg, { color: TRAFFIC_COLORS[t[2]], weight: 7, opacity: .98, lineCap: "butt" }).addTo(layers);
+    });
+  }
+  function drawLegend(pts, traffic) {
+    var el = $("legend"); el.replaceChildren();
+    if (!traffic || !traffic.length) return;
+    var m = { NORMAL: 0, SLOW: 0, TRAFFIC_JAM: 0 };
+    traffic.forEach(function (t) { var seg = pts.slice(t[0], t[1] + 1); for (var i = 1; i < seg.length; i++) if (m[t[2]] != null) m[t[2]] += map.distance(seg[i - 1], seg[i]); });
+    [["NORMAL", "clear"], ["SLOW", "slow"], ["TRAFFIC_JAM", "heavy"]].forEach(function (k) {
+      var span = document.createElement("span"), sw = document.createElement("i"); sw.style.background = TRAFFIC_COLORS[k[0]]; span.appendChild(sw);
+      span.appendChild(document.createTextNode(k[1] + (k[0] !== "NORMAL" && m[k[0]] >= 160 ? " " + miles(m[k[0]]) : ""))); el.appendChild(span);
+    });
+  }
+
   function renderEmpty(why) {
     layers.clearLayers();
     $("dest").textContent = "No active route";
-    $("eta").textContent = ""; $("dist").textContent = ""; $("traffic").textContent = why || "";
+    $("eta").textContent = ""; $("dist").textContent = ""; $("traffic").textContent = why || ""; $("legend").replaceChildren();
     $("tabs").replaceChildren(); $("steps").replaceChildren();
     $("phone").disabled = true; $("close").disabled = true;
   }
@@ -81,7 +103,8 @@
       var p = points(rt); if (p.length) { L.polyline(p, { color: "#6b7785", weight: 5, opacity: .8 }).addTo(layers); all = all.concat(p); }
     });
     var sel = points(r);
-    if (sel.length) { L.polyline(sel, { color: "#3aa0ff", weight: 7, opacity: .95 }).addTo(layers); all = all.concat(sel); }
+    if (sel.length) { drawSelected(sel, r.traffic); all = all.concat(sel); }
+    drawLegend(sel, r.traffic);
     if (doc.origin) L.circleMarker([doc.origin.lat, doc.origin.lng], { radius: 9, color: "#fff", weight: 3, fillColor: "#2ecc71", fillOpacity: 1 }).addTo(layers).bindTooltip(doc.origin.label || "Start");
     if (doc.destination && doc.destination.lat != null) {
       L.circleMarker([doc.destination.lat, doc.destination.lng], { radius: 9, color: "#fff", weight: 3, fillColor: "#e74c3c", fillOpacity: 1 }).addTo(layers);
