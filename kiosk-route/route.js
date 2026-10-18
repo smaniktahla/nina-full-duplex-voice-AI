@@ -17,7 +17,7 @@
   map.setView([39.5, -98.35], 4);
   var layers = L.layerGroup().addTo(map);
 
-  var doc = null, selected = 0, lastKey = null;
+  var doc = null, selected = 0, lastKey = null, fitPoints = null, userMoved = false;
 
   function decode(str) {                       // Google encoded polyline, precision 1e5
     var i = 0, lat = 0, lng = 0, out = [];
@@ -87,10 +87,20 @@
       L.circleMarker([doc.destination.lat, doc.destination.lng], { radius: 9, color: "#fff", weight: 3, fillColor: "#e74c3c", fillOpacity: 1 }).addTo(layers);
       all.push([doc.destination.lat, doc.destination.lng]);
     }
-    if (all.length) map.fitBounds(all, { padding: [40, 40] });
+    fitPoints = all.length ? all : null; userMoved = false;
+    refit();
     $("phone").disabled = !(doc.actions && doc.actions.phone);
     $("close").disabled = !(doc.actions && doc.actions.close);
   }
+
+  // Fit the whole route in view. Inside an iframe (Home Assistant) the map's box often has not reached its final size when the route first arrives, and Leaflet does
+  // not refit by itself when it grows, which left the map zoomed into one end of the route. So refit whenever the box changes size, until the user pans or zooms.
+  function refit() {
+    map.invalidateSize();
+    if (fitPoints && !userMoved) map.fitBounds(fitPoints, { padding: [40, 40], animate: false });
+  }
+  ["mousedown", "touchstart", "wheel", "keydown"].forEach(function (ev) { $("map").addEventListener(ev, function () { userMoved = true; }, { passive: true }); });
+  if (window.ResizeObserver) new ResizeObserver(function () { refit(); }).observe($("map")); else window.addEventListener("resize", refit);
 
   function act(name, btn) {
     var url = doc && doc.actions && doc.actions[name];
@@ -121,5 +131,5 @@
     });
   }
   poll(); setInterval(poll, POLL_MS);
-  window.__routeViewer = { render: render, state: function () { return { doc: doc, selected: selected }; } };   // test hook
+  window.__routeViewer = { map: map, render: render, state: function () { return { doc: doc, selected: selected }; } };   // test hook
 })();
