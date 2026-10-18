@@ -59,6 +59,21 @@ with sync_playwright() as p:
     # 6. route removed -> empty again
     os.remove(os.path.join(tmp, "route.json")); pg.wait_for_function("document.getElementById('dest').textContent==='No active route'", timeout=5000)
     check("route removed -> empty state", pg.is_disabled("#close"))
+    # 6a. the live bug: Home Assistant loads the viewer in an iframe that is hidden or zero-sized, and shows it later. The map used to fit the route to a box with no size
+    #     and stay zoomed into one spot (zoom 19, neither endpoint in view). The whole route must be in view once the iframe appears.
+    put(doc); pg.wait_for_function("document.getElementById('dest').textContent==='Example Museum'", timeout=5000)
+    host = b.new_page(viewport={"width": 1300, "height": 800}); host.route("**/tile.openstreetmap.org/**", lambda r: r.abort())
+    host.set_content('<body style="margin:0"><iframe id="f" src="%sindex.html" style="width:1100px;height:0;border:0;display:none"></iframe></body>' % base); host.wait_for_timeout(1500)
+    host.evaluate("var f = document.getElementById('f'); f.style.display = 'block'; f.style.height = '620px'"); host.wait_for_timeout(1500)
+    probe = """() => { const v = window.__routeViewer, m = v.map, b = m.getBounds(), d = v.state().doc;
+                      return { zoom: m.getZoom(), o: b.contains([d.origin.lat, d.origin.lng]), t: b.contains([d.destination.lat, d.destination.lng]) }; }"""
+    r = host.frames[1].evaluate(probe)
+    check("route fully in view when the iframe is shown after loading hidden (zoom %s)" % r["zoom"], r["o"] and r["t"] and r["zoom"] < 15)
+    host.frames[1].evaluate("document.getElementById('map').dispatchEvent(new Event('wheel'))")      # the user touches the map ...
+    z = host.frames[1].evaluate("window.__routeViewer.map.getZoom()")
+    host.evaluate("document.getElementById('f').style.height = '500px'"); host.wait_for_timeout(600)
+    check("after the user touches the map, a resize does not refit it", host.frames[1].evaluate("window.__routeViewer.map.getZoom()") == z)
+    host.close()
     # 6b. an expired signed link (401) says so, and keeps the route
     put(doc); pg.wait_for_function("document.getElementById('dest').textContent==='Example Museum'", timeout=5000)
     pg.route("**/route.json*", lambda r: r.fulfill(status=401, body="expired")); pg.wait_for_function("document.getElementById('msg').textContent.includes('expired')", timeout=6000)
