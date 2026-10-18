@@ -28,6 +28,11 @@ NAME_RE = re.compile(r"^[a-z0-9_.-]{2,32}$")
 N, R, P = 2 ** 14, 8, 1
 _fails = {}   # ip -> (count, locked_until)
 _DUMMY = None
+LOG = lambda *a: None                 # the server sets this to its own log(); events never contain passwords or hashes
+
+
+def audit(request, what, **kv):
+    LOG("AUTH %s %s ip=%s" % (what, " ".join("%s=%s" % (k, v) for k, v in kv.items()), getattr(request, "remote", "?")))
 
 
 # ---------------------------------------------------------------- storage / crypto
@@ -181,6 +186,7 @@ async def setup(request):
         return _json(400, error=err)
     users = {name: {"hash": hash_password(pw), "role": "admin", "created": int(time.time())}}
     save_users(users)
+    audit(request, "setup: first admin created", user=name)
     return _login_ok(request, name, users[name])
 
 
@@ -188,6 +194,7 @@ async def login(request):
     ip = request.remote or "?"
     cnt, until = _fails.get(ip, (0, 0))
     if until > time.time():
+        audit(request, "login blocked (too many attempts)")
         return _json(429, error="too many attempts, try again in a minute")
     try:
         b = await request.json()
@@ -199,12 +206,16 @@ async def login(request):
     if not ok:
         cnt += 1
         _fails[ip] = (0, time.time() + 60) if cnt >= 5 else (cnt, 0)
+        audit(request, "login FAILED", user=name, known=bool(u), attempt=cnt)
         return _json(401, error="wrong username or password")
     _fails.pop(ip, None)
+    audit(request, "login ok", user=name)
     return _login_ok(request, name, u)
 
 
 async def logout(request):
+    u = current_user(request)
+    audit(request, "logout", user=(u or {}).get("name", "-"))
     resp = _json(200, ok=True)
     resp.del_cookie(COOKIE, path="/")
     return resp
@@ -218,12 +229,14 @@ async def change_own_password(request):
     users = load_users()
     u = users.get(user["name"])
     if not u or not verify_password(str(b.get("current", "")), u["hash"]):
+        audit(request, "password change REFUSED (current password wrong)", user=user["name"])
         return _json(403, error="current password is wrong")
     err = valid_new(user["name"], str(b.get("new", "")))
     if err:
         return _json(400, error=err)
     u["hash"] = hash_password(str(b["new"]))
     save_users(users)
+    audit(request, "password changed", user=user["name"], by="self")
     return _login_ok(request, user["name"], u)          # old sessions die with the old hash; this one stays signed in
 
 
@@ -250,6 +263,7 @@ async def users_add(request):
         return _json(400, error=err)
     users[name] = {"hash": hash_password(pw), "role": role, "created": int(time.time())}
     save_users(users)
+    audit(request, "user added", user=name, role=role, by=request.get("user", {}).get("name") or (current_user(request) or {}).get("name"))
     return _json(200, ok=True, users=_view(users))
 
 
@@ -272,6 +286,7 @@ async def users_update(request):
             return _json(400, error=err)
         users[name]["hash"] = hash_password(str(b["password"]))
     save_users(users)
+    audit(request, "user updated", user=name, password_reset=bool(b.get("password")), role=users[name].get("role"), by=(current_user(request) or {}).get("name"))
     return _json(200, ok=True, users=_view(users))
 
 
@@ -284,6 +299,7 @@ async def users_delete(request):
         return _json(400, error="cannot delete the last admin")
     del users[name]
     save_users(users)
+    audit(request, "user deleted", user=name, by=(current_user(request) or {}).get("name"))
     return _json(200, ok=True, users=_view(users))
 
 
