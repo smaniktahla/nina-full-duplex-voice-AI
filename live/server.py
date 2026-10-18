@@ -155,7 +155,7 @@ class Session:
         self.loop = asyncio.get_running_loop()
         self.t0 = self.loop.time()
         self.stt = StreamingSTT(shared_model=sh.whisper, executor=sh.stt_pool, on_event=self.on_stt,
-                                sens=float(os.environ.get("SENS", "0.4")))
+                                sens=float(os.environ.get("SENS", "0.4")), hotwords=tools_mod.stt_hotwords())
         self.tts = TtsModel()
         self.tts.WPS = 2.6
         self.reset_conv()

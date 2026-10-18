@@ -32,6 +32,8 @@ DEFAULTS = {
     "kiosk_targets": {},                         # {"kitchen": "sensor.<browser id>_browser_path"}: displays Nina may show routes on (empty = route display off)
     "route_store_path": "~/.local/share/needle_voice/route_store.json",   # the active route (holds home coordinates: private, never in the repo)
     "google_routes_key_file": "~/.config/nina/google_routes_key",   # Google Routes API key (chmod 600, never in the repo); missing = navigation off
+    "places": {},                               # frequent destinations {"Canonical Name": "search text for Google, or empty"}: heard names are matched to these
+    "stt_vocabulary": [],                       # extra words/names the speech recogniser should expect (places are included automatically)
     "phone_notify_service": "",                 # "mobile_app_<phone>": where 'send it to my phone' pushes directions (empty = off, the button is hidden)
     "timezone": "America/New_York",             # note dates/times are written in this zone
 }

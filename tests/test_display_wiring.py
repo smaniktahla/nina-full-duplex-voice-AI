@@ -142,3 +142,20 @@ def test_route_intercept_sees_each_utterance_once():
     request went to the general Home Assistant tool. The intercept text must use the same de-duplication as user_said."""
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
     assert 'utter_d = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf' in src
+
+
+def test_stt_gets_the_household_names_as_hotwords(monkeypatch):
+    monkeypatch.setattr(tools, "PLACES", {"Takoda Beer Garden": "", "Example Cafe": "x"})
+    assert tools.stt_hotwords().startswith("Takoda Beer Garden, Example Cafe")
+    monkeypatch.setattr(tools, "PLACES", {}); assert tools.stt_hotwords() == ""
+    root = os.path.join(os.path.dirname(__file__), "..", "live")
+    assert "hotwords=self.hotwords" in open(os.path.join(root, "stt_stream.py")).read() and "hotwords=tools_mod.stt_hotwords()" in open(os.path.join(root, "server.py")).read()
+
+
+def test_nav_cfg_carries_the_places(monkeypatch):
+    monkeypatch.setattr(tools, "PLACES", {"Takoda Beer Garden": ""})
+    monkeypatch.setattr(tools, "ROUTES_KEY_FILE", __file__)
+    monkeypatch.setenv("HA_TOKEN", "test-token"); monkeypatch.delitem(tools._KEY, "ha", raising=False)       # no ~/.hermes/.env on a CI runner
+    class H:
+        def get(self, *a, **k): raise OSError("no ha in tests")
+    assert run(tools.nav_cfg(H())).places == {"Takoda Beer Garden": ""}

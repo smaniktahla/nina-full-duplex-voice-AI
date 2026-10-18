@@ -167,3 +167,31 @@ def test_owns_needs_a_travel_word_and_a_referent():
     assert not nav.owns("how long does it take to boil an egg", empty) and not nav.owns("how long to boil an egg", full)
     assert nav.owns("send it to my phone", full) and not nav.owns("send it to my phone", empty)
     assert not nav.owns("turn on the lights", full) and not nav.owns("when should I leave", full)
+
+
+# ---------------------------------------------------------------- what the live voice test showed: mangled names and trailing chatter
+PLACES = {"Takoda Beer Garden": "", "Example Cafe": "Example Cafe, 1 Main St, Town"}
+
+
+def test_only_the_request_sentence_becomes_the_destination():
+    assert nav.parse("How long would it take to get to Dakota beer garden? Hey, did you get that?") == ("eta", "Dakota beer garden")
+    assert nav.parse("Hey, did you get that? How long would it take to get to Dakota beer garden?") == ("eta", "Dakota beer garden")
+    assert nav.parse("how long to get to the first place? no wait, how long to get to the second place") == ("eta", "second place")           # a correction wins
+    assert nav.parse("thank you. hey, did you get that?") == ("", "")
+
+
+def test_heard_names_resolve_to_known_places():
+    for heard in ("Takoda Beer Garden", "Dakota beer garden", "takota beer garden", "Tuck-Coda Beer Garden", "the Takoda beer garden", "takoda beergarden"):
+        assert nav.resolve_place(heard, PLACES) == ("Takoda Beer Garden", "Takoda Beer Garden"), heard
+    assert nav.resolve_place("example cafe", PLACES) == ("Example Cafe", "Example Cafe, 1 Main St, Town")                                         # a stored search text is used
+    for other in ("Dakota Boulevard", "the train station", "12 Main Street", "Stony Brook", "", "boil an egg"):
+        assert nav.resolve_place(other, PLACES) == (other, other), other                                                                         # nothing guessed
+    assert nav.resolve_place("Dakota beer garden", {}) == ("Dakota beer garden", "Dakota beer garden")
+
+
+def test_eta_to_a_mangled_name_asks_google_for_the_canonical_place_and_stores_it():
+    log, store = [], rs.RouteStore()
+    c = cfg(resp=(200, DETAIL), log=log); c.store, c.places = store, PLACES
+    r = run(nav.handle("How long would it take to get to Dakota beer garden? Hey, did you get that?", None, c, NOW))
+    assert r.status == Status.SUCCESS and log[0][2]["destination"] == {"address": "Takoda Beer Garden"} and store.get().destination_label == "Takoda Beer Garden"
+    assert "Dakota" not in str(r.telemetry)
