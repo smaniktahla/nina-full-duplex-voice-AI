@@ -352,7 +352,8 @@ class Session:
         lines = "\n".join("The user asked: %s\nThe %s tool returned: %s" % (self.job_title(j), j["kind"], j["res"][:1500]) for j in events)
         prompt = (chat("system", "You are Nina, a friendly voice assistant. Reply in plain spoken English, at most two short sentences, no markdown, no lists, "
                        "no symbols. Say numbers and times the way people say them. Use only facts from the tool result; if it does not contain what was asked, "
-                       "say so briefly.") + chat("user", lines + "\nTell the user the answer now.") + THINK_PREFIX)
+                       "say so briefly. If the tool result ends with a question (for example an offer to show something), keep that question and ask it as the last thing you say.") +
+                      chat("user", lines + "\nTell the user the answer now.") + THINK_PREFIX)
         body = {"prompt": prompt, "n_predict": 100, "temperature": 0.2, "cache_prompt": True, "stop": ["<|im_end|>", "\n"]}
         t0 = time.perf_counter()
         async with self.http.post(CFG["llama"] + "/completion", json=body) as r:
@@ -704,7 +705,7 @@ class Session:
                 if len(utter.split()) >= 3 and (set(re.findall(r"[a-z]+", arg.lower())) & cmd) - uw:
                     log("   (ha request %r adds command words not in the user's words; using %r)" % (arg, utter[:80]))
                     arg = utter
-            utter_d = (self.user_buf + " " + text).strip()
+            utter_d = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf     # same de-duplication as user_said below
             owned = ("display" if tools_mod.display_owns(utter_d, tools_mod.offer_fresh()) else "nav" if tools_mod.nav_owns(utter_d) else "") if RESPONDER else ""
             if owned and tool.group(1) != owned:
                 # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): route display and navigation requests belong to
