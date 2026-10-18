@@ -1116,6 +1116,7 @@ def main():
     app.router.add_static("/icons", os.path.join(HERE, "static", "icons"))
     app.router.add_get("/api/config", api_config)
     app.router.add_get("/api/voice_sample", api_voice_sample)
+    auth.LOG = log                                                  # login/logout/password events go to the server log (no secrets)
     auth.add_routes(app)
     import kiosk                                                   # signed-link route viewer for the kitchen kiosk, own plain-http listener (opt-in: KIOSK_PORT)
 

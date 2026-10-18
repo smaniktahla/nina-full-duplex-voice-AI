@@ -116,3 +116,24 @@ def test_csrf_logout_lockout_service_token_and_ws_origin():
             assert (await c.post("/api/auth/login", json={"username": "amy", "password": PW}, headers=H)).status == 429
             auth._fails.clear()
     run(go())
+
+
+def test_audit_log_has_events_but_never_secrets():
+    async def go():
+        reset()
+        lines = []
+        auth.LOG = lines.append
+        try:
+            async with TestClient(TestServer(_app())) as a, TestClient(TestServer(_app())) as b:
+                await a.post("/api/auth/setup", json={"username": "amy", "password": PW}, headers=H)
+                await a.post("/api/users/update", json={"username": "amy", "password": "reset-pass-9876"}, headers=H)
+                await b.post("/api/auth/login", json={"username": "amy", "password": PW}, headers=H)                    # old: refused
+                await b.post("/api/auth/login", json={"username": "amy", "password": "reset-pass-9876"}, headers=H)    # new: ok
+                await b.post("/api/auth/logout", headers=H)
+        finally:
+            auth.LOG = lambda *x: None
+        text = "\n".join(lines)
+        for needle in ("setup: first admin created", "user updated", "password_reset=True", "login FAILED", "login ok", "logout"):
+            assert needle in text, (needle, text)
+        assert PW not in text and "reset-pass-9876" not in text and "scrypt" not in text and "hash" not in text
+    run(go())
