@@ -5,7 +5,7 @@ Same contract as home_ops (result.ToolResult, honest speech, no side effect clai
   * ETA comes from the Google Routes API (computeRoutes, DRIVE, TRAFFIC_AWARE). The destination is passed as an address string and Google resolves it;
     there is no place-search step yet, so a vague name returns Google's best guess, not an AMBIGUOUS question (known limit, see PIPELINE.md).
   * "when should I leave" = event start - ETA - buffer (default 10 min). A future departure is a prediction and is spoken as "typically".
-  * "send it to my phone" hands the destination to a caller-supplied `notify(title, message, uri)` (the caller owns HA service calls). A tap on the
+  * "send it to my phone" hands the destination to a caller-supplied `notify(title, message, app_uri, web_uri)` (the caller owns HA service calls). A tap on the
     notification opens turn-by-turn navigation. There is no read-back, so the best this can be is UNVERIFIED; it is never auto-retried.
 
 I/O is injected so the module is pure and testable: `post_json(url, headers, body) -> (http_status, dict)` and `notify`. Telemetry carries durations and
@@ -30,7 +30,7 @@ DEFAULT_BUFFER_MIN = 10
 CTX_TTL_S = 600.0
 
 PostJson = Callable[[str, dict, dict], Awaitable[tuple]]
-Notify = Callable[[str, str, str], Awaitable[bool]]
+Notify = Callable[[str, str, str, str], Awaitable[bool]]          # (title, message, tap -> Maps app, button -> web link)
 
 
 @dataclass
@@ -104,8 +104,13 @@ def clock(t: dt.datetime) -> str:
 
 
 def nav_uri(destination: str) -> str:
-    """Tap target for the phone notification: a Google Maps directions link (App Links open the Maps app on Android, a browser elsewhere)."""
+    """Web link: Google Maps directions in any browser (the desktop path; on Android it also opens the Maps app via App Links)."""
     return "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=" + urllib.parse.quote(destination, safe="")
+
+
+def nav_app_uri(destination: str) -> str:
+    """Android path: tapping the notification starts turn-by-turn in the Google Maps app."""
+    return "google.navigation:q=" + urllib.parse.quote(destination, safe="")
 
 
 def build_request(home: tuple, destination: str, depart: dt.datetime | None) -> dict:
@@ -229,7 +234,7 @@ async def _send(cfg: NavConfig, destination: str) -> ToolResult:
     if not cfg.notify:
         return _fail("no_phone_target", "I don't have a phone to send that to yet.", Status.UNAVAILABLE)
     try:
-        ok = await cfg.notify("Navigate", "Tap to start directions", nav_uri(destination))
+        ok = await cfg.notify("Navigate", "Tap to start directions in Google Maps", nav_app_uri(destination), nav_uri(destination))
     except Exception as e:                                                  # noqa: BLE001
         return _fail("notify_unverified", "I tried to send it to your phone but couldn't tell whether it arrived.", Status.UNVERIFIED, err=type(e).__name__)
     if not ok:

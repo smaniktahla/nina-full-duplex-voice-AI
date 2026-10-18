@@ -89,7 +89,7 @@ DETAIL = {"routes": [{"duration": "1200s", "staticDuration": "900s", "distanceMe
 
 def nav_cfg_fake(store, offer=True, notify=True):
     async def post(url, headers, body): return 200, DETAIL
-    async def push(t, m, u): return True
+    async def push(t, m, u, w): return True
     return nav.NavConfig(api_key="k", home=(40.0, -73.0), notify=push if notify else None, post_json=post, store=store, offer_display=offer)
 
 
