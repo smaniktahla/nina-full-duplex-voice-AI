@@ -15,6 +15,7 @@ a result code only: no destination text, no street address, no coordinates.
 from __future__ import annotations
 
 import datetime as dt
+import difflib
 import re
 import urllib.parse
 from dataclasses import dataclass, field
@@ -48,6 +49,7 @@ class NavConfig:
     buffer_min: int = DEFAULT_BUFFER_MIN
     notify: Notify | None = None
     post_json: PostJson | None = None
+    places: dict = field(default_factory=dict)      # the household's frequent destinations {"Canonical Name": "search text for Google" ("" = the name itself)}
     store: "rs.RouteStore | None" = None            # when set, an ETA answer also keeps the full route (polyline, steps, alternates) as the ACTIVE route
     offer_display: bool = False                     # True when a display exists: the ETA answer ends by offering to show the route there
     extra: dict = field(default_factory=dict)
@@ -62,9 +64,22 @@ _LEAD = re.compile(r"(?i)^(?:(?:get|go|drive|walk|head)(?:\s+to)?|to|the)\s+")
 _PRON = re.compile(r"(?i)\b(it|there|that|my next (?:appointment|meeting|event)|the appointment|the meeting|my appointment)\b")
 
 
+def _sentences(text: str) -> list:
+    return [x.strip() for x in re.split(r"(?<=[?.!])\s+", (text or "").strip()) if x.strip()]
+
+
 def parse(text: str) -> tuple:
     """-> (intent, destination_or_''). intent is 'send' | 'leave' | 'eta' | ''. A pronoun / 'next appointment' destination is returned as ''
-    (the caller's NavContext supplies it)."""
+    (the caller's NavContext supplies it). Only the sentence that carries the request is read, so words spoken after it ("... Dakota beer garden? Hey, did you get
+    that?") never become part of the destination; the last such sentence wins (a correction after the first attempt)."""
+    for sent in reversed(_sentences(text) or [text or ""]):
+        r = _parse_one(sent)
+        if r[0]:
+            return r
+    return "", ""
+
+
+def _parse_one(text: str) -> tuple:
     t = (text or "").strip()
     intent = "send" if _SEND.search(t) else "leave" if _LEAVE.search(t) else "eta" if _ETA.search(t) else ""
     if not intent:
@@ -81,6 +96,26 @@ def parse(text: str) -> tuple:
     if intent == "send" and re.search(r"(?i)\bphone\b", dest):
         dest = ""
     return intent, dest
+
+
+def _norm(x: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9 ]", " ", re.sub(r"(?i)^(?:the|a)\s+", "", (x or "").lower()))).strip()
+
+
+def resolve_place(dest: str, places: dict, threshold: float = 0.80) -> tuple:
+    """Speech recognition mangles unusual names ('Takoda' came out as 'Dakota', 'Tuck-Coda', 'takota'). Match what was heard against the household's known places by
+    similarity, ignoring spaces and punctuation, and use the canonical spelling. -> (label, query). A destination that is not close to any known place is
+    passed through unchanged; nothing here guesses a place the household did not list."""
+    d = _norm(dest)
+    best, score = None, 0.0
+    for name in (places or {}):
+        n = _norm(name)
+        r = max(difflib.SequenceMatcher(None, d, n).ratio(), difflib.SequenceMatcher(None, d.replace(" ", ""), n.replace(" ", "")).ratio())
+        if r > score:
+            best, score = name, r
+    if best is not None and score >= threshold:
+        return best, (places.get(best) or best)
+    return dest, dest
 
 
 def parse_duration_s(v) -> int | None:
@@ -186,7 +221,8 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
     if not cfg.api_key or not cfg.post_json or not cfg.home:
         return _fail("not_configured", "Navigation isn't set up yet: it needs a Google Maps key.", Status.UNAVAILABLE)
     active = cfg.store.get() if cfg.store else None
-    destination = dest or (active.destination_label if (intent == "send" and active) else "") or (ctx.destination if ctx else "")
+    label, query = resolve_place(dest, cfg.places) if dest else ("", "")
+    destination = query or (active.destination_label if (intent == "send" and active) else "") or (ctx.destination if ctx else "")
     if not destination:
         return ToolResult(Status.AMBIGUOUS, "Where to?", reason="no_destination", telemetry={"code": "no_destination"}, domain="navigation")
     start = ctx.event_start if (ctx and not dest and ctx.event_start) else None
@@ -222,7 +258,7 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
     speech = "It's about %s by car with current traffic%s, %.0f mile%s." % (spoken_minutes(secs), traffic_note(secs, static), miles, "" if round(miles) == 1 else "s")
     tel = {"code": "eta", "eta_s": secs, "static_s": static, "meters": meters}
     if cfg.store is not None and parsed and parsed[0]:
-        kept = cfg.store.set(destination, parsed[0], parsed[1], parsed[2])         # the route the user was just told about becomes the active route
+        kept = cfg.store.set(label or destination, parsed[0], parsed[1], parsed[2])         # the route the user was just told about becomes the active route
         tel.update(routes=len(parsed[0]), route_id=kept.id)
         if cfg.offer_display:
             speech += OFFER

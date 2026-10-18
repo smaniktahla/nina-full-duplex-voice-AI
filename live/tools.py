@@ -198,6 +198,12 @@ def display_env(http):
 
 # ---------------------------------------------------------------- navigation (Needle's navigation_ops: ETA + the active route + phone push)
 PHONE_NOTIFY = household.get("phone_notify_service")
+PLACES = household.get("places")                                                 # {"Takoda Beer Garden": ""}: frequent destinations (canonical spelling; value = search text or "")
+
+
+def stt_hotwords():
+    """Names the speech recogniser should expect: the household's places plus any extra words in household.json `stt_vocabulary`."""
+    return ", ".join(list(PLACES or {}) + list(household.get("stt_vocabulary") or []))
 ROUTES_KEY_FILE = os.path.expanduser(household.get("google_routes_key_file"))
 OFFER_TTL_S = 120.0
 
@@ -240,7 +246,7 @@ async def nav_cfg(http):
     async def notify(title, message, app_uri, web_uri):
         return await executor.execute_notify(hass, PHONE_NOTIFY, title, message, app_uri, web_uri)
     return nav.NavConfig(api_key=open(ROUTES_KEY_FILE).read().strip(), home=await _home_latlng(http) or (), notify=notify if PHONE_NOTIFY else None,
-                         post_json=post_json, store=route_store(), offer_display=bool(KIOSK_TARGETS))
+                         post_json=post_json, store=route_store(), offer_display=bool(KIOSK_TARGETS), places=dict(PLACES or {}))
 
 
 def nav_owns(text):

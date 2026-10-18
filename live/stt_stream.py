@@ -25,7 +25,8 @@ def norm(w):
 
 class StreamingSTT:
     def __init__(self, model="base.en", threads=4, vad_thr=0.010, end_ms=700, max_utt_s=14, decode_every=0.45,
-                 shared_model=None, executor=None, on_event=None, sens=0.4):
+                 shared_model=None, executor=None, on_event=None, sens=0.4, hotwords=""):
+        self.hotwords = hotwords or None                         # household names Whisper should expect ('Takoda Beer Garden'): small models mangle unusual words
         self.model = shared_model or WhisperModel(model, device="cpu", compute_type="int8", cpu_threads=threads)
         self.pool = executor or ThreadPoolExecutor(max_workers=1)
         self.vad_thr, self.end_ms, self.max_utt, self.decode_every = vad_thr, end_ms, max_utt_s, decode_every
@@ -89,7 +90,7 @@ class StreamingSTT:
     # ---------------------------------------------------------------- decode loop
     def _decode(self, audio):
         segs, _ = self.model.transcribe(audio, language="en", beam_size=1, temperature=0.0, without_timestamps=True,
-                                        condition_on_previous_text=False, vad_filter=False)
+                                        condition_on_previous_text=False, vad_filter=False, hotwords=self.hotwords)
         keep = []
         for s in segs:
             # Whisper's own confidence: drop segments it thinks are not speech / are low-confidence guesses (room noise, far voices)
