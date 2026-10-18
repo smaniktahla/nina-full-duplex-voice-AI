@@ -75,8 +75,8 @@ def test_viewer_close_button_is_true_only_when_seen_to_close():
 
 def test_server_routes_display_requests_deterministically():
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
-    assert 'tools_mod.display_owns(user_said' in src and 'start_tool("display"' in src and 'k == "display"' in src and 'on_close=kiosk_close' in src
-    assert 'replaced by @%s' in src                                       # a model-chosen tool tag must not take a route display request
+    assert 'tools_mod.claim(user_said' in src and 'self.start_tool(claimed, user_said)' in src and 'k == "display"' in src and 'on_close=kiosk_close' in src
+    assert 'replaced by @%s' in src                                       # a model-chosen tool tag must not take a request a deterministic tool claims
 
 
 # ---------------------------------------------------------------- navigation glue
@@ -127,7 +127,8 @@ def test_nav_is_off_without_a_key(monkeypatch, tmp_path):
 
 def test_server_replaces_model_tools_for_navigation_and_display():
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
-    assert 'tools_mod.nav_owns(utter_d)' in src and 'k == "nav"' in src and 'start_tool("nav"' in src and 'on_phone=kiosk_phone' in src
+    assert 'tools_mod.claim(utter_d)' in src and 'k == "nav"' in src and '"display", "nav", "random"' in src and 'on_phone=kiosk_phone' in src
+    assert "import claims" in src and "claims.calendar_when" in src and "claims.weather_when" in src               # one routing table, shared with tests/test_routing_corpus.py
 
 
 def test_spoken_results_keep_a_closing_question():

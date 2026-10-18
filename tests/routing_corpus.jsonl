@@ -1,0 +1,358 @@
+{"text": "how far is it to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how far is it to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how far is it to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how far away is Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how far away is the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how far away is Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how far is Example Beer Garden from here", "route": "nav", "ctx": {}}
+{"text": "how far is the Riverside Cafe from here", "route": "nav", "ctx": {}}
+{"text": "how far is Maple Street Pizza from here", "route": "nav", "ctx": {}}
+{"text": "how far to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how far to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how far to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what's the distance to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what's the distance to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what's the distance to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how many miles to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how many miles to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how many miles to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how many miles is it to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how many miles is it to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how many miles is it to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how many miles away is Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how many miles away is the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how many miles away is Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long to get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long to get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long to get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long will it take to get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long will it take to get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long will it take to get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long would it take to drive to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long would it take to drive to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long would it take to drive to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long is the drive to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long is the drive to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long is the drive to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long is the drive from here to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long is the drive from here to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long is the drive from here to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long till I get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long till I get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long till I get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what's the drive time to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what's the drive time to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what's the drive time to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what's the travel time to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what's the travel time to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what's the travel time to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what's the ETA to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what's the ETA to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what's the ETA to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what is the eta to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what is the eta to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what is the eta to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "give me the eta to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "give me the eta to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "give me the eta to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "can you tell me how long it takes to get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "can you tell me how long it takes to get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "can you tell me how long it takes to get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "can you look up the travel time to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "can you look up the travel time to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "can you look up the travel time to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "look up the drive to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "look up the drive to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "look up the drive to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how's traffic to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how's traffic to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how's traffic to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how's the traffic going to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how's the traffic going to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how's the traffic going to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "is there traffic on the way to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "is there traffic on the way to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "is there traffic on the way to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "give me directions to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "give me directions to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "give me directions to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "get me directions to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "get me directions to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "get me directions to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "directions to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "directions to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "directions to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "navigate to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "navigate to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "navigate to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "take me to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "take me to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "take me to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "route to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "route to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "route to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how do I get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how do I get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how do I get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how long to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how long to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how long to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how much time to get to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how much time to get to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how much time to get to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how many minutes to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how many minutes to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how many minutes to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how many minutes away is Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "how many minutes away is the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "how many minutes away is Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "is Example Beer Garden far", "route": "nav", "ctx": {}}
+{"text": "is the Riverside Cafe far", "route": "nav", "ctx": {}}
+{"text": "is Maple Street Pizza far", "route": "nav", "ctx": {}}
+{"text": "is it far to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "is it far to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "is it far to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "what's the commute to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "what's the commute to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "what's the commute to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "hey how long would it take me to drive to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "hey how long would it take me to drive to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "hey how long would it take me to drive to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "okay how far is it to Example Beer Garden", "route": "nav", "ctx": {}}
+{"text": "okay how far is it to the Riverside Cafe", "route": "nav", "ctx": {}}
+{"text": "okay how far is it to Maple Street Pizza", "route": "nav", "ctx": {}}
+{"text": "how far is it to the airport", "route": "nav", "ctx": {}}
+{"text": "how many miles to the airport", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to the airport", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to the airport", "route": "nav", "ctx": {}}
+{"text": "give me the eta to the airport", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to the airport", "route": "nav", "ctx": {}}
+{"text": "directions to the airport", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to the airport", "route": "nav", "ctx": {}}
+{"text": "is the airport far", "route": "nav", "ctx": {}}
+{"text": "how far is it to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "how many miles to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "give me the eta to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "directions to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to Harbor Point Mall", "route": "nav", "ctx": {}}
+{"text": "is Harbor Point Mall far", "route": "nav", "ctx": {}}
+{"text": "how far is it to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "how many miles to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "give me the eta to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "directions to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to Oak Hill Trampoline Park", "route": "nav", "ctx": {}}
+{"text": "is Oak Hill Trampoline Park far", "route": "nav", "ctx": {}}
+{"text": "how far is it to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "how many miles to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "give me the eta to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "directions to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to 12 Elm Street", "route": "nav", "ctx": {}}
+{"text": "is 12 Elm Street far", "route": "nav", "ctx": {}}
+{"text": "how far is it to Costco", "route": "nav", "ctx": {}}
+{"text": "how many miles to Costco", "route": "nav", "ctx": {}}
+{"text": "how long does it take to get to Costco", "route": "nav", "ctx": {}}
+{"text": "how long will it take me to get to Costco", "route": "nav", "ctx": {}}
+{"text": "give me the eta to Costco", "route": "nav", "ctx": {}}
+{"text": "what's traffic like to Costco", "route": "nav", "ctx": {}}
+{"text": "directions to Costco", "route": "nav", "ctx": {}}
+{"text": "what's the fastest way to get to Costco", "route": "nav", "ctx": {}}
+{"text": "is Costco far", "route": "nav", "ctx": {}}
+{"text": "send it to my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "send that to my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "send the directions to my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "text me the directions", "route": "nav", "ctx": {"route": true}}
+{"text": "push this to my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "put the directions on my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "can you send this to my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "get this on my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "send me the route", "route": "nav", "ctx": {"route": true}}
+{"text": "send the route to my phone", "route": "nav", "ctx": {"route": true}}
+{"text": "show me the route on the kitchen screen", "route": "display", "ctx": {"route": true}}
+{"text": "put that on the kitchen display", "route": "display", "ctx": {"route": true}}
+{"text": "show me the route", "route": "display", "ctx": {"route": true}}
+{"text": "show the route", "route": "display", "ctx": {"route": true}}
+{"text": "show me the map", "route": "display", "ctx": {"route": true}}
+{"text": "put the map on the screen", "route": "display", "ctx": {"route": true}}
+{"text": "display the route", "route": "display", "ctx": {"route": true}}
+{"text": "bring up the directions", "route": "display", "ctx": {"route": true}}
+{"text": "pull up the route on the kitchen screen", "route": "display", "ctx": {"route": true}}
+{"text": "throw that on the kitchen screen", "route": "display", "ctx": {"route": true}}
+{"text": "can you show me that on the kitchen screen", "route": "display", "ctx": {"route": true}}
+{"text": "show it on the screen", "route": "display", "ctx": {"route": true}}
+{"text": "put it on the kitchen display", "route": "display", "ctx": {"route": true}}
+{"text": "show me the directions on the screen", "route": "display", "ctx": {"route": true}}
+{"text": "put the route on the kitchen display", "route": "display", "ctx": {"route": true}}
+{"text": "display the map on the kitchen screen", "route": "display", "ctx": {"route": true}}
+{"text": "yes", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "yes show me", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "yeah", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "yep", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "sure", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "please", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "yes please", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "ok", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "okay", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "go ahead", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "do it", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "show me", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "sure show it", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "yes put it up", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "yes please show me the route", "route": "display", "ctx": {"route": true, "offered": true}}
+{"text": "show me the alternate route", "route": "display", "ctx": {"route": true}}
+{"text": "is there another way", "route": "display", "ctx": {"route": true}}
+{"text": "show me another route", "route": "display", "ctx": {"route": true}}
+{"text": "what's the other route", "route": "display", "ctx": {"route": true}}
+{"text": "is there an alternate", "route": "display", "ctx": {"route": true}}
+{"text": "any other routes", "route": "display", "ctx": {"route": true}}
+{"text": "show me a different route", "route": "display", "ctx": {"route": true}}
+{"text": "what about the second route", "route": "display", "ctx": {"route": true}}
+{"text": "show the alternative", "route": "display", "ctx": {"route": true}}
+{"text": "what's the alternate route", "route": "display", "ctx": {"route": true}}
+{"text": "show me the alternative route", "route": "display", "ctx": {"route": true}}
+{"text": "close the map", "route": "display", "ctx": {"route": true}}
+{"text": "dismiss the route", "route": "display", "ctx": {"route": true}}
+{"text": "hide the map", "route": "display", "ctx": {"route": true}}
+{"text": "clear the map", "route": "display", "ctx": {"route": true}}
+{"text": "get rid of the map", "route": "display", "ctx": {"route": true}}
+{"text": "take the map down", "route": "display", "ctx": {"route": true}}
+{"text": "close the route", "route": "display", "ctx": {"route": true}}
+{"text": "turn off the map", "route": "display", "ctx": {"route": true}}
+{"text": "go back to the normal dashboard", "route": "display", "ctx": {"route": true}}
+{"text": "go back to the dashboards", "route": "display", "ctx": {"route": true}}
+{"text": "back to the dashboards", "route": "display", "ctx": {"route": true}}
+{"text": "resume the dashboards", "route": "display", "ctx": {"route": true}}
+{"text": "what's on the kitchen screen", "route": "display", "ctx": {"route": true}}
+{"text": "is the route showing on the kitchen screen", "route": "display", "ctx": {"route": true}}
+{"text": "close the map", "route": "display", "ctx": {}}
+{"text": "hide the map", "route": "display", "ctx": {}}
+{"text": "go back to the dashboards", "route": "display", "ctx": {}}
+{"text": "what's the weather", "route": "weather", "ctx": {}}
+{"text": "what's the weather today", "route": "weather", "ctx": {}}
+{"text": "what's the weather tomorrow", "route": "weather", "ctx": {}}
+{"text": "what's the weather like", "route": "weather", "ctx": {}}
+{"text": "how's the weather", "route": "weather", "ctx": {}}
+{"text": "what's the forecast", "route": "weather", "ctx": {}}
+{"text": "what's the forecast for tomorrow", "route": "weather", "ctx": {}}
+{"text": "will it rain today", "route": "weather", "ctx": {}}
+{"text": "is it going to rain tomorrow", "route": "weather", "ctx": {}}
+{"text": "is it going to snow", "route": "weather", "ctx": {}}
+{"text": "do I need an umbrella", "route": "weather", "ctx": {}}
+{"text": "do I need a jacket", "route": "weather", "ctx": {}}
+{"text": "how cold is it outside", "route": "weather", "ctx": {}}
+{"text": "how hot is it outside", "route": "weather", "ctx": {}}
+{"text": "is it cold outside", "route": "weather", "ctx": {}}
+{"text": "what's the temperature outside", "route": "weather", "ctx": {}}
+{"text": "what's the weather going to be this weekend", "route": "weather", "ctx": {}}
+{"text": "what's the weather this week", "route": "weather", "ctx": {}}
+{"text": "can you look up the weather for tomorrow", "route": "weather", "ctx": {}}
+{"text": "hey what's the weather forecast for tomorrow", "route": "weather", "ctx": {}}
+{"text": "what's it like outside", "route": "weather", "ctx": {}}
+{"text": "what's the chance of rain today", "route": "weather", "ctx": {}}
+{"text": "what location is that weather for", "route": "none", "ctx": {}}
+{"text": "did you find out where the weather location is coming from", "route": "none", "ctx": {}}
+{"text": "why is the forecast wrong", "route": "none", "ctx": {}}
+{"text": "what's the temperature in the living room", "route": "none", "ctx": {}}
+{"text": "what's on my calendar today", "route": "calendar", "ctx": {}}
+{"text": "what's on my schedule tomorrow", "route": "calendar", "ctx": {}}
+{"text": "do I have any meetings today", "route": "calendar", "ctx": {}}
+{"text": "what do I have on my schedule for tomorrow", "route": "calendar", "ctx": {}}
+{"text": "what's my next appointment", "route": "calendar", "ctx": {}}
+{"text": "am I busy tomorrow", "route": "calendar", "ctx": {}}
+{"text": "when is my dentist appointment", "route": "calendar", "ctx": {}}
+{"text": "where is my workout tomorrow", "route": "calendar", "ctx": {}}
+{"text": "what time is my meeting", "route": "calendar", "ctx": {}}
+{"text": "check my calendar", "route": "calendar", "ctx": {}}
+{"text": "what's on my agenda", "route": "calendar", "ctx": {}}
+{"text": "anything on the calendar this week", "route": "calendar", "ctx": {}}
+{"text": "do you know where my workout is", "route": "calendar", "ctx": {}}
+{"text": "what is the location for my workout tomorrow morning", "route": "calendar", "ctx": {}}
+{"text": "can you check my calendar to see where my workout is", "route": "calendar", "ctx": {}}
+{"text": "in the meantime what's on my schedule tomorrow", "route": "calendar", "ctx": {}}
+{"text": "do I have anything going on this weekend", "route": "calendar", "ctx": {}}
+{"text": "flip a coin", "route": "random", "ctx": {}}
+{"text": "toss a coin", "route": "random", "ctx": {}}
+{"text": "heads or tails", "route": "random", "ctx": {}}
+{"text": "roll a die", "route": "random", "ctx": {}}
+{"text": "roll two dice", "route": "random", "ctx": {}}
+{"text": "roll a d20", "route": "random", "ctx": {}}
+{"text": "pick a number between 1 and 10", "route": "random", "ctx": {}}
+{"text": "give me a random number", "route": "random", "ctx": {}}
+{"text": "pick a number from one to a hundred", "route": "random", "ctx": {}}
+{"text": "choose between pizza and tacos", "route": "random", "ctx": {}}
+{"text": "take notes", "route": "notes", "ctx": {}}
+{"text": "I need you to take notes", "route": "notes", "ctx": {}}
+{"text": "start taking notes", "route": "notes", "ctx": {}}
+{"text": "are you able to create the note in DocMost", "route": "notes", "ctx": {}}
+{"text": "write that down", "route": "notes", "ctx": {"recording": true}}
+{"text": "okay write that down", "route": "notes", "ctx": {"recording": true}}
+{"text": "that's all", "route": "notes", "ctx": {"recording": true}}
+{"text": "save the notes", "route": "notes", "ctx": {"recording": true}}
+{"text": "write that down", "route": "none", "ctx": {}}
+{"text": "what's the capital of France", "route": "none", "ctx": {}}
+{"text": "tell me a joke", "route": "none", "ctx": {}}
+{"text": "how long does it take to boil an egg", "route": "none", "ctx": {}}
+{"text": "how long does a cat live", "route": "none", "ctx": {}}
+{"text": "how far is the sun", "route": "none", "ctx": {}}
+{"text": "how far is the moon from earth", "route": "none", "ctx": {}}
+{"text": "how long is a marathon", "route": "none", "ctx": {}}
+{"text": "how tall is Mount Everest", "route": "none", "ctx": {}}
+{"text": "what time is it", "route": "none", "ctx": {}}
+{"text": "who won the game last night", "route": "none", "ctx": {}}
+{"text": "can you hear me", "route": "none", "ctx": {}}
+{"text": "hello Nina", "route": "none", "ctx": {}}
+{"text": "thank you", "route": "none", "ctx": {}}
+{"text": "okay thanks", "route": "none", "ctx": {}}
+{"text": "I'm gonna go on a walk", "route": "none", "ctx": {}}
+{"text": "turn on the kitchen light", "route": "none", "ctx": {}}
+{"text": "how long should I cook chicken", "route": "none", "ctx": {}}
+{"text": "how far can a drone fly", "route": "none", "ctx": {}}
+{"text": "what's the distance from earth to mars", "route": "none", "ctx": {}}
+{"text": "how long till Christmas", "route": "none", "ctx": {}}
+{"text": "how many days until my birthday", "route": "none", "ctx": {}}
+{"text": "how long is the movie", "route": "none", "ctx": {}}
+{"text": "how many kilometers is a mile", "route": "none", "ctx": {}}
+{"text": "what are the directions for making pancakes", "route": "none", "ctx": {}}
+{"text": "how long does it take to learn guitar", "route": "none", "ctx": {}}
+{"text": "how far did the ball go", "route": "none", "ctx": {}}
+{"text": "is the sun hot", "route": "none", "ctx": {}}
+{"text": "what's a good restaurant", "route": "none", "ctx": {}}
+{"text": "read me the news", "route": "none", "ctx": {}}
+{"text": "set a timer for ten minutes", "route": "none", "ctx": {}}
+{"text": "what's seventeen times twelve", "route": "none", "ctx": {}}
+{"text": "play some music", "route": "none", "ctx": {}}
+{"text": "were you able to find that", "route": "none", "ctx": {}}
+{"text": "yes", "route": "none", "ctx": {}}
+{"text": "sure", "route": "none", "ctx": {}}
+{"text": "how far is it to sky zone springfield", "route": "nav", "ctx": {}}
+{"text": "how far is it to takoda beer garden", "route": "nav", "ctx": {}}
+{"text": "how many miles to sky zone springfield", "route": "nav", "ctx": {}}
+{"text": "is sky zone springfield far", "route": "nav", "ctx": {}}
+{"text": "how long to sky zone springfield", "route": "nav", "ctx": {}}
+{"text": "how many minutes to sky zone springfield", "route": "nav", "ctx": {}}
+{"text": "yes", "route": "none", "ctx": {"route": true}}
+{"text": "sure", "route": "none", "ctx": {"route": true}}
+{"text": "put that on the kitchen display", "route": "none", "ctx": {}}
+{"text": "show me the weather", "route": "weather", "ctx": {}}
+{"text": "show me the pool camera", "route": "none", "ctx": {"route": true}}
+{"text": "show me a picture of a cat", "route": "none", "ctx": {"route": true}}

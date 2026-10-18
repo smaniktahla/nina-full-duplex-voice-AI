@@ -57,13 +57,22 @@ class NavConfig:
 
 
 # ----------------------------------------------------------------------------------------------- parsing (pure)
-_ETA = re.compile(r"(?i)\b(how (?:long|far)|eta|travel time|drive time|how much time|distance (?:to|from))\b")
-_FAR = re.compile(r"(?i)\bhow far\b|\bdistance\b")
-_FAR_DEST = re.compile(r"(?i)\b(?:how far(?: away)?|distance)\s+(?:is|to)\s+(?:it\s+(?:to\s+)?)?(.+?)\s*[?.!]*$")
+# Cues that a sentence is about getting somewhere. STRONG cues are navigational on their own ("directions", "navigate", "take me", "traffic", "get to"); WEAK cues
+# ("how long", "how far", "how many miles", "is X far") are also asked about eggs and the sun, so they need a destination that looks like a place (see `place_ok`).
+_STRONG = re.compile(r"(?i)\b(directions?|navigate|navigation|take me|route|traffic|commute|eta|drive time|travel time|(?:the )?drive|driving|how do i get|fastest way|quickest way|best way|"
+                     r"get(?:ting)? to|trip|ride|arrive)\b")
+_WEAK = re.compile(r"(?i)\b(how (?:long|far)|how many (?:miles|minutes|kilometers|km|hours)|how much time|distance|far away|is it far)\b|^(?:is|are)\s+.+\s+far\b")
+_ETA = re.compile("(?:%s)|(?:%s)" % (_STRONG.pattern.replace("(?i)", ""), _WEAK.pattern.replace("(?i)", "")), re.I)
+_DISTANCE = re.compile(r"(?i)\bhow far\b|\bhow many miles\b|\bmiles away\b|\bdistance (?:to|from)\b|^(?:is|are)\s+.+\s+far\b|\bis it far\b")      # a distance question almost always means a place
+_FAR = re.compile(r"(?i)\bhow far\b|\bdistance\b|\bhow many miles\b|\bmiles away\b|^(?:is|are)\s+.+\s+far\b|\bis it far\b")
+_FAR_DEST = re.compile(r"(?i)\b(?:how (?:far|many (?:miles|minutes|kilometers|km|hours))(?: away)?|distance)\s+(?:is|are|to)\s+(?:it\s+(?:to\s+)?)?(.+?)\s*[?.!]*$")
+_IS_FAR = re.compile(r"(?i)^(?:is|are)\s+(?!it\b)(.+?)\s+far\b")
 _LEAVE = re.compile(r"(?i)\b(when (?:should|do|must|shall) (?:i|we) (?:leave|go|head out|get going|set off)|what time (?:should|do) (?:i|we) (?:leave|go|head out)|time to leave|leave by)\b")
-_SEND = re.compile(r"(?i)\b(send|push|put|text|share|get)\b.*\b(phone|mobile)\b|\b(navigate|directions?)\b.*\b(phone|mobile)\b|\bsend (?:it|that|the directions) to my phone\b")
+_SEND = re.compile(r"(?i)\b(send|push|put|text|share|get|forward|message)\b.*\b(phone|mobile)\b|\b(navigate|directions?)\b.*\b(phone|mobile)\b|\bsend (?:it|that|the directions) to my phone\b"
+                   r"|\b(?:text|message|send|email)\s+me\b.*\b(?:route|directions?|map|that|it|this)\b")
 _DEST = re.compile(r"(?i)\b(?:to|for|toward|towards)\s+(.+?)\s*[?.!]*$")
-_LEAD = re.compile(r"(?i)^(?:(?:get|go|drive|walk|head)(?:\s+to)?|to|the)\s+")
+_TRAIL = re.compile(r"(?i)\s+(?:from (?:here|home|my house|my place|where i am)|right now|please|today|tonight|now)$")
+_LEAD = re.compile(r"(?i)^(?:(?:get|go|drive|walk|head|getting|going|driving)(?:\s+to)?|to|the)\s+")
 _PRON = re.compile(r"(?i)\b(it|there|that|my next (?:appointment|meeting|event)|the appointment|the meeting|my appointment)\b")
 
 
@@ -87,11 +96,13 @@ def _parse_one(text: str) -> tuple:
     intent = "send" if _SEND.search(t) else "leave" if _LEAVE.search(t) else "eta" if _ETA.search(t) else ""
     if not intent:
         return "", ""
-    m = _DEST.search(t)
-    dest = (m.group(1).strip(" ,") if m else "")
-    if intent == "eta" and not dest and _FAR.search(t):                    # "how far away is X", "what's the distance to X"
-        m2 = _FAR_DEST.search(t)
-        dest = (m2.group(1).strip(" ,") if m2 else "")
+    dest = ""
+    for rx in (_IS_FAR, _FAR_DEST, _DEST):                                   # "is X far", "how far away is X" / "how many minutes away is X", then "... to X"
+        m = rx.search(t)
+        if m:
+            dest = m.group(1).strip(" ,")
+            break
+    dest = _TRAIL.sub("", dest).strip(" ,")
     while True:
         d2 = _LEAD.sub("", dest)
         if d2 == dest:
@@ -310,16 +321,36 @@ async def send_active(cfg: NavConfig) -> ToolResult:
 
 
 # ----------------------------------------------------------------------------------------------- should this module answer?
-_TRAVEL = re.compile(r"(?i)\b(get(?:ting)?\s+to|go(?:ing)?\s+to|drive|driving|drive\s+to|travel|commute|eta|traffic|directions?|arrive|ride|trip|how far (?:is it )?(?:to|from)|how far away|distance (?:to|from))\b")
+_NOT_PLACE = re.compile(r"(?i)\b(sun|moon|mars|venus|jupiter|saturn|mercury|neptune|pluto|earth|space|planet|christmas|thanksgiving|easter|halloween|new year|birthday|weekend|summer|winter|spring|"
+                        r"tomorrow|tonight|midnight|noon|bedtime|infinity|forever|miles?|kilometers?|meters?|feet|inch(?:es)?|boil|egg|eggs|pancakes?)\b")
+_VERBISH = re.compile(r"(?i)^(?:boil|learn|cook|bake|make|fix|finish|become|lose|build|write|read|do|find|get|be|see|know|understand|solve|fill|charge|heat|clean|wash|making|cooking|baking|doing|learning)\b")
+_PLACE_NOUN = re.compile(r"(?i)\b(cafe|coffee|restaurant|pizza|pizzeria|bar|pub|garden|park|mall|store|shop|market|supermarket|grocery|school|college|university|station|airport|hospital|clinic|"
+                         r"pharmacy|bank|library|museum|theat(?:er|re)|cinema|church|gym|hotel|motel|inn|office|center|centre|plaza|stadium|arena|beach|lake|trail|diner|bakery|dentist|"
+                         r"doctor|vet|daycare|home|house|work|downtown|town|city|street|st|road|rd|avenue|ave|drive|dr|lane|ln|boulevard|blvd|highway|court|place|trampoline|"
+                         r"brewery|winery|farm|camp|resort|marina|pool|rink|arcade|theme park)\b")
 
 
-def owns(text: str, store=None) -> bool:
-    """True when this module should answer `text` (callers route on it). A bare 'how long ...' is not enough ('how long does it take to boil an egg'):
-    an ETA needs a travel word. 'send it to my phone' is ours only with an active route to send; a pronoun-only 'when should I leave' needs calendar context
-    the caller may supply, so it is claimed only by the caller that has it."""
+def place_ok(dest: str, strong: bool, places: dict = None) -> bool:
+    """Does this destination look like somewhere you could drive? A strong navigational cue ("directions to", "take me to") accepts almost anything except the obvious
+    non-places (the sun, Christmas, "boil an egg"); a weak cue ("how long to", "how far is", "how many miles") also needs a place signal: a digit (street number), a capitalised
+    name, a place noun (cafe, airport, mall, park ...) or one of the household's known places. This is the rule version of what a small model could judge better (NLR-3)."""
+    d = (dest or "").strip()
+    if not d or _NOT_PLACE.search(d) or _VERBISH.match(d):
+        return False
+    if strong:
+        return True
+    if places and (resolve_place(d, places)[0] != d or d in places):
+        return True
+    return bool(re.search(r"\d", d) or re.search(r"\b[A-Z][a-z]", d) or _PLACE_NOUN.search(d))
+
+
+def owns(text: str, store=None, places: dict = None) -> bool:
+    """True when this module should answer `text` (callers route on it). An ETA/distance question needs a destination that looks like a place (`place_ok`); 'send it to my
+    phone' is ours only with an active route (or a destination); a pronoun-only 'when should I leave' needs calendar context the caller may supply, so it is claimed only by
+    the caller that has it."""
     intent, dest = parse(text)
     if intent == "eta":
-        return bool(_TRAVEL.search(text or "")) and (bool(dest) or bool(store and store.get()))
+        return place_ok(dest, bool(_STRONG.search(text or "") or _DISTANCE.search(text or "")), places)
     if intent == "send":
         return bool(dest) or bool(store and store.get())
     return False

@@ -274,6 +274,12 @@ async def kiosk_phone(http, cfg=None):
     return bool(res.side_effect)
 
 
+def claim(text):
+    """Which deterministic tool claims this request ('' = none): claims.claim with this server's state (active route, fresh offer, what is configured)."""
+    import claims
+    return claims.claim(text, store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES)
+
+
 def display_owns(text, offered=False):
     """Should this utterance be answered by display_ops? Only when a display is configured."""
     from needle_voice import display_ops as d

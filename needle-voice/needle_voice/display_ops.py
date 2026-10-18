@@ -64,16 +64,18 @@ class DisplayConfig:
 _ROUTE_WORD = r"(?:route|directions|map)"
 _WHERE = r"(?:kitchen|screen|display|kiosk|monitor|tv)"
 _NOT_NAV = re.compile(r"(?i)\b(weather|radar|forecast|pool|camera|cameras|doorbell|temperature|calendar|news|plex)\b")
-_SHOW_VERB = r"(?:show|put|display|bring\s+up|pull\s+up|throw|cast|send|get)"
+_SHOW_VERB = r"(?:show|put|display|bring\s+up|pull\s+up|throw|cast)"
 _SHOW_EXPLICIT = re.compile(r"(?i)\b%s\b.*\b%s\b" % (_SHOW_VERB, _ROUTE_WORD))
 _SHOW_PRONOUN = re.compile(r"(?i)\b%s\b.*\b(?:that|it|this)\b.*\b(?:on|to)\b.*\b%s\b" % (_SHOW_VERB, _WHERE))
-_ALT = re.compile(r"(?i)\b(?:alternat(?:e|ive)|another|other|different|second)\s+(?:route|way|option)\b|\b(?:route|way)\s+(?:two|2)\b|\balternat(?:e|ive)s?\b")
-_CLOSE = re.compile(r"(?i)\b(?:close|dismiss|hide|clear|remove|take\s+down|get\s+rid\s+of|turn\s+off)\b.*\b%s\b" % _ROUTE_WORD)
+_ALT = re.compile(r"(?i)\b(?:alternat(?:e|ive)|another|other|different|second)\s+(?:routes?|ways?|options?)\b|\b(?:route|way)\s+(?:two|2)\b|\balternat(?:e|ive)s?\b")
+_PHONE = re.compile(r"(?i)\b(?:phone|mobile|text me|message me|email me)\b")
+_CLOSE = re.compile(r"(?i)\b(?:close|dismiss|hide|clear|remove|take\s+down|get\s+rid\s+of|turn\s+off)\b.*\b%s\b|\btake\b.*\b%s\b.*\bdown\b" % (_ROUTE_WORD, _ROUTE_WORD))
 _BACK = re.compile(r"(?i)\b(?:go|get|switch|put\s+it|return)\s+back\b.*\b(?:normal|regular|usual|dashboards?|rotation)\b|\bback\s+to\s+(?:the\s+)?(?:normal|regular|usual)?\s*(?:dashboards?|rotation)\b|\b(?:normal|regular)\s+dashboards?\b")
 _STATE = re.compile(r"(?i)\b(?:is|what'?s|what\s+is)\b.*\b(?:showing|on)\b.*\b%s\b|\bwhat'?s\s+on\s+the\s+%s\b" % (_WHERE, _WHERE))
 _PAUSE = re.compile(r"(?i)\bpause\b.*\b(?:rotation|dashboards?)\b|\bstop\b.*\b(?:rotating|rotation)\b")
 _RESUME = re.compile(r"(?i)\b(?:resume|restart|start)\b.*\b(?:rotation|dashboards?|rotating)\b")
-_YES = re.compile(r"(?i)^\s*(?:yes|yeah|yep|yup|sure|please|ok(?:ay)?|do\s+it|go\s+ahead|show\s+me)\b[\s,.!]*(?:please|show\s+me|do\s+it|put\s+it\s+up)?[\s.!]*$")
+_YES = re.compile(r"(?i)^\s*(?:yes|yeah|yep|yup|sure|please|ok(?:ay)?|do\s+it|go\s+ahead|show\s+me|absolutely|definitely|of\s+course)\b(?![^?.!]*\b(?:no|not|don'?t|never|later)\b)[\s,.!]*"
+                  r"(?:(?:yes|please|sure|show(?:\s+(?:me|it|that|the\s+route))?|do\s+it|put\s+(?:it|that)\s+(?:up|on(?:\s+the\s+(?:screen|kitchen\s+screen|display))?)|go\s+ahead)[\s,.!]*)*$")
 
 
 def parse(text: str, offered: bool = False) -> str:
@@ -83,6 +85,8 @@ def parse(text: str, offered: bool = False) -> str:
     t = (text or "").strip()
     if not t:
         return ""
+    if _PHONE.search(t):                                           # "send the directions to my phone", "text me the route" belong to the navigation module
+        return ""
     if offered and _YES.match(t):
         return "show"
     if _NOT_NAV.search(t):
@@ -91,8 +95,8 @@ def parse(text: str, offered: bool = False) -> str:
         return "close"
     if _BACK.search(t):
         return "back"
-    if _ALT.search(t) and re.search(r"(?i)\b(?:show|switch|use|take|give|try|what|put)\b|\b(?:route|way)\b", t):
-        return "alternate"
+    if _ALT.search(t) and (re.search(r"(?i)\b(?:alternat(?:e|ive)|another|other|different|second)\s+(?:routes?|ways?|options?)\b|\b(?:route|way)\s+(?:two|2)\b", t) or len(t.split()) <= 6):
+        return "alternate"                                         # "is there an alternate" / "any other routes": a bare 'alternate' only counts in a short sentence
     if _PAUSE.search(t):
         return "pause"
     if _RESUME.search(t):
