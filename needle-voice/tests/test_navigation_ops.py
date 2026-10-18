@@ -40,6 +40,7 @@ def test_duration_and_speech_helpers():
     assert nav.parse_duration_s("1380s") == 1380 and nav.parse_duration_s("x") is None and nav.parse_duration_s(None) is None
     assert nav.spoken_minutes(1380) == "23 minutes" and nav.spoken_minutes(30) == "1 minute" and nav.spoken_minutes(4500) == "1 hour 15 minutes"
     assert nav.nav_uri("12 Main St") == "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=12%20Main%20St"
+    assert nav.nav_app_uri("12 Main St & Co") == "google.navigation:q=12%20Main%20St%20%26%20Co"
 
 
 def test_eta_ok_and_request_shape():
@@ -77,12 +78,13 @@ def test_leave_by_future_and_now():
 def test_send_to_phone_is_never_claimed_verified():
     sent = []
 
-    async def notify(title, msg, uri):
-        sent.append((title, msg, uri))
+    async def notify(title, msg, uri, web):
+        sent.append((title, msg, uri, web))
         return True
     ctx = nav.NavContext("5 Oak Ave", None)
     r = run(nav.handle("send it to my phone", ctx, cfg(notify=notify), NOW))
-    assert r.status == Status.UNVERIFIED and r.side_effect and sent == [("Navigate", "Tap to start directions", "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=5%20Oak%20Ave")]
+    assert r.status == Status.UNVERIFIED and r.side_effect and sent == [("Navigate", "Tap to start directions in Google Maps", "google.navigation:q=5%20Oak%20Ave",
+                                                              "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=5%20Oak%20Ave")]
 
     async def refuse(*a):
         return False
@@ -148,8 +150,8 @@ def test_failed_lookup_keeps_the_previous_route():
 def test_send_uses_the_active_route_and_never_recalculates():
     sent, log, store = [], [], rs.RouteStore()
 
-    async def notify(t, m, u):
-        sent.append(u); return True
+    async def notify(t, m, u, w):
+        sent.append(w); return True
     c = cfg(resp=(200, DETAIL), notify=notify, log=log); c.store = store
     run(nav.handle("how long to get to Example Museum", None, c, NOW)); n = len(log)
     r = run(nav.handle("send it to my phone", None, c, NOW))
