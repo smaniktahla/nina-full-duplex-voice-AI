@@ -128,3 +128,10 @@ def test_nav_is_off_without_a_key(monkeypatch, tmp_path):
 def test_server_replaces_model_tools_for_navigation_and_display():
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
     assert 'tools_mod.nav_owns(utter_d)' in src and 'k == "nav"' in src and 'start_tool("nav"' in src and 'on_phone=kiosk_phone' in src
+
+
+def test_spoken_results_keep_a_closing_question():
+    """The first live navigation test dropped 'Want me to show it on the kitchen screen?' (the reply model compressed the result to one sentence), so the user was
+    never told they could say yes. The result-speaking prompt must carry the rule."""
+    src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
+    assert "ends with a question" in src and "ask it as the last thing you say" in src

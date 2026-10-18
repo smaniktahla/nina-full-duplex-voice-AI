@@ -352,7 +352,8 @@ class Session:
         lines = "\n".join("The user asked: %s\nThe %s tool returned: %s" % (self.job_title(j), j["kind"], j["res"][:1500]) for j in events)
         prompt = (chat("system", "You are Nina, a friendly voice assistant. Reply in plain spoken English, at most two short sentences, no markdown, no lists, "
                        "no symbols. Say numbers and times the way people say them. Use only facts from the tool result; if it does not contain what was asked, "
-                       "say so briefly.") + chat("user", lines + "\nTell the user the answer now.") + THINK_PREFIX)
+                       "say so briefly. If the tool result ends with a question (for example an offer to show something), keep that question and ask it as the last thing you say.") +
+                      chat("user", lines + "\nTell the user the answer now.") + THINK_PREFIX)
         body = {"prompt": prompt, "n_predict": 100, "temperature": 0.2, "cache_prompt": True, "stop": ["<|im_end|>", "\n"]}
         t0 = time.perf_counter()
         async with self.http.post(CFG["llama"] + "/completion", json=body) as r:
