@@ -705,7 +705,7 @@ class Session:
                 if len(utter.split()) >= 3 and (set(re.findall(r"[a-z]+", arg.lower())) & cmd) - uw:
                     log("   (ha request %r adds command words not in the user's words; using %r)" % (arg, utter[:80]))
                     arg = utter
-            utter_d = (self.user_buf + " " + text).strip()
+            utter_d = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf     # same de-duplication as user_said below
             owned = ("display" if tools_mod.display_owns(utter_d, tools_mod.offer_fresh()) else "nav" if tools_mod.nav_owns(utter_d) else "") if RESPONDER else ""
             if owned and tool.group(1) != owned:
                 # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): route display and navigation requests belong to
