@@ -29,7 +29,7 @@ def check(name, ok):
 with sync_playwright() as p:
     b = p.chromium.launch()
     pg = b.new_page(viewport={"width": 1600, "height": 900})
-    pg.route("**/*basemaps.cartocdn.com/**", lambda r: r.abort())
+    pg.route("**/tile.openstreetmap.org/**", lambda r: r.abort() if os.environ.get("NO_TILES", "1") == "1" else r.continue_())
     errs = []; pg.on("pageerror", lambda e: errs.append(str(e)))
     # 1. no document yet -> empty state, buttons disabled
     pg.goto(base + "index.html?poll=1")

@@ -48,7 +48,7 @@ def test_viewer_files_and_isolation():
         tok = kiosk.make_token(1, key=KEY)
         for name, ctype in (("index.html", "text/html"), ("route.js", "text/javascript"), ("route.css", "text/css"), ("vendor/leaflet.js", "text/javascript")):
             async with s.get("%s/kiosk/%s/%s" % (base, tok, name)) as r:
-                assert r.status == 200 and r.content_type == ctype and r.headers["Referrer-Policy"] == "no-referrer", name
+                assert r.status == 200 and r.content_type == ctype and r.headers["Referrer-Policy"] == "origin", name
         for name in ("..%2flive%2fserver.py", "vendor%2f..%2f..%2flive%2fauth.py", "test_viewer.py", "make_fixture.py", "route.example.json", "vendor/LICENSE-leaflet"):
             async with s.get(yarl.URL("%s/kiosk/%s/%s" % (base, tok, name), encoded=True)) as r:
                 assert r.status == 404, name                                             # whitelist only: no traversal, no test or fixture files

@@ -98,7 +98,7 @@ def _files(root: str) -> dict:
 
 
 def _headers(extra=None):
-    h = {"Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff"}
+    h = {"Referrer-Policy": "origin", "X-Content-Type-Options": "nosniff"}              # origin only: tile servers want a Referer, the token in the path must not leak
     h.update(extra or {})
     return h
 

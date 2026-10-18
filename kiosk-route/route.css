@@ -26,3 +26,6 @@ button:disabled { opacity:.45; }
   #map { flex:0 0 45%; }
   #panel { flex:1; max-width:none; border-left:0; border-top:1px solid #26303b; }
 }
+
+/* OpenStreetMap tiles are light; invert + rotate the hue back for a dark map that keeps roads and water recognisable */
+.dark-tiles { filter: invert(1) hue-rotate(180deg) brightness(.92) contrast(.88) saturate(.55); }
