@@ -21,7 +21,7 @@ last route and says so. While the document is unchanged nothing is redrawn, so a
 
 `routes[0]` is the fastest; the rest are alternates. `selected` is the route Needle says is active ("show me the alternate" changes it). The two action
 URLs are POSTed to by the page; a non-2xx answer shows "That didn't go through". Served by `live/kiosk.py` they are relative to a signed link (see that module); a 401/403 on the document shows "This link has expired".
-Tiles are CARTO dark (OpenStreetMap data); Leaflet 1.9.4 is vendored in `vendor/` (BSD-2, licence included).
+Tiles are OpenStreetMap's own (no key; CARTO's free basemaps now watermark "API KEY REQUIRED"), darkened with a CSS filter (`?light=1` turns it off, `?tiles=<template>` swaps the source); keep the attribution and OSM's light-use tile policy in mind. Leaflet 1.9.4 is vendored in `vendor/` (BSD-2, licence included).
 
 ## Test
 

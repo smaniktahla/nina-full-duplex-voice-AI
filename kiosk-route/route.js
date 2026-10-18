@@ -6,12 +6,14 @@
   var q = new URLSearchParams(location.search);
   var SRC = q.get("src") || "route.json";
   var POLL_MS = Math.max(1000, (parseInt(q.get("poll"), 10) || 3) * 1000);
-  var TILES = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
-  var ATTR = "&copy; OpenStreetMap contributors &copy; CARTO";
+  // OpenStreetMap's own tiles need no key (CARTO's free basemaps now stamp "API KEY REQUIRED" over every tile). They are light, so a CSS filter on the tile
+  // pane makes them dark (css class dark-tiles); ?tiles=<url template> overrides the source and ?light=1 turns the filter off.
+  var TILES = q.get("tiles") || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+  var ATTR = "&copy; OpenStreetMap contributors";
   var $ = function (id) { return document.getElementById(id); };
 
   var map = L.map("map", { zoomControl: true, attributionControl: true });
-  L.tileLayer(TILES, { subdomains: "abcd", maxZoom: 19, attribution: ATTR }).addTo(map);
+  L.tileLayer(TILES, { maxZoom: 19, attribution: ATTR, className: q.get("light") ? "" : "dark-tiles" }).addTo(map);
   map.setView([39.5, -98.35], 4);
   var layers = L.layerGroup().addTo(map);
 
