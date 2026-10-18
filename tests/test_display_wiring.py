@@ -155,6 +155,7 @@ def test_stt_gets_the_household_names_as_hotwords(monkeypatch):
 def test_nav_cfg_carries_the_places(monkeypatch):
     monkeypatch.setattr(tools, "PLACES", {"Takoda Beer Garden": ""})
     monkeypatch.setattr(tools, "ROUTES_KEY_FILE", __file__)
+    monkeypatch.setenv("HA_TOKEN", "test-token"); monkeypatch.delitem(tools._KEY, "ha", raising=False)       # no ~/.hermes/.env on a CI runner
     class H:
         def get(self, *a, **k): raise OSError("no ha in tests")
     assert run(tools.nav_cfg(H())).places == {"Takoda Beer Garden": ""}
