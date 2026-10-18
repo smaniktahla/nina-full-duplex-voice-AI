@@ -76,4 +76,55 @@ def test_viewer_close_button_is_true_only_when_seen_to_close():
 def test_server_routes_display_requests_deterministically():
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
     assert 'tools_mod.display_owns(user_said' in src and 'start_tool("display"' in src and 'k == "display"' in src and 'on_close=kiosk_close' in src
-    assert 'replaced by @display' in src                                   # a model-chosen tool tag must not take a route display request
+    assert 'replaced by @%s' in src                                       # a model-chosen tool tag must not take a route display request
+
+
+# ---------------------------------------------------------------- navigation glue
+import json                                                                    # noqa: E402
+from needle_voice import navigation_ops as nav                                 # noqa: E402
+
+DETAIL = {"routes": [{"duration": "1200s", "staticDuration": "900s", "distanceMeters": 8000, "description": "A", "polyline": {"encodedPolyline": "x"}, "legs": []},
+                     {"duration": "1500s", "distanceMeters": 9000, "description": "B", "polyline": {"encodedPolyline": "y"}, "legs": []}]}
+
+
+def nav_cfg_fake(store, offer=True, notify=True):
+    async def post(url, headers, body): return 200, DETAIL
+    async def push(t, m, u): return True
+    return nav.NavConfig(api_key="k", home=(40.0, -73.0), notify=push if notify else None, post_json=post, store=store, offer_display=offer)
+
+
+def test_eta_sets_the_offer_and_a_yes_then_reaches_display_ops(monkeypatch):
+    monkeypatch.setattr(tools, "KIOSK_TARGETS", {"kitchen": SENSOR}); tools._disp.pop("offer_t", None)
+    f = Fake(); f.store = rs.RouteStore(); monkeypatch.setitem(tools._disp, "store", f.store)
+    assert tools.offer_fresh() is False and tools.display_owns("yes show me", tools.offer_fresh()) is False                 # no offer, no hijacked 'yes'
+    out = run(tools.nav_request(None, "how long to get to Example Museum", cfg=nav_cfg_fake(f.store)))
+    assert out.startswith("[DONE] It's about 20 minutes") and out.endswith("Want me to show it on the kitchen screen?")
+    assert tools.offer_fresh() is True and tools.display_owns("yes show me", tools.offer_fresh()) is True
+    assert run(tools.display_request(None, "yes show me", offered=True, env=(f.store, f.io, CFG))) == "[DONE] It's on the kitchen screen."
+    assert tools.offer_fresh() is False                                                                                       # answered: a later 'yes' means nothing
+
+
+def test_failed_navigation_makes_no_offer(monkeypatch):
+    tools._disp.pop("offer_t", None)
+    async def post(url, headers, body): return 500, {}
+    c = nav_cfg_fake(rs.RouteStore()); c.post_json = post
+    assert run(tools.nav_request(None, "how long to get to Example Museum", cfg=c)).startswith("[NOT DONE]") and tools.offer_fresh() is False
+
+
+def test_viewer_phone_button_reports_only_what_was_sent():
+    s = rs.RouteStore(); s.set("X", rs.parse_routes(DETAIL)[0])
+    assert run(tools.kiosk_phone(None, cfg=nav_cfg_fake(s))) is True
+    assert run(tools.kiosk_phone(None, cfg=nav_cfg_fake(rs.RouteStore()))) is False                                          # no route: nothing sent
+    assert run(tools.kiosk_phone(None, cfg=nav_cfg_fake(s, notify=False))) is False                                          # no phone configured
+
+
+def test_nav_is_off_without_a_key(monkeypatch, tmp_path):
+    monkeypatch.setattr(tools, "ROUTES_KEY_FILE", str(tmp_path / "nokey"))
+    assert tools.nav_configured() is False and tools.nav_owns("how long to get to Example Museum") is False
+    (tmp_path / "k").write_text("not-a-real-key-123"); monkeypatch.setattr(tools, "ROUTES_KEY_FILE", str(tmp_path / "k"))
+    assert tools.nav_configured() is True and tools.nav_owns("how long to get to Example Museum") is True and tools.nav_owns("how long to boil an egg") is False
+
+
+def test_server_replaces_model_tools_for_navigation_and_display():
+    src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
+    assert 'tools_mod.nav_owns(utter_d)' in src and 'k == "nav"' in src and 'start_tool("nav"' in src and 'on_phone=kiosk_phone' in src

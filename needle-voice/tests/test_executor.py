@@ -201,3 +201,29 @@ def test_display_actions_refuse_anything_else_before_calling(action, entity):
 def test_display_call_failure_is_an_execution_error():
     with pytest.raises(ExecutionError):
         asyncio.run(ex.execute_display(FakeHass(fail_on=("script", "turn_on")), "show", "script.kiosk_route_show"))
+
+
+# ---------------- navigation push to the owner's phone ----------------
+MAPS = "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=X"
+
+
+def test_notify_goes_only_to_a_mobile_app_service_with_a_maps_link():
+    h = FakeHass()
+    assert asyncio.run(ex.execute_notify(h, "mobile_app_test_phone", "Navigate", "Tap to start directions", MAPS)) is True
+    d, svc, data = h.calls[0]
+    assert (d, svc) == ("notify", "mobile_app_test_phone") and data["data"]["clickAction"] == MAPS and data["title"] == "Navigate"
+
+
+@pytest.mark.parametrize("service,uri", [("mobile_app_phone", "https://evil.example/x"), ("mobile_app_phone", "google.navigation:q=x"), ("mobile_app_phone", None),
+                                         ("persistent_notification", MAPS), ("notify.mobile_app_phone", MAPS), ("mobile_app_", MAPS), ("", MAPS), (None, MAPS),
+                                         ("mobile_app_Phone", MAPS)])
+def test_notify_refuses_anything_else_before_calling(service, uri):
+    h = FakeHass()
+    with pytest.raises(ExecutionError):
+        asyncio.run(ex.execute_notify(h, service, "t", "m", uri))
+    assert h.calls == []
+
+
+def test_notify_failure_is_an_execution_error():
+    with pytest.raises(ExecutionError):
+        asyncio.run(ex.execute_notify(FakeHass(fail_on=("notify", "mobile_app_p")), "mobile_app_p", "t", "m", MAPS))

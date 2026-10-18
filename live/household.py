@@ -31,6 +31,8 @@ DEFAULTS = {
     "rng_url": "http://127.0.0.1:8794",         # the shared random-number service (coin, dice, numbers, picks); never invent a random result
     "kiosk_targets": {},                         # {"kitchen": "sensor.<browser id>_browser_path"}: displays Nina may show routes on (empty = route display off)
     "route_store_path": "~/.local/share/needle_voice/route_store.json",   # the active route (holds home coordinates: private, never in the repo)
+    "google_routes_key_file": "~/.config/nina/google_routes_key",   # Google Routes API key (chmod 600, never in the repo); missing = navigation off
+    "phone_notify_service": "",                 # "mobile_app_<phone>": where 'send it to my phone' pushes directions (empty = off, the button is hidden)
     "timezone": "America/New_York",             # note dates/times are written in this zone
 }
 

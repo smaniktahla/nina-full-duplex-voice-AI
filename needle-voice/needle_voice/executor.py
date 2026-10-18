@@ -17,6 +17,7 @@ import asyncio
 import json
 import urllib.error
 import urllib.request
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -253,6 +254,25 @@ async def execute_display(hass: Any, action: str, entity_id: str, context: Any =
         raise ExecutionError(f"display_action_refused:{action}")
     try:
         await hass.services.async_call(spec[0], spec[1], {"entity_id": entity_id}, blocking=True, context=context)
+    except Exception as e:  # noqa: BLE001
+        raise ExecutionError(f"service_call_failed:{type(e).__name__}") from e
+    return True
+
+
+# One more fixed, narrow write: a navigation push to the owner's phone (the Home Assistant Companion app). The service must be a mobile_app_* notify target
+# (from household config, never from what was said) and the tap target must be a Google Maps directions link, so this can message the owner's phone with
+# directions and nothing else.
+_NOTIFY_SERVICE = re.compile(r"^mobile_app_[a-z0-9_]+$")
+NOTIFY_URI_PREFIX = "https://www.google.com/maps/dir/"
+
+
+async def execute_notify(hass: Any, service: str, title: str, message: str, uri: str, context: Any = None) -> bool:
+    """Send a directions notification. True once HA accepted the call (there is no read-back: callers must not call this a verified delivery)."""
+    if not isinstance(service, str) or not _NOTIFY_SERVICE.match(service) or not isinstance(uri, str) or not uri.startswith(NOTIFY_URI_PREFIX):
+        raise ExecutionError("notify_refused")
+    data = {"title": str(title)[:60], "message": str(message)[:200], "data": {"clickAction": uri, "channel": "navigation", "importance": "high"}}
+    try:
+        await hass.services.async_call("notify", service, data, blocking=True, context=context)
     except Exception as e:  # noqa: BLE001
         raise ExecutionError(f"service_call_failed:{type(e).__name__}") from e
     return True
