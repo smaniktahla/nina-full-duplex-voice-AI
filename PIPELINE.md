@@ -396,11 +396,14 @@ A language model cannot be random, and giving Hermes the RNG tools would cost 50
 * **Hermes:** nothing added (decision 2026-10-16: look for a better architecture first). It already has `terminal` / `code_execution` (Python `secrets`, or curl the JSON door). `~/rng-service/scripts/hermes_tool_cost.py` measures what any MCP server would cost it in prompt tokens.
 * Tests: `needle-voice/tests/test_random_ops.py` (parser, speech, contract, router tier including "answers without any model" and "service down is spoken not delegated"), `tests/test_random_tool.py` (Nina's thin wrapper).
 
-## 21. navigation_ops (2026-10-15, module built; wired in below)
+## 21. Navigation: ETA, the active route, the kitchen screen, the phone (2026-10-15 module, 2026-10-18 wiring)
 
-`needle_voice/navigation_ops.py`: `handle(text, ctx, cfg) -> ToolResult` for "how long to X", "when should I leave" (event start - ETA - buffer, default 10 min) and "send it to my phone".
-ETA from the Google Routes API (`computeRoutes`, DRIVE, TRAFFIC_AWARE, destination as an address string, origin = `zone.home`); future departures are spoken as "typically".
-All I/O is injected (`post_json`, `notify`), so it is pure and tested with fakes (`tests/test_navigation_ops.py`). Telemetry holds durations and a result code only.
-Status mapping: bad key / rate limit / outage -> EXECUTION_FAILED, no route -> NO_MATCH, no destination or arrival time -> AMBIGUOUS ("Where to?"), phone hand-off -> UNVERIFIED (no read-back, never retried).
-Not done: an API key (`~/.config/nina/google_routes_key`, Routes API enabled), wiring an `@nav` tag into the live server, filling `NavContext` from the next calendar event with a location,
-the phone notify target (`notify.mobile_app_<phone>`, tap opens `google.navigation:q=...`; the Companion app's handling of that URI is untested), and a live test. Known limit: no place search, so a vague name is Google's best guess.
+`needle_voice/navigation_ops.py` (`handle(text, ctx, cfg) -> ToolResult`) answers "how long to get to X", "when should I leave" (event start - ETA - buffer, default 10 min) and "send it to my phone".
+ETA comes from the Google Routes API (`computeRoutes`, DRIVE, TRAFFIC_AWARE, destination as an address string, origin = `zone.home`, read from HA at runtime). All I/O is injected (`post_json`, `notify`); tests use fakes.
+Status mapping: bad key / rate limit / outage -> EXECUTION_FAILED, no route -> NO_MATCH, no destination or arrival time -> AMBIGUOUS ("Where to?"), phone push -> UNVERIFIED (no read-back, never retried).
+**Active route:** an ETA answer asks Routes for polylines, steps and alternates in the same call (`route_store.DETAIL_FIELD_MASK`, `computeAlternativeRoutes`) and keeps them in the `RouteStore` as THE active route. When a display is configured the answer ends "Want me to show it on the kitchen screen?",
+and for two minutes a bare "yes / show me" means that (`tools.offer_fresh()`); display commands, "send it to my phone" and the viewer's Send-to-phone button all act on the stored route and never call Routes again. A failed lookup keeps the previous route.
+**Wiring (`live/tools.py`, `live/server.py`):** `nav_owns()` (a Routes key exists and `navigation_ops.owns()`: an ETA needs a travel word such as "get to", "drive", "traffic", so "how long to boil an egg" is not claimed; "send it to my phone" needs an active route) starts an `@nav` tool, replacing whatever tool the model picked.
+The phone push goes through `executor.execute_notify`, the only place allowed to call HA: the service must be a `mobile_app_*` notify target from household config and the tap link must be a Google Maps directions URL (opens the Maps app on Android, a browser elsewhere).
+**Config (private):** `~/.config/nina/google_routes_key` (chmod 600; Routes API enabled; missing = navigation off, requests go where they used to), `phone_notify_service` in `household.json` (empty = push off and the viewer's phone button hidden), `kiosk_targets` for the display.
+Known limits: no place search (the destination is passed to Google as an address string, so a vague business name is Google's best guess); "when should I leave" needs the next calendar event's location and is not wired to the calendar yet; the Companion app's handling of the tap link is untested on a real phone.

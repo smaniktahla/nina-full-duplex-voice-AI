@@ -196,6 +196,78 @@ def display_env(http):
     return route_store(), _disp["io"], _disp["cfg"]
 
 
+# ---------------------------------------------------------------- navigation (Needle's navigation_ops: ETA + the active route + phone push)
+PHONE_NOTIFY = household.get("phone_notify_service")
+ROUTES_KEY_FILE = os.path.expanduser(household.get("google_routes_key_file"))
+OFFER_TTL_S = 120.0
+
+
+def nav_configured():
+    """Navigation answers only when a Routes key exists; otherwise 'how long to X' goes where it always did (the model)."""
+    try:
+        return os.path.getsize(ROUTES_KEY_FILE) > 8
+    except OSError:
+        return False
+
+
+def offer_fresh():
+    """True for a short while after Nina offered to show a route, so a bare 'yes, show me' means that. Not consumed by unrelated requests; cleared on use."""
+    return time.monotonic() - _disp.get("offer_t", -1e9) < OFFER_TTL_S
+
+
+async def _home_latlng(http):
+    if "home" not in _disp:
+        try:
+            async with http.get(HA_URL + "/api/states/zone.home", headers=_hdr(), timeout=aiohttp.ClientTimeout(total=5)) as r:
+                a = (await r.json())["attributes"]
+            _disp["home"] = (float(a["latitude"]), float(a["longitude"]))
+        except Exception:                                                    # noqa: BLE001
+            return None
+    return _disp["home"]
+
+
+async def nav_cfg(http):
+    from needle_voice import navigation_ops as nav, executor
+    hass = executor.RestHass(HA_URL, _ha_token())
+
+    async def post_json(url, headers, body):
+        async with http.post(url, headers=headers, json=body, timeout=aiohttp.ClientTimeout(total=10)) as r:
+            try:
+                return r.status, await r.json()
+            except Exception:                                                # noqa: BLE001
+                return r.status, {}
+
+    async def notify(title, message, uri):
+        return await executor.execute_notify(hass, PHONE_NOTIFY, title, message, uri)
+    return nav.NavConfig(api_key=open(ROUTES_KEY_FILE).read().strip(), home=await _home_latlng(http) or (), notify=notify if PHONE_NOTIFY else None,
+                         post_json=post_json, store=route_store(), offer_display=bool(KIOSK_TARGETS))
+
+
+def nav_owns(text):
+    from needle_voice import navigation_ops as nav
+    return nav_configured() and nav.owns(text, route_store())
+
+
+async def nav_request(http, text, cfg=None):
+    """Spoken navigation request -> navigation_ops. Reply convention as ha_say. The ETA answer stores the route and may end with an offer to show it."""
+    from needle_voice import navigation_ops as nav
+    from needle_voice.result import Status
+    cfg = cfg or await nav_cfg(http)
+    res = await nav.handle(text, None, cfg)
+    if res.telemetry.get("offer"):
+        _disp["offer_t"] = time.monotonic()
+    if res.status is Status.SUCCESS:
+        return "[DONE] " + res.speech
+    return "[NOT DONE] " + (res.speech or "I couldn't work that out.")
+
+
+async def kiosk_phone(http, cfg=None):
+    """The viewer's Send-to-phone button: the active route's destination to the phone. True once HA accepted the push (no read-back exists)."""
+    from needle_voice import navigation_ops as nav
+    res = await nav.send_active(cfg or await nav_cfg(http))
+    return bool(res.side_effect)
+
+
 def display_owns(text, offered=False):
     """Should this utterance be answered by display_ops? Only when a display is configured."""
     from needle_voice import display_ops as d
@@ -211,6 +283,7 @@ async def display_request(http, text, offered=False, env=None):
         return "[NOT DONE] The kitchen display isn't set up for routes yet."
     store, io, cfg = env or display_env(http)
     res = await d.handle(text, store, io, cfg, offered)
+    _disp["offer_t"] = -1e9                                                  # whatever was offered has now been answered
     if res.status is Status.SUCCESS:
         return "[DONE] " + res.speech
     return "[NOT DONE] " + (res.speech or "I couldn't do that on the display.")

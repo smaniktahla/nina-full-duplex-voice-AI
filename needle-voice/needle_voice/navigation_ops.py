@@ -20,10 +20,12 @@ import urllib.parse
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
 
+from . import route_store as rs
 from .result import Status, ToolResult
 
 ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
-FIELD_MASK = "routes.duration,routes.staticDuration,routes.distanceMeters"
+FIELD_MASK = "routes.duration,routes.staticDuration,routes.distanceMeters"      # leave-by: just the numbers
+OFFER = " Want me to show it on the kitchen screen?"
 DEFAULT_BUFFER_MIN = 10
 CTX_TTL_S = 600.0
 
@@ -46,6 +48,8 @@ class NavConfig:
     buffer_min: int = DEFAULT_BUFFER_MIN
     notify: Notify | None = None
     post_json: PostJson | None = None
+    store: "rs.RouteStore | None" = None            # when set, an ETA answer also keeps the full route (polyline, steps, alternates) as the ACTIVE route
+    offer_display: bool = False                     # True when a display exists: the ETA answer ends by offering to show the route there
     extra: dict = field(default_factory=dict)
 
 
@@ -100,7 +104,8 @@ def clock(t: dt.datetime) -> str:
 
 
 def nav_uri(destination: str) -> str:
-    return "google.navigation:q=" + urllib.parse.quote(destination)
+    """Tap target for the phone notification: a Google Maps directions link (App Links open the Maps app on Android, a browser elsewhere)."""
+    return "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=" + urllib.parse.quote(destination, safe="")
 
 
 def build_request(home: tuple, destination: str, depart: dt.datetime | None) -> dict:
@@ -113,11 +118,13 @@ def build_request(home: tuple, destination: str, depart: dt.datetime | None) -> 
 
 
 # ----------------------------------------------------------------------------------------------- Routes API
-async def route(cfg: NavConfig, destination: str, depart: dt.datetime | None = None):
-    """-> ('ok', seconds, static_seconds, meters) | ('none',) | ('auth',) | ('rate',) | ('error', code) | ('down',)."""
-    headers = {"X-Goog-Api-Key": cfg.api_key, "X-Goog-FieldMask": FIELD_MASK, "Content-Type": "application/json"}
+async def route(cfg: NavConfig, destination: str, depart: dt.datetime | None = None, detail: bool = False):
+    """-> ('ok', seconds, static_seconds, meters, parsed) | ('none',) | ('auth',) | ('rate',) | ('error', code) | ('down',).
+    `detail` asks for polylines, steps and alternates too; `parsed` is route_store.parse_routes() of the answer (None when not asked)."""
+    headers = {"X-Goog-Api-Key": cfg.api_key, "X-Goog-FieldMask": rs.DETAIL_FIELD_MASK if detail else FIELD_MASK, "Content-Type": "application/json"}
+    body = build_request(cfg.home, destination, depart)
     try:
-        status, data = await cfg.post_json(ROUTES_URL, headers, build_request(cfg.home, destination, depart))
+        status, data = await cfg.post_json(ROUTES_URL, headers, rs.detail_request(body) if detail else body)
     except Exception as e:                                                      # noqa: BLE001 - network failures are one honest outcome
         return ("down", type(e).__name__)
     if status in (401, 403):
@@ -137,7 +144,7 @@ async def route(cfg: NavConfig, destination: str, depart: dt.datetime | None = N
     secs = parse_duration_s(r.get("duration"))
     if secs is None:
         return ("error", "malformed")
-    return ("ok", secs, parse_duration_s(r.get("staticDuration")) or secs, int(r.get("distanceMeters") or 0))
+    return ("ok", secs, parse_duration_s(r.get("staticDuration")) or secs, int(r.get("distanceMeters") or 0), rs.parse_routes(data) if detail else None)
 
 
 def _fail(code: str, speech: str, status: Status = Status.EXECUTION_FAILED, **tel) -> ToolResult:
@@ -172,22 +179,14 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
         return ToolResult(Status.UNSUPPORTED, None, reason="not_navigation", domain="navigation")
     if not cfg.api_key or not cfg.post_json or not cfg.home:
         return _fail("not_configured", "Navigation isn't set up yet: it needs a Google Maps key.", Status.UNAVAILABLE)
-    destination = dest or (ctx.destination if ctx else "")
+    active = cfg.store.get() if cfg.store else None
+    destination = dest or (active.destination_label if (intent == "send" and active) else "") or (ctx.destination if ctx else "")
     if not destination:
         return ToolResult(Status.AMBIGUOUS, "Where to?", reason="no_destination", telemetry={"code": "no_destination"}, domain="navigation")
     start = ctx.event_start if (ctx and not dest and ctx.event_start) else None
 
     if intent == "send":
-        if not cfg.notify:
-            return _fail("no_phone_target", "I don't have a phone to send that to yet.", Status.UNAVAILABLE)
-        try:
-            ok = await cfg.notify("Navigate", "Tap to start directions", nav_uri(destination))
-        except Exception as e:                                                  # noqa: BLE001
-            return _fail("notify_unverified", "I tried to send it to your phone but couldn't tell whether it arrived.", Status.UNVERIFIED, err=type(e).__name__)
-        if not ok:
-            return _fail("notify_failed", "I couldn't send the directions to your phone.")
-        return ToolResult(Status.UNVERIFIED, "I sent the directions to your phone. Tap the notification to start.", reason="notify_sent_no_readback",
-                          telemetry={"code": "notify_sent"}, domain="navigation", side_effect=True)
+        return await _send(cfg, destination)
 
     if intent == "leave":
         if not start:
@@ -197,7 +196,7 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
         bad = _from_route(res)
         if bad:
             return bad
-        _, secs, static, meters = res
+        _, secs, static, meters, _p = res
         leave_at = start - dt.timedelta(seconds=secs) - dt.timedelta(minutes=cfg.buffer_min)
         predicted = depart > now + dt.timedelta(minutes=2)
         if leave_at <= now:
@@ -208,11 +207,56 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
         return ToolResult(Status.SUCCESS, speech, reason="read", telemetry={"code": "leave_by", "eta_s": secs, "buffer_min": cfg.buffer_min, "predicted": predicted},
                           domain="navigation")
 
-    res = await route(cfg, destination, None)                                   # eta
+    res = await route(cfg, destination, None, detail=cfg.store is not None)     # eta (+ polyline, steps, alternates when there is a store to keep them in)
     bad = _from_route(res)
     if bad:
         return bad
-    _, secs, static, meters = res
+    _, secs, static, meters, parsed = res
     miles = meters / 1609.344
     speech = "It's about %s by car with current traffic%s, %.0f mile%s." % (spoken_minutes(secs), traffic_note(secs, static), miles, "" if round(miles) == 1 else "s")
-    return ToolResult(Status.SUCCESS, speech, reason="read", telemetry={"code": "eta", "eta_s": secs, "static_s": static, "meters": meters}, domain="navigation")
+    tel = {"code": "eta", "eta_s": secs, "static_s": static, "meters": meters}
+    if cfg.store is not None and parsed and parsed[0]:
+        kept = cfg.store.set(destination, parsed[0], parsed[1], parsed[2])         # the route the user was just told about becomes the active route
+        tel.update(routes=len(parsed[0]), route_id=kept.id)
+        if cfg.offer_display:
+            speech += OFFER
+            tel["offer"] = True
+    return ToolResult(Status.SUCCESS, speech, reason="read", telemetry=tel, domain="navigation")
+
+
+async def _send(cfg: NavConfig, destination: str) -> ToolResult:
+    """Hand the destination to the phone (a tap opens directions). No read-back exists, so the best outcome is UNVERIFIED and it is never auto-retried."""
+    if not cfg.notify:
+        return _fail("no_phone_target", "I don't have a phone to send that to yet.", Status.UNAVAILABLE)
+    try:
+        ok = await cfg.notify("Navigate", "Tap to start directions", nav_uri(destination))
+    except Exception as e:                                                  # noqa: BLE001
+        return _fail("notify_unverified", "I tried to send it to your phone but couldn't tell whether it arrived.", Status.UNVERIFIED, err=type(e).__name__)
+    if not ok:
+        return _fail("notify_failed", "I couldn't send the directions to your phone.")
+    return ToolResult(Status.UNVERIFIED, "I sent the directions to your phone. Tap the notification to start.", reason="notify_sent_no_readback",
+                      telemetry={"code": "notify_sent"}, domain="navigation", side_effect=True)
+
+
+async def send_active(cfg: NavConfig) -> ToolResult:
+    """The kiosk viewer's Send-to-phone button: the active route's destination to the phone. Never recalculates."""
+    a = cfg.store.get() if cfg.store else None
+    if not a:
+        return ToolResult(Status.NO_MATCH, "I don't have a route to send.", reason="no_active_route", telemetry={"code": "no_active_route"}, domain="navigation")
+    return await _send(cfg, a.destination_label)
+
+
+# ----------------------------------------------------------------------------------------------- should this module answer?
+_TRAVEL = re.compile(r"(?i)\b(get(?:ting)?\s+to|go(?:ing)?\s+to|drive|driving|drive\s+to|travel|commute|eta|traffic|directions?|arrive|ride|trip)\b")
+
+
+def owns(text: str, store=None) -> bool:
+    """True when this module should answer `text` (callers route on it). A bare 'how long ...' is not enough ('how long does it take to boil an egg'):
+    an ETA needs a travel word. 'send it to my phone' is ours only with an active route to send; a pronoun-only 'when should I leave' needs calendar context
+    the caller may supply, so it is claimed only by the caller that has it."""
+    intent, dest = parse(text)
+    if intent == "eta":
+        return bool(_TRAVEL.search(text or "")) and (bool(dest) or bool(store and store.get()))
+    if intent == "send":
+        return bool(dest) or bool(store and store.get())
+    return False

@@ -465,7 +465,8 @@ class Session:
                 res = await (self.notes.finish(g) if k == "notes" else web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
                              weather(self.http, g) if k == "weather" else calendar(self.http, g) if k == "calendar" else
                              tools_mod.random_request(self.http, g) if k == "random" else
-                             tools_mod.display_request(self.http, g) if k == "display" else
+                             tools_mod.display_request(self.http, g, offered=tools_mod.offer_fresh()) if k == "display" else
+                             tools_mod.nav_request(self.http, g) if k == "nav" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
                 return
@@ -528,7 +529,7 @@ class Session:
         if action == "notes":
             self.notes.handle(arg)
             return
-        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display"):
+        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
             return
@@ -704,11 +705,12 @@ class Session:
                     log("   (ha request %r adds command words not in the user's words; using %r)" % (arg, utter[:80]))
                     arg = utter
             utter_d = (self.user_buf + " " + text).strip()
-            if tool.group(1) != "display" and RESPONDER and tools_mod.display_owns(utter_d):
-                # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): a route display request is display_ops' to
-                # answer, deterministically, and must never go to an agent that could improvise
-                log("   (route display request: @%s replaced by @display)" % tool.group(1))
-                self.run_tool_call("display", utter_d)
+            owned = ("display" if tools_mod.display_owns(utter_d, tools_mod.offer_fresh()) else "nav" if tools_mod.nav_owns(utter_d) else "") if RESPONDER else ""
+            if owned and tool.group(1) != owned:
+                # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): route display and navigation requests belong to
+                # display_ops / navigation_ops, deterministically, and must never go to an agent that could improvise
+                log("   (route %s request: @%s replaced by @%s)" % (owned, tool.group(1), owned))
+                self.run_tool_call(owned, utter_d)
             else:
                 self.run_tool_call(tool.group(1), arg)
         if text:
@@ -725,10 +727,15 @@ class Session:
             self.last_chunk = out
             if not self.answer_open:
                 self.cont_n = 0
-            if RESPONDER and not events and not tool and tools_mod.display_owns(user_said or ""):
+            if RESPONDER and not events and not tool and tools_mod.display_owns(user_said or "", tools_mod.offer_fresh()):
                 # show / switch / close the route on the kitchen display: display_ops acts on the active route and only claims what it observed
                 log("   (display request without a tool tag: starting @display)")
                 self.start_tool("display", user_said)
+                return
+            if RESPONDER and not events and not tool and tools_mod.nav_owns(user_said or ""):
+                # how long to X / send it to my phone: navigation_ops answers from the Routes API and keeps the route; the model cannot know traffic
+                log("   (navigation request without a tool tag: starting @nav)")
+                self.start_tool("nav", user_said)
                 return
             if RESPONDER and not events and not tool and CAL_RE.search(user_said or ""):
                 # asking about the calendar needs the calendar tool, not a model guess (the reply model has no calendar and used to say so)
@@ -1112,9 +1119,13 @@ def main():
     auth.add_routes(app)
     import kiosk                                                   # signed-link route viewer for the kitchen kiosk, own plain-http listener (opt-in: KIOSK_PORT)
 
+    async def kiosk_phone():                                       # the viewer's Send-to-phone button
+        return await tools_mod.kiosk_phone(app["http"])
+
     async def kiosk_close():                                       # the viewer's Close button = "close the map"
         return await tools_mod.kiosk_close(app["http"])
-    kiosk.attach(app, kiosk.Hooks(document=lambda: tools_mod.route_store().to_document(), on_close=kiosk_close if tools_mod.KIOSK_TARGETS else None))
+    kiosk.attach(app, kiosk.Hooks(document=lambda: tools_mod.route_store().to_document(), on_close=kiosk_close if tools_mod.KIOSK_TARGETS else None,
+                                    on_phone=kiosk_phone if (tools_mod.PHONE_NOTIFY and tools_mod.nav_configured()) else None))
     try:
         from speaker_id import web as speaker_web                  # enrollment routes; optional, the voice server runs without it
         speaker_web.add_routes(app)
