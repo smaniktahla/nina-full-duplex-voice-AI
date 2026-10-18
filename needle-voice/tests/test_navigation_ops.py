@@ -195,3 +195,36 @@ def test_eta_to_a_mangled_name_asks_google_for_the_canonical_place_and_stores_it
     r = run(nav.handle("How long would it take to get to Dakota beer garden? Hey, did you get that?", None, c, NOW))
     assert r.status == Status.SUCCESS and log[0][2]["destination"] == {"address": "Takoda Beer Garden"} and store.get().destination_label == "Takoda Beer Garden"
     assert "Dakota" not in str(r.telemetry)
+
+
+# ---------------------------------------------------------------- "How far is it to Skyzone Springfield?" (live voice test: ignored, then answered by the model with invented claims)
+def test_how_far_is_claimed_and_parsed():
+    empty = rs.RouteStore()
+    assert nav.parse("How far is it to Skyzone Springfield?") == ("eta", "Skyzone Springfield")
+    assert nav.parse("how far away is Skyzone Springfield") == ("eta", "Skyzone Springfield")
+    assert nav.parse("what's the distance to Skyzone Springfield") == ("eta", "Skyzone Springfield")
+    for t in ("How far is it to Skyzone Springfield?", "how far is it to Takoda Beer Garden", "how far away is Skyzone Springfield", "what's the distance to Skyzone Springfield",
+              "how long is the drive to the cafe"):
+        assert nav.owns(t, empty), t
+    for t in ("how long does it take to boil an egg", "how far did the ball go", "how long to boil an egg", "how far is the sun"):
+        assert not nav.owns(t, empty), t                       # no destination or no travel meaning: left to others
+
+
+def test_how_far_speaks_the_distance_first():
+    r = run(nav.handle("How far is it to Skyzone Springfield?", None, cfg(), NOW))
+    assert r.status == Status.SUCCESS and r.speech.startswith("It's about 10 miles, around 23 minutes by car") and "8 minutes more than usual" in r.speech
+    r = run(nav.handle("how long to get to Skyzone Springfield", None, cfg(), NOW))
+    assert r.speech.startswith("It's about 23 minutes by car")                                         # a 'how long' question keeps the time first
+
+
+def test_bare_place_names_are_biased_toward_the_household_region():
+    assert nav.bias_region("Skyzone Springfield", "VA") == "Skyzone Springfield, VA"
+    for specific in ("Skyzone Springfield, VA", "12 Main Street", "Springfield VA", "Stony Brook, NY", "Springfield, Missouri", "22150"):
+        assert nav.bias_region(specific, "VA") == specific, specific
+    assert nav.bias_region("Skyzone Springfield", "") == "Skyzone Springfield"
+    log = []; c = cfg(log=log); c.region = "VA"
+    run(nav.handle("how far is it to Skyzone Springfield", None, c, NOW))
+    assert log[0][2]["destination"] == {"address": "Skyzone Springfield, VA"}
+    log.clear(); c.places = {"Takoda Beer Garden": ""}
+    run(nav.handle("how far is it to Takoda Beer Garden", None, c, NOW))
+    assert log[0][2]["destination"] == {"address": "Takoda Beer Garden"}                                  # a listed place is used as listed, not re-biased
