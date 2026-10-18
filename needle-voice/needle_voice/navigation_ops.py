@@ -49,6 +49,7 @@ class NavConfig:
     buffer_min: int = DEFAULT_BUFFER_MIN
     notify: Notify | None = None
     post_json: PostJson | None = None
+    region: str = ""                                # the household's own area ("VA"): appended to a bare place name so "Skyzone Springfield" is not Springfield, Missouri
     places: dict = field(default_factory=dict)      # the household's frequent destinations {"Canonical Name": "search text for Google" ("" = the name itself)}
     store: "rs.RouteStore | None" = None            # when set, an ETA answer also keeps the full route (polyline, steps, alternates) as the ACTIVE route
     offer_display: bool = False                     # True when a display exists: the ETA answer ends by offering to show the route there
@@ -56,7 +57,9 @@ class NavConfig:
 
 
 # ----------------------------------------------------------------------------------------------- parsing (pure)
-_ETA = re.compile(r"(?i)\b(how (?:long|far)|eta|travel time|drive time|how much time)\b")
+_ETA = re.compile(r"(?i)\b(how (?:long|far)|eta|travel time|drive time|how much time|distance (?:to|from))\b")
+_FAR = re.compile(r"(?i)\bhow far\b|\bdistance\b")
+_FAR_DEST = re.compile(r"(?i)\b(?:how far(?: away)?|distance)\s+(?:is|to)\s+(?:it\s+(?:to\s+)?)?(.+?)\s*[?.!]*$")
 _LEAVE = re.compile(r"(?i)\b(when (?:should|do|must|shall) (?:i|we) (?:leave|go|head out|get going|set off)|what time (?:should|do) (?:i|we) (?:leave|go|head out)|time to leave|leave by)\b")
 _SEND = re.compile(r"(?i)\b(send|push|put|text|share|get)\b.*\b(phone|mobile)\b|\b(navigate|directions?)\b.*\b(phone|mobile)\b|\bsend (?:it|that|the directions) to my phone\b")
 _DEST = re.compile(r"(?i)\b(?:to|for|toward|towards)\s+(.+?)\s*[?.!]*$")
@@ -86,6 +89,9 @@ def _parse_one(text: str) -> tuple:
         return "", ""
     m = _DEST.search(t)
     dest = (m.group(1).strip(" ,") if m else "")
+    if intent == "eta" and not dest and _FAR.search(t):                    # "how far away is X", "what's the distance to X"
+        m2 = _FAR_DEST.search(t)
+        dest = (m2.group(1).strip(" ,") if m2 else "")
     while True:
         d2 = _LEAD.sub("", dest)
         if d2 == dest:
@@ -96,6 +102,15 @@ def _parse_one(text: str) -> tuple:
     if intent == "send" and re.search(r"(?i)\bphone\b", dest):
         dest = ""
     return intent, dest
+
+
+def bias_region(query: str, region: str) -> str:
+    """A bare place name is ambiguous to Google ("Skyzone Springfield" resolved to Springfield, Missouri: 1,040 miles; "Sky Zone Springfield" to New Jersey).
+    Append the household's own region unless the destination already looks specific: it has a comma, a digit (street number, zip) or a trailing state code."""
+    q = (query or "").strip()
+    if not region or not q or "," in q or re.search(r"\d", q) or re.search(r"\b[A-Z]{2}$", q) or q.lower().endswith(region.lower()):
+        return q
+    return "%s, %s" % (q, region)
 
 
 def _norm(x: str) -> str:
@@ -222,6 +237,8 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
         return _fail("not_configured", "Navigation isn't set up yet: it needs a Google Maps key.", Status.UNAVAILABLE)
     active = cfg.store.get() if cfg.store else None
     label, query = resolve_place(dest, cfg.places) if dest else ("", "")
+    if query and query == dest and dest not in (cfg.places or {}):         # a place the household did not list: bias a bare name toward home
+        query = bias_region(query, cfg.region)
     destination = query or (active.destination_label if (intent == "send" and active) else "") or (ctx.destination if ctx else "")
     if not destination:
         return ToolResult(Status.AMBIGUOUS, "Where to?", reason="no_destination", telemetry={"code": "no_destination"}, domain="navigation")
@@ -255,7 +272,11 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
         return bad
     _, secs, static, meters, parsed = res
     miles = meters / 1609.344
-    speech = "It's about %s by car with current traffic%s, %.0f mile%s." % (spoken_minutes(secs), traffic_note(secs, static), miles, "" if round(miles) == 1 else "s")
+    dist = ("%.0f" % miles if miles >= 10 else "%.1f" % miles).replace(".0", "")
+    if _FAR.search(text or ""):                                           # "how far is it to X": the distance first, then the drive
+        speech = "It's about %s mile%s, around %s by car with current traffic%s." % (dist, "" if dist == "1" else "s", spoken_minutes(secs), traffic_note(secs, static))
+    else:
+        speech = "It's about %s by car with current traffic%s, %.0f mile%s." % (spoken_minutes(secs), traffic_note(secs, static), miles, "" if round(miles) == 1 else "s")
     tel = {"code": "eta", "eta_s": secs, "static_s": static, "meters": meters}
     if cfg.store is not None and parsed and parsed[0]:
         kept = cfg.store.set(label or destination, parsed[0], parsed[1], parsed[2])         # the route the user was just told about becomes the active route
@@ -289,7 +310,7 @@ async def send_active(cfg: NavConfig) -> ToolResult:
 
 
 # ----------------------------------------------------------------------------------------------- should this module answer?
-_TRAVEL = re.compile(r"(?i)\b(get(?:ting)?\s+to|go(?:ing)?\s+to|drive|driving|drive\s+to|travel|commute|eta|traffic|directions?|arrive|ride|trip)\b")
+_TRAVEL = re.compile(r"(?i)\b(get(?:ting)?\s+to|go(?:ing)?\s+to|drive|driving|drive\s+to|travel|commute|eta|traffic|directions?|arrive|ride|trip|how far (?:is it )?(?:to|from)|how far away|distance (?:to|from))\b")
 
 
 def owns(text: str, store=None) -> bool:

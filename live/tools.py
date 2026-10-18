@@ -246,7 +246,7 @@ async def nav_cfg(http):
     async def notify(title, message, app_uri, web_uri):
         return await executor.execute_notify(hass, PHONE_NOTIFY, title, message, app_uri, web_uri)
     return nav.NavConfig(api_key=open(ROUTES_KEY_FILE).read().strip(), home=await _home_latlng(http) or (), notify=notify if PHONE_NOTIFY else None,
-                         post_json=post_json, store=route_store(), offer_display=bool(KIOSK_TARGETS), places=dict(PLACES or {}))
+                         post_json=post_json, store=route_store(), offer_display=bool(KIOSK_TARGETS), places=dict(PLACES or {}), region=str(household.get("region") or ""))
 
 
 def nav_owns(text):

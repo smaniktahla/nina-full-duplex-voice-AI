@@ -13,6 +13,7 @@
   "docmost_parent_id": "<uuid of the page to file conversation notes under (optional)>",
   "notes_default_user": "<name shown as the speaker in notes>",
   "kiosk_targets": {"kitchen": "sensor.<kitchen-browser-id>_browser_path"},
+  "region": "<state or area code, e.g. VA>",
   "places": {"Example Beer Garden": "Example Beer Garden, <town>"},
   "phone_notify_service": "mobile_app_<your-phone>",
   "timezone": "America/New_York"
