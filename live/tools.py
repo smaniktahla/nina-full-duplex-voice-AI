@@ -584,7 +584,7 @@ async def calendar(http, when="today"):
         loc = compact_location(e.get("location"))
         if loc:
             locs.append("%s: %s" % (e.get("summary", "event"), loc))
-    out = "%s: %s" % (_day_label(days, now), "; ".join(lines))     # named, so the spoken answer says 'Friday', not 'today'
+    out = "; ".join(lines) + " (these are the events for %s: summarize the events; do not just state the date)" % _day_label(days, now)   # named, so the spoken answer says 'Friday', not 'today'
     if locs:                                       # in the payload for follow-ups, but kept apart so a summary doesn't read addresses out
         out += " || LOCATIONS (private; say one only if the user asks where an event is): " + "; ".join(locs)
     return out
