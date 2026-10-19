@@ -529,6 +529,14 @@ def compact_location(loc):
     return ", ".join(parts)[:120]
 
 
+def _day_label(days, now):
+    d0, d1 = days[0], days[-1]
+    if d0 == d1:
+        rel = {0: "Today", 1: "Tomorrow", -1: "Yesterday"}.get((d0 - now.date()).days)
+        return "%s%s" % (rel + ", " if rel else "", d0.strftime("%A %B %-d"))
+    return "%s to %s" % (d0.strftime("%A %B %-d"), d1.strftime("%A %B %-d"))
+
+
 async def calendar(http, when="today"):
     """Answer a calendar question and, when a kitchen display is configured, pop the day's agenda up on it (a side effect: the answer is spoken either way).
     `when`: today | tomorrow | week | weekend | next week | a weekday name | 'date:YYYY-MM-DD' (anything agenda_ops.resolve_days understands)."""
@@ -562,7 +570,7 @@ async def calendar(http, when="today"):
         norm = [x for e, ent in evs for x in calendar_ops.parse_events([e], now.tzinfo, ent)]
         asyncio.ensure_future(agenda_popup(http, norm, days, title, now))
     if not evs:
-        return "No events on the calendar for %s." % when
+        return "No events on the calendar for %s." % _day_label(days, now)
     lines, locs = [], []
     for e, _ in evs[:8]:
         s = e.get("start", {})
@@ -576,7 +584,7 @@ async def calendar(http, when="today"):
         loc = compact_location(e.get("location"))
         if loc:
             locs.append("%s: %s" % (e.get("summary", "event"), loc))
-    out = "; ".join(lines)
+    out = "%s: %s" % (_day_label(days, now), "; ".join(lines))     # named, so the spoken answer says 'Friday', not 'today'
     if locs:                                       # in the payload for follow-ups, but kept apart so a summary doesn't read addresses out
         out += " || LOCATIONS (private; say one only if the user asks where an event is): " + "; ".join(locs)
     return out

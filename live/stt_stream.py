@@ -12,6 +12,11 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 from faster_whisper import WhisperModel
 
+try:
+    from live import claims as claims_mod
+except ImportError:                                                 # run as a script from live/
+    import claims as claims_mod
+
 SR = 16000
 FRAME = 320                      # 20 ms
 HALLUCINATIONS = {"you", "thank you", "thanks for watching", "thank you for watching", "bye", "the end", "so"}
@@ -97,7 +102,7 @@ class StreamingSTT:
             if (s.no_speech_prob > 0.6 and s.avg_logprob < -0.8) or s.avg_logprob < -1.4:
                 continue
             keep.append(s.text.strip())
-        return " ".join(keep).split()
+        return claims_mod.collapse_loops(" ".join(keep).split())
 
     async def run(self):
         loop = asyncio.get_running_loop()

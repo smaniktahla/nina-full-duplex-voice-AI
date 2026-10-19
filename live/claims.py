@@ -86,3 +86,20 @@ def claim(text: str, *, store=None, offered: bool = False, display: bool = True,
     if agenda_fresh and agenda_followup(t):
         return "calendar"
     return ""
+
+
+def collapse_loops(words, max_run=3):
+    """Greedy decoding can fall into a loop ('for a f***ing f***ing f***ing ...' x100) on a trailing word it cannot hear; keep at most
+    `max_run` repeats of any 1-3 word unit and drop the rest, so the tail cannot flood the transcript or pass for the user's words."""
+    out = list(words)
+    for n in (1, 2, 3):
+        i = 0
+        while i + n <= len(out):
+            unit, j = [w.lower().strip(".,!?") for w in out[i:i + n]], i + n
+            while [w.lower().strip(".,!?") for w in out[j:j + n]] == unit and len(out[j:j + n]) == n:
+                j += n
+            reps = (j - i) // n
+            if reps > max_run:
+                out[i + n * max_run:j] = []
+            i += 1
+    return out
