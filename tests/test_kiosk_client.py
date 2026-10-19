@@ -58,3 +58,12 @@ def test_server_messages_drive_the_playback():
     c.on_json({"t": "cancel", "why": "barge-in"}); assert c.play.pending_s() == 0 and not c.play.ducked
     c.on_json({"t": "earcon", "kind": "wake"}); assert c.play.pending_s() > 0.1
     c.on_json({"t": "earcon", "kind": "nonsense"}); c.on_json({"t": "mgr", "state": "ACTIVE"}); c.on_json({"t": "hello", "tts": "x"}); c.on_json({"t": "unknown"})
+
+
+def test_watchdog_settings_and_config_example_name_the_echo_cancelled_devices():
+    assert k.DEFAULTS["mic_stall_s"] >= 5
+    ex = json.load(open(os.path.join(os.path.dirname(__file__), "..", "kiosk-client", "config.example.json")))
+    assert ex["input_device"] == "nina_ec_source" and ex["output_device"] == "nina_ec_sink"
+    c = k.Client(dict(k.DEFAULTS)); t0 = c.last_mic
+    import time; time.sleep(0.01); c.loop = type("L", (), {"call_soon_threadsafe": lambda *a: None})(); c.q = None
+    c.connected = False; c._mic_cb(np.zeros(320, np.int16).tobytes(), 320, None, None); assert c.last_mic > t0        # every callback feeds the watchdog

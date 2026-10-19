@@ -42,6 +42,7 @@ DEFAULTS = {
     "duck_gain": 0.12,
     "reconnect_min_s": 2.0,
     "reconnect_max_s": 30.0,
+    "mic_stall_s": 15.0,                  # no microphone callbacks for this long (PipeWire restarted, device unplugged): exit so systemd restarts us with fresh audio streams
 }
 
 
@@ -166,11 +167,13 @@ class Client:
         self.stopping = False
         self.muted = False
         self.dropped = 0
+        self.last_mic = time.monotonic()
 
     # ---- audio threads (PortAudio callbacks): hand everything to the event loop, never block
     def _mic_cb(self, indata, frames, t, status):
         if status:
             log.debug("mic status %s", status)
+        self.last_mic = time.monotonic()
         a = np.frombuffer(indata, np.int16)
         if self.cfg["mic_gain"] != 1.0:
             a = np.clip(a.astype(np.float32) * self.cfg["mic_gain"], -32768, 32767).astype(np.int16)
@@ -253,6 +256,8 @@ class Client:
         inp = sd.RawInputStream(samplerate=MIC_RATE, channels=1, dtype="int16", blocksize=320, device=self.cfg["input_device"], callback=self._mic_cb)
         out = sd.RawOutputStream(samplerate=self.play.rate, channels=1, dtype="int16", blocksize=480, device=self.cfg["output_device"], callback=self._spk_cb)
         attempt = 0
+        self.last_mic = time.monotonic()
+        asyncio.ensure_future(self.watchdog())
         with inp, out:
             log.info("audio running (mic %s, speaker %s); server %s", inp.device, out.device, url)
             async with aiohttp.ClientSession() as http:
@@ -269,6 +274,14 @@ class Client:
                     if self.stopping:
                         break
                     await asyncio.sleep(backoff(attempt - 1, self.cfg["reconnect_min_s"], self.cfg["reconnect_max_s"]))
+
+    async def watchdog(self):
+        """Audio streams do not recover by themselves when PipeWire restarts: if the microphone callback goes quiet, exit non-zero and let systemd restart the service."""
+        while not self.stopping:
+            await asyncio.sleep(2)
+            if time.monotonic() - self.last_mic > self.cfg["mic_stall_s"]:
+                log.error("no microphone audio for %.0f s: exiting so the service restarts", time.monotonic() - self.last_mic)
+                os._exit(3)
 
     def stop(self, *_):
         self.stopping = True

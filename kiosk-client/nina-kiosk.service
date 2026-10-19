@@ -9,8 +9,7 @@ Wants=pipewire.service pipewire-pulse.service
 [Service]
 Type=simple
 WorkingDirectory=%h/nina-kiosk/src/kiosk-client
-# the PipeWire echo-cancelled nodes (pipewire-echo-cancel.conf); PortAudio's "pulse" device honours these
-Environment=PULSE_SOURCE=nina_ec_source PULSE_SINK=nina_ec_sink
+# audio devices (the PipeWire echo-cancelled nodes from pipewire-echo-cancel.conf) are named in config.json
 ExecStart=%h/nina-kiosk/venv/bin/python nina_kiosk.py
 Restart=always
 RestartSec=5
