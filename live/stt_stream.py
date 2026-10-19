@@ -5,8 +5,10 @@ so the controller never sees text that later gets rewritten. The raw hypothesis 
 """
 import asyncio
 import collections
+import os
 import re
 import time
+import wave
 from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
@@ -19,6 +21,34 @@ except ImportError:                                                 # run as a s
 
 SR = 16000
 FRAME = 320                      # 20 ms
+KEEP_DIR = os.path.expanduser(os.environ.get("NINA_KEEP_UTTS", "~/.local/share/nina/utterances"))   # "0" or "" turns it off
+KEEP_N = 15
+
+
+def keep_utterance(audio, text, directory=None, n=KEEP_N):
+    """Diagnostic ring buffer: the last `n` final utterances as WAVs (private dir, transcript in the name) so a mis-heard phrase can be listened to.
+    Never raises: a full disk or bad path must not cost a voice turn."""
+    d = KEEP_DIR if directory is None else directory
+    if not d or d == "0":
+        return None
+    try:
+        os.makedirs(d, mode=0o700, exist_ok=True)
+        a = np.asarray(audio, np.float32)
+        slug = re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_")[:50] or "empty"
+        name = "%s_%s_rms%.4f_pk%.2f.wav" % (time.strftime("%H%M%S") + "%03d" % (int(time.time() * 1000) % 1000), slug, float(np.sqrt(np.mean(a * a))) if len(a) else 0.0, float(np.max(np.abs(a))) if len(a) else 0.0)
+        with wave.open(os.path.join(d, name), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(SR)
+            w.writeframes((np.clip(a, -1, 1) * 32767).astype(np.int16).tobytes())
+        old = sorted((os.path.join(d, f) for f in os.listdir(d) if f.endswith(".wav")), key=os.path.getmtime)
+        for f in old[:-n]:
+            os.remove(f)
+        return name
+    except Exception:                                                   # noqa: BLE001
+        return None
+
+
 HALLUCINATIONS = {"you", "thank you", "thanks for watching", "thank you for watching", "bye", "the end", "so"}
 # one- or two-word scraps that background chatter / room noise turn into when Whisper has nothing real to transcribe
 TRIVIAL = HALLUCINATIONS | {"okay", "ok", "yeah", "yes", "no", "uh", "um", "hmm", "mm", "huh", "oh", "ah", "the", "a", "i", "and", "right", "well"}
@@ -156,6 +186,7 @@ class StreamingSTT:
                 new = hyp[len(self.committed):]
                 self._commit(new)
                 self.final_audio = audio[:-int(0.2 * SR)]                   # the utterance (without the 0.2 s pad) for speaker identification
+                keep_utterance(self.final_audio, " ".join(hyp))
                 self.on_event("final", " ".join(hyp))
                 self.reset_utt()
             else:
