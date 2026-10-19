@@ -1,0 +1,18 @@
+# Nina kiosk voice client: install as ~/.config/systemd/user/nina-kiosk.service, then
+#   systemctl --user daemon-reload && systemctl --user enable --now nina-kiosk.service
+# (loginctl enable-linger <user> so it starts at boot even before anyone logs in)
+[Unit]
+Description=Nina kiosk voice client
+After=pipewire.service pipewire-pulse.service wireplumber.service network-online.target
+Wants=pipewire.service pipewire-pulse.service
+
+[Service]
+Type=simple
+WorkingDirectory=%h/nina-kiosk/src/kiosk-client
+# audio devices (the PipeWire echo-cancelled nodes from pipewire-echo-cancel.conf) are named in config.json
+ExecStart=%h/nina-kiosk/venv/bin/python nina_kiosk.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target
