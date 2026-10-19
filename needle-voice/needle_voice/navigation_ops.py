@@ -16,7 +16,9 @@ from __future__ import annotations
 
 import datetime as dt
 import difflib
+import math
 import re
+import time
 import urllib.parse
 from dataclasses import dataclass, field
 from typing import Awaitable, Callable
@@ -25,6 +27,9 @@ from . import route_store as rs
 from .result import Status, ToolResult
 
 ROUTES_URL = "https://routes.googleapis.com/directions/v2:computeRoutes"
+PLACES_URL = "https://places.googleapis.com/v1/places:searchText"
+PLACES_MASK = "places.displayName,places.formattedAddress,places.location"
+PLACES_RADIUS_M = 30000.0
 FIELD_MASK = "routes.duration,routes.staticDuration,routes.distanceMeters"      # leave-by: just the numbers
 OFFER = " Want me to show it on the kitchen screen?"
 DEFAULT_BUFFER_MIN = 10
@@ -49,6 +54,7 @@ class NavConfig:
     buffer_min: int = DEFAULT_BUFFER_MIN
     notify: Notify | None = None
     post_json: PostJson | None = None
+    use_places: bool = False                        # look a named place up with Google Places (near home) instead of handing Routes a bare name; falls back to the name if Places refuses
     region: str = ""                                # the household's own area ("VA"): appended to a bare place name so "Skyzone Springfield" is not Springfield, Missouri
     places: dict = field(default_factory=dict)      # the household's frequent destinations {"Canonical Name": "search text for Google" ("" = the name itself)}
     store: "rs.RouteStore | None" = None            # when set, an ETA answer also keeps the full route (polyline, steps, alternates) as the ACTIVE route
@@ -175,9 +181,11 @@ def nav_app_uri(destination: str) -> str:
     return "intent:q=" + urllib.parse.quote(destination, safe="") + "#Intent;scheme=google.navigation;package=com.google.android.apps.maps;end"
 
 
-def build_request(home: tuple, destination: str, depart: dt.datetime | None) -> dict:
+def build_request(home: tuple, destination, depart: dt.datetime | None) -> dict:
+    """`destination` is an address/name string, or a (lat, lng) pair (a place Google Places already pinned down)."""
+    dest = ({"location": {"latLng": {"latitude": destination[0], "longitude": destination[1]}}} if isinstance(destination, (tuple, list)) else {"address": destination})
     body = {"origin": {"location": {"latLng": {"latitude": home[0], "longitude": home[1]}}},
-            "destination": {"address": destination},
+            "destination": dest,
             "travelMode": "DRIVE", "routingPreference": "TRAFFIC_AWARE", "units": "IMPERIAL"}
     if depart is not None:
         body["departureTime"] = depart.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -238,6 +246,78 @@ def traffic_note(secs: int, static: int) -> str:
     return (", about %s more than usual because of traffic" % spoken_minutes(extra)) if extra >= 300 else ""
 
 
+# ----------------------------------------------------------------------------------------------- places (Google Places API (New) text search, biased to home)
+@dataclass
+class Place:
+    name: str
+    address: str
+    lat: float
+    lng: float
+
+
+@dataclass
+class Dest:
+    label: str                      # what the household calls it / the place name Google found
+    route_to: object                # address string, or (lat, lng)
+    spoken: str = ""                # "Costco Wholesale on Boston Boulevard" when Google Places named it; "" otherwise
+    source: str = "address"         # places | address | fallback
+
+
+_ABBR = {"blvd": "Boulevard", "st": "Street", "rd": "Road", "ave": "Avenue", "hwy": "Highway", "dr": "Drive", "ln": "Lane", "pkwy": "Parkway", "ct": "Court", "pl": "Place",
+         "cir": "Circle", "ter": "Terrace", "n": "North", "s": "South", "e": "East", "w": "West", "ne": "Northeast", "nw": "Northwest", "se": "Southeast", "sw": "Southwest", "fwy": "Freeway"}
+_PLACES_CACHE: dict = {}
+PLACES_TTL_S = 24 * 3600
+
+
+def spoken_street(address: str) -> str:
+    """'7373 Boston Blvd, Springfield, VA 22150, USA' -> 'Boston Boulevard' (the street, without the number, abbreviations spoken out)."""
+    first = (address or "").split(",")[0].strip()
+    first = re.sub(r"^\d+[A-Za-z]?\s+", "", first)
+    return " ".join(_ABBR.get(w.lower().rstrip("."), w) for w in first.split())
+
+
+async def find_places(cfg: NavConfig, query: str):
+    """Google Places text search near home -> [Place] (nearest-ish first), [] when Google found nothing, None when the lookup itself failed (denied, rate limit, down),
+    so the caller can fall back to handing Routes the bare name. Results are cached for a day: the same question costs nothing the second time."""
+    key = ((query or "").lower().strip(), round(cfg.home[0], 2), round(cfg.home[1], 2))
+    hit = _PLACES_CACHE.get(key)
+    if hit and time.monotonic() - hit[0] < PLACES_TTL_S:
+        return hit[1]
+    headers = {"X-Goog-Api-Key": cfg.api_key, "X-Goog-FieldMask": PLACES_MASK, "Content-Type": "application/json"}
+    body = {"textQuery": query, "maxResultCount": 3, "locationBias": {"circle": {"center": {"latitude": cfg.home[0], "longitude": cfg.home[1]}, "radius": PLACES_RADIUS_M}}}
+    try:
+        status, data = await cfg.post_json(PLACES_URL, headers, body)
+    except Exception:                                                           # noqa: BLE001
+        return None
+    if status >= 400:
+        return None
+    out = []
+    for p in (data or {}).get("places") or []:
+        loc = p.get("location") or {}
+        try:
+            out.append(Place(((p.get("displayName") or {}).get("text") or "").strip(), p.get("formattedAddress") or "", float(loc["latitude"]), float(loc["longitude"])))
+        except (KeyError, TypeError, ValueError):
+            continue
+    out = [o for o in out if o.name]
+    _PLACES_CACHE[key] = (time.monotonic(), out)
+    return out
+
+
+async def resolve_destination(cfg: NavConfig, raw: str, label: str = "", listed: bool = False) -> Dest:
+    """What to route to. A street address goes to Routes as written. A named place ("Costco", "Skyzone Springfield") is looked up with Google Places near home and
+    routed to by coordinates, so it is the one near you and not a same-named town or store elsewhere ("Skyzone Springfield" was Springfield, Missouri). If Places is not
+    available or finds nothing, the bare name (with the household region appended) goes to Routes as before."""
+    raw = (raw or "").strip()
+    if cfg.use_places and raw and not re.search(r"\b\d+\s+\w+", raw):
+        found = await find_places(cfg, raw)
+        if found:
+            p = found[0]
+            street = spoken_street(p.address)
+            return Dest(p.name, (p.lat, p.lng), ("%s on %s" % (p.name, street)) if street else p.name, "places")
+        return Dest(label or raw, raw if listed else bias_region(raw, cfg.region), "", "fallback")
+    return Dest(label or raw, bias_region(raw, cfg.region) if (raw and not listed and not re.search(r"\d", raw)) else raw, "", "address")
+
+
 # ----------------------------------------------------------------------------------------------- the request
 async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.datetime | None = None) -> ToolResult:
     now = now or dt.datetime.now().astimezone()
@@ -248,21 +328,21 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
         return _fail("not_configured", "Navigation isn't set up yet: it needs a Google Maps key.", Status.UNAVAILABLE)
     active = cfg.store.get() if cfg.store else None
     label, query = resolve_place(dest, cfg.places) if dest else ("", "")
-    if query and query == dest and dest not in (cfg.places or {}):         # a place the household did not list: bias a bare name toward home
-        query = bias_region(query, cfg.region)
-    destination = query or (active.destination_label if (intent == "send" and active) else "") or (ctx.destination if ctx else "")
-    if not destination:
+    raw = query or (active.destination_label if (intent == "send" and active) else "") or (ctx.destination if ctx else "")
+    if not raw:
         return ToolResult(Status.AMBIGUOUS, "Where to?", reason="no_destination", telemetry={"code": "no_destination"}, domain="navigation")
     start = ctx.event_start if (ctx and not dest and ctx.event_start) else None
+    listed = bool(dest) and (label != dest or dest in (cfg.places or {}))             # a household place: used as listed, never region-biased
 
     if intent == "send":
-        return await _send(cfg, destination)
+        return await _send(cfg, _send_target(active, dest, raw))
 
     if intent == "leave":
         if not start:
             return ToolResult(Status.AMBIGUOUS, "What time do you need to be there?", reason="no_arrival_time", telemetry={"code": "no_arrival_time"}, domain="navigation")
         depart = max(now + dt.timedelta(minutes=1), start - dt.timedelta(minutes=30))
-        res = await route(cfg, destination, depart if depart > now + dt.timedelta(minutes=2) else None)
+        target = await resolve_destination(cfg, raw, label, listed)
+        res = await route(cfg, target.route_to, depart if depart > now + dt.timedelta(minutes=2) else None)
         bad = _from_route(res)
         if bad:
             return bad
@@ -277,25 +357,39 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
         return ToolResult(Status.SUCCESS, speech, reason="read", telemetry={"code": "leave_by", "eta_s": secs, "buffer_min": cfg.buffer_min, "predicted": predicted},
                           domain="navigation")
 
-    res = await route(cfg, destination, None, detail=cfg.store is not None)     # eta (+ polyline, steps, alternates when there is a store to keep them in)
+    target = await resolve_destination(cfg, raw, label, listed)
+    res = await route(cfg, target.route_to, None, detail=cfg.store is not None)     # eta (+ polyline, steps, alternates when there is a store to keep them in)
     bad = _from_route(res)
     if bad:
         return bad
     _, secs, static, meters, parsed = res
     miles = meters / 1609.344
     dist = ("%.0f" % miles if miles >= 10 else "%.1f" % miles).replace(".0", "")
+    plural = "" if dist == "1" else "s"
     if _FAR.search(text or ""):                                           # "how far is it to X": the distance first, then the drive
-        speech = "It's about %s mile%s, around %s by car with current traffic%s." % (dist, "" if dist == "1" else "s", spoken_minutes(secs), traffic_note(secs, static))
+        if target.spoken:                                                 # name the place Google picked, so a wrong guess is caught by ear
+            speech = "%s is about %s mile%s away, around %s by car with current traffic%s." % (target.spoken, dist, plural, spoken_minutes(secs), traffic_note(secs, static))
+        else:
+            speech = "It's about %s mile%s, around %s by car with current traffic%s." % (dist, plural, spoken_minutes(secs), traffic_note(secs, static))
+    elif target.spoken:
+        speech = "It's about %s by car with current traffic%s to %s, %.0f mile%s." % (spoken_minutes(secs), traffic_note(secs, static), target.spoken, miles, "" if round(miles) == 1 else "s")
     else:
         speech = "It's about %s by car with current traffic%s, %.0f mile%s." % (spoken_minutes(secs), traffic_note(secs, static), miles, "" if round(miles) == 1 else "s")
-    tel = {"code": "eta", "eta_s": secs, "static_s": static, "meters": meters}
+    tel = {"code": "eta", "eta_s": secs, "static_s": static, "meters": meters, "resolved": target.source}
     if cfg.store is not None and parsed and parsed[0]:
-        kept = cfg.store.set(label or destination, parsed[0], parsed[1], parsed[2])         # the route the user was just told about becomes the active route
+        kept = cfg.store.set(target.label or raw, parsed[0], parsed[1], parsed[2])         # the route the user was just told about becomes the active route
         tel.update(routes=len(parsed[0]), route_id=kept.id)
         if cfg.offer_display:
             speech += OFFER
             tel["offer"] = True
     return ToolResult(Status.SUCCESS, speech, reason="read", telemetry=tel, domain="navigation")
+
+
+def _send_target(active, dest: str, raw: str) -> str:
+    """What the phone link points at: the active route's exact coordinates when the user means 'it' (no destination spoken), else the text."""
+    if not dest and active and active.destination:
+        return "%.6f,%.6f" % tuple(active.destination)
+    return raw
 
 
 async def _send(cfg: NavConfig, destination: str) -> ToolResult:
@@ -317,7 +411,7 @@ async def send_active(cfg: NavConfig) -> ToolResult:
     a = cfg.store.get() if cfg.store else None
     if not a:
         return ToolResult(Status.NO_MATCH, "I don't have a route to send.", reason="no_active_route", telemetry={"code": "no_active_route"}, domain="navigation")
-    return await _send(cfg, a.destination_label)
+    return await _send(cfg, _send_target(a, "", a.destination_label))
 
 
 # ----------------------------------------------------------------------------------------------- should this module answer?
