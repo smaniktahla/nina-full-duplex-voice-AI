@@ -217,3 +217,26 @@ def test_calendar_when_keywords():
     assert claims.calendar_when("what's on my calendar tomorrow") == "tomorrow" and claims.calendar_when("check my calendar") == "today"
     assert claims.calendar_when("what's on my schedule this week") == "week" and claims.calendar_when("anything next week") == "next week" and claims.calendar_when("this weekend") in ("weekend", "today")
     assert claims.calendar_when("what's on my calendar " + wd.strftime("%A")) == "date:" + wd.isoformat()
+
+
+def test_agenda_context_for_follow_ups(monkeypatch):
+    import time
+    monkeypatch.setitem(tools._disp, "agenda_t", -1e9); monkeypatch.setitem(tools._disp, "agenda", None)
+    assert tools.agenda_fresh() is False and tools.agenda_base() is None
+    monkeypatch.setitem(tools._disp, "agenda_t", time.monotonic()); monkeypatch.setitem(tools._disp, "agenda", {"days": [{"date": "2026-10-23"}]})
+    assert tools.agenda_fresh() is True and tools.agenda_base() == dt.date(2026, 10, 23)
+    monkeypatch.setitem(tools._disp, "agenda_t", time.monotonic() - 400); assert tools.agenda_fresh() is False and tools.agenda_base() is None
+    monkeypatch.setitem(tools._disp, "agenda_t", time.monotonic()); monkeypatch.setitem(tools._disp, "agenda", {"days": []}); assert tools.agenda_base() is None
+
+
+def test_followups_only_count_with_an_agenda_showing_and_only_day_words():
+    f = lambda t, fresh=True: claims.claim(t, agenda_fresh=fresh)
+    assert f("and tomorrow") == "calendar" and f("what about friday") == "calendar" and f("the next day") == "calendar" and f("how's tomorrow look") == "calendar"
+    assert f("and tomorrow", False) == "" and f("how about pizza tomorrow") == "" and f("remind me to call mom tomorrow") == ""
+    assert f("what's the weather tomorrow") == "weather"                                    # a weather question stays a weather question
+    assert claims.calendar_when("the next day", dt.date(2026, 10, 23)) == "date:2026-10-24"
+
+
+def test_server_always_reads_the_day_from_the_words_for_calendar_and_weather():
+    src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
+    assert 'elif owned in ("calendar", "weather"):' in src and "day corrected" in src and "tools_mod.agenda_base()" in src

@@ -32,12 +32,29 @@ WEATHER_RE = re.compile(r"\b(weather|forecast|temperature outside|how (?:hot|col
 WEATHER_FOLLOWUP = re.compile(r"\b(location|where|coming from|source|why|which (?:station|sensor)|that weather|this weather|accurate|wrong)\b", re.I)
 
 
-def calendar_when(text: str) -> str:
+_DAY_WORD = re.compile(r"\b(today|tomorrow|yesterday|monday|tuesday|wednesday|thursday|friday|saturday|sunday|next day|previous day|day after|day before|following day|weekend|next week|this week)\b", re.I)
+
+
+_FOLLOWUP_FILLER = frozenset("and ok okay so then now what about how whats what's is the for on hows how's show me please agenda schedule calendar plans plan day that it um uh well "
+                              "lets let's see tell give i have do there anything look looks looking like".split())
+
+
+def agenda_followup(text: str) -> bool:
+    """With an agenda on the screen, a short day-only request ("and tomorrow?", "what about Friday", "the next day") is a calendar follow-up, not a new topic: after the
+    day phrase is taken out, only filler words may remain ("how about pizza tomorrow" is not a calendar question)."""
+    t = (text or "").lower()
+    if len(t.split()) > 8 or not _DAY_WORD.search(t):
+        return False
+    rest = _DAY_WORD.sub(" ", t.replace("'s", ""))
+    return all(w in _FOLLOWUP_FILLER for w in re.findall(r"[a-z']+", rest))
+
+
+def calendar_when(text: str, base=None) -> str:
     """The day(s) a calendar question is about, as the keyword tools.calendar understands: today | tomorrow | week | next week | weekend | date:YYYY-MM-DD (a weekday)."""
     import datetime as dt
     from needle_voice import agenda_ops
     now = dt.datetime.now().astimezone()
-    days, title = agenda_ops.resolve_days(text, now)
+    days, title = agenda_ops.resolve_days(text, now, base)
     if len(days) > 1:
         return "next week" if title == "Next week" else "weekend" if title == "This weekend" else "week"
     k = (days[0] - now.date()).days
@@ -54,7 +71,7 @@ def weather_question(text: str) -> bool:
     return bool(WEATHER_RE.search(t)) and not WEATHER_FOLLOWUP.search(t)
 
 
-def claim(text: str, *, store=None, offered: bool = False, display: bool = True, nav: bool = True, places: dict = None) -> str:
+def claim(text: str, *, store=None, offered: bool = False, display: bool = True, nav: bool = True, places: dict = None, agenda_fresh: bool = False) -> str:
     t = text or ""
     if display and display_ops.owns(t, store, offered):
         return "display"
@@ -66,4 +83,6 @@ def claim(text: str, *, store=None, offered: bool = False, display: bool = True,
         return "weather"
     if random_ops.parse(t):
         return "random"
+    if agenda_fresh and agenda_followup(t):
+        return "calendar"
     return ""

@@ -709,7 +709,13 @@ class Session:
                 # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): a request a deterministic tool claims belongs to that tool
                 # (display_ops / navigation_ops / calendar / weather / random), and must never go to an agent that could improvise
                 log("   (%s request: @%s replaced by @%s)" % (owned, tool.group(1), owned))
-                self.run_tool_call(owned, claims.calendar_when(utter_d) if owned == "calendar" else claims.weather_when(utter_d) if owned == "weather" else utter_d)
+                self.run_tool_call(owned, claims.calendar_when(utter_d, tools_mod.agenda_base()) if owned == "calendar" else claims.weather_when(utter_d) if owned == "weather" else utter_d)
+            elif owned in ("calendar", "weather"):
+                # the right tool, but the day is ours to read from the words: the model once wrote "@calendar today" for a question about another day
+                when = claims.calendar_when(utter_d, tools_mod.agenda_base()) if owned == "calendar" else claims.weather_when(utter_d)
+                if when != arg.strip().lower():
+                    log("   (@%s day corrected: %r -> %r)" % (owned, arg.strip(), when))
+                self.run_tool_call(owned, when)
             else:
                 self.run_tool_call(tool.group(1), arg)
         if text:
@@ -734,7 +740,7 @@ class Session:
                 return
             if claimed in ("calendar", "weather"):
                 # the reply model has neither a calendar nor a forecast, so it used to say so or invent one
-                when = claims.calendar_when(user_said) if claimed == "calendar" else claims.weather_when(user_said)
+                when = claims.calendar_when(user_said, tools_mod.agenda_base()) if claimed == "calendar" else claims.weather_when(user_said)
                 log("   (%s question without a tool tag: starting @%s %s)" % (claimed, claimed, when))
                 self.start_tool(claimed, when)
                 self.speak("Let me check.", final=True)

@@ -69,3 +69,15 @@ def test_untitled_and_long_titles_are_safe_and_summary_has_no_text():
 
 def test_new_documents_have_new_ids():
     assert a.build_document([], [D(18)], NOW)["id"] != a.build_document([], [D(18)], NOW)["id"]
+
+
+def test_relative_days_follow_the_agenda_already_on_screen():
+    shown = D(23)                                                                           # the kitchen screen shows Friday
+    assert a.resolve_days("and the next day", NOW, shown) == ([D(24)], "Saturday")
+    assert a.resolve_days("what about the day after that", NOW, shown) == ([D(24)], "Saturday")
+    assert a.resolve_days("the previous day", NOW, shown) == ([D(22)], "Thursday")
+    assert a.resolve_days("what about the day before", NOW, D(19)) == ([D(18)], "Today")
+    assert a.resolve_days("the next day", NOW) == ([D(19)], "Tomorrow")                      # nothing showing: relative to today
+    assert a.resolve_days("what about yesterday", NOW) == ([D(17)], "Yesterday")
+    assert a.resolve_days("the day after tomorrow", NOW, shown) == ([D(20)], "The day after tomorrow")      # an explicit phrase beats the base
+    assert a.resolve_days("and tomorrow", NOW, shown) == ([D(19)], "Tomorrow")

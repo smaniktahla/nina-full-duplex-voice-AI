@@ -43,6 +43,9 @@ CALENDAR = ["what's on my calendar today", "what's on my schedule tomorrow", "do
             "what do I have on wednesday", "am I free thursday", "what's on my agenda for the week", "what's on the calendar for the day after tomorrow"]
 RANDOM = ["flip a coin", "toss a coin", "heads or tails", "roll a die", "roll two dice", "roll a d20", "pick a number between 1 and 10", "give me a random number",
           "pick a number from one to a hundred", "choose between pizza and tacos"]
+AGENDA_FOLLOWUP = ["and tomorrow", "what about tomorrow", "tomorrow", "how about friday", "what about saturday", "and the day after", "the next day", "and the day after that", "what about yesterday",
+                   "the previous day", "how's tomorrow look", "what's tomorrow", "tomorrow's agenda", "show me friday", "and today", "what about next week", "and monday?"]
+AGENDA_FOLLOWUP_NONE = ["how about pizza tomorrow", "tomorrow I'm going to the beach with the kids and then to dinner", "play some music tomorrow", "remind me to call mom tomorrow"]
 NOTES = ["take notes", "I need you to take notes", "start taking notes", "are you able to create the note in DocMost"]
 NOTES_RECORDING = ["write that down", "okay write that down", "that's all", "save the notes"]
 NONE = ["what's the capital of France", "tell me a joke", "how long does it take to boil an egg", "how long does a cat live", "how far is the sun", "how far is the moon from earth",
@@ -80,6 +83,12 @@ def main():
         add(t, "calendar")
     for t in RANDOM:
         add(t, "random")
+    for t in AGENDA_FOLLOWUP:
+        add(t, "calendar", agenda=True)                             # with an agenda on the screen a day-only request means that day's agenda
+    for t in AGENDA_FOLLOWUP_NONE:
+        add(t, "none", agenda=True)
+    for t in ("and tomorrow", "what about friday", "the next day"):
+        add(t, "none")                                              # no agenda showing: not a calendar question on its own
     for t in NOTES:
         add(t, "notes")
     for t in NOTES_RECORDING:
