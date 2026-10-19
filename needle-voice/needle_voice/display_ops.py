@@ -45,6 +45,9 @@ class DisplayIO:
     write_document: WriteDocument              # publish the route document the viewer reads (None = clear); True if written
     served: Served                             # () -> (key|None, age_seconds): the last document key a viewer fetched
     sleep: Sleep
+    show_page: Optional[Callable[[str, int], Awaitable[bool]]] = None          # (path, hold_s) -> True if HA accepted: pop a pinned page up for a while
+    write_agenda: Optional[Callable[[dict], Awaitable[bool]]] = None           # publish the agenda document the agenda viewer reads
+    served_agenda: Optional[Served] = None                                     # last agenda document key a viewer fetched
 
 
 @dataclass
@@ -55,6 +58,8 @@ class DisplayConfig:
     show_script: str = "script.kiosk_route_show"
     close_script: str = "script.kiosk_route_close"
     pause_flag: str = "input_boolean.dashboard_rotation_paused"
+    agenda_path: str = "/kiosk-agenda/agenda"
+    agenda_hold_s: int = 60
     default_target: str = "kitchen"
     verify_timeout_s: float = VERIFY_TIMEOUT_S
     extra: dict = field(default_factory=dict)
@@ -308,3 +313,35 @@ async def handle(text: str, store, io: DisplayIO, cfg: DisplayConfig, offered: b
     if intent == "state":
         return await get_state(store, io, cfg)
     return await (pause_rotation(io, cfg) if intent == "pause" else resume_rotation(io, cfg))
+
+
+async def show_agenda(io: DisplayIO, cfg: DisplayConfig, doc: dict, target: Optional[str] = None) -> ToolResult:
+    """Pop the day's agenda up on the kiosk for `cfg.agenda_hold_s` seconds, then the dashboard manager resumes the rotation. A side effect of a calendar answer, so it
+    never speaks for itself (the caller already answered): the result is for logs and tests. A pinned route is never replaced by a popup; an offline kiosk is not asked;
+    success is claimed only when the kiosk shows the agenda page AND the viewer fetched this very document."""
+    name, sensor = _target(cfg, target)
+    if not sensor:
+        return _unknown_target(name)
+    if io.show_page is None or io.write_agenda is None or io.served_agenda is None:
+        return _res(Status.UNSUPPORTED, None, "agenda_not_configured")
+    if await _path(io, sensor) is None:
+        return _res(Status.UNAVAILABLE, None, "kiosk_offline", target=name)
+    if (await io.get_state(cfg.active_flag)) == "on":
+        return _res(Status.UNAVAILABLE, None, "route_on_screen")
+    key = "%s|%s" % (doc.get("id"), doc.get("updated"))
+    if not await io.write_agenda(doc):
+        return _res(Status.EXECUTION_FAILED, None, "agenda_write_failed")
+    try:
+        accepted = await io.show_page(cfg.agenda_path, int(cfg.agenda_hold_s))
+    except Exception:                                              # noqa: BLE001
+        accepted = False
+    if not accepted:
+        return _res(Status.EXECUTION_FAILED, None, "agenda_show_failed")
+
+    async def up():
+        p = await _path(io, sensor)
+        k, age = io.served_agenda()
+        return p is not None and p.startswith(cfg.agenda_path) and k == key and age <= SERVED_MAX_AGE_S
+    if await _until(io, up, cfg.verify_timeout_s):
+        return _res(Status.SUCCESS, "The agenda is on the kitchen screen.", "agenda_shown", side_effect=True)
+    return _res(Status.UNVERIFIED, None, "agenda_unconfirmed", side_effect=True)

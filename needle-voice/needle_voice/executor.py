@@ -259,6 +259,23 @@ async def execute_display(hass: Any, action: str, entity_id: str, context: Any =
     return True
 
 
+# And one more: show a pinned page on the kiosk for a while (the dashboard manager's script.dashboard_show: pause the rotation, navigate, hold, resume). Only the kiosk agenda
+# page may be named and the hold is bounded, so this can pop up the owner's agenda on the kitchen screen and nothing else.
+SHOW_PAGE_PREFIXES = ("/kiosk-agenda/",)
+
+
+async def execute_show_page(hass: Any, path: str, hold_s: int, context: Any = None) -> bool:
+    """True once HA accepted the call; ExecutionError for a page that is not allowed, a bad hold, or a failed call. Acceptance is not an outcome: callers verify."""
+    if (not isinstance(path, str) or not path.startswith(SHOW_PAGE_PREFIXES) or ".." in path or " " in path or len(path) > 80
+            or isinstance(hold_s, bool) or not isinstance(hold_s, int) or not 10 <= hold_s <= 300):
+        raise ExecutionError("show_page_refused")
+    try:
+        await hass.services.async_call("script", "dashboard_show", {"dashboard": path, "hold_seconds": hold_s}, blocking=True, context=context)
+    except Exception as e:  # noqa: BLE001
+        raise ExecutionError(f"service_call_failed:{type(e).__name__}") from e
+    return True
+
+
 # One more fixed, narrow write: a navigation push to the owner's phone (the Home Assistant Companion app). The service must be a mobile_app_* notify target
 # (from household config, never from what was said). Two ways to open it: tapping the notification starts turn-by-turn in the Google Maps app on Android
 # (an intent: link naming the Maps package; bare custom schemes are not opened by the Companion app), and an "Open in browser" button opens the Google Maps directions web link (any browser, desktop included). Both links are

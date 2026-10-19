@@ -139,3 +139,29 @@ def test_attach_is_opt_in(monkeypatch):
     base = len(web.Application().on_startup)
     a = web.Application(); kiosk.attach(a, kiosk.Hooks(document=lambda: None)); assert len(a.on_startup) == base
     monkeypatch.setenv("KIOSK_PORT", "8"); b = web.Application(); kiosk.attach(b, kiosk.Hooks(document=lambda: None)); assert len(b.on_startup) == base + 1
+
+
+def test_agenda_viewer_and_document_share_the_signed_link():
+    AG = {"id": "a1", "updated": "u1", "title": "Tomorrow", "days": [{"date": "2026-10-19", "label": "x", "events": []}]}
+    state = {"doc": None}
+    kiosk.SERVED_AGENDA.update(key=None, t=0.0); assert kiosk.served_agenda()[0] is None and kiosk.served_agenda()[1] == float("inf")
+
+    async def go(s, base):
+        tok = kiosk.make_token(1, key=KEY); u = lambda n: "%s/kiosk/%s/agenda/%s" % (base, tok, n)
+        for name, ctype in (("index.html", "text/html"), ("agenda.js", "text/javascript"), ("agenda.css", "text/css")):
+            async with s.get(u(name)) as r:
+                assert r.status == 200 and r.content_type == ctype and r.headers["Referrer-Policy"] == "origin", name
+        async with s.get(u("agenda.json")) as r:
+            assert r.status == 204 and r.headers["Cache-Control"] == "no-store"
+        state["doc"] = AG
+        async with s.get(u("agenda.json")) as r:
+            assert r.status == 200 and (await r.json())["id"] == "a1"
+        assert kiosk.served_agenda()[0] == "a1|u1" and kiosk.served_agenda()[1] < 5 and kiosk.served()[0] != "a1|u1"          # tracked apart from the route document
+        for name in ("../index.html", "make_fixture.py", "agenda.example.json", "test_agenda.py", "vendor/leaflet.js", "agenda/index.html", "%2e%2e/route.json"):
+            async with s.get(yarl.URL(u(name), encoded=True)) as r:
+                assert r.status == 404, name
+        async with s.get("%s/kiosk/bad.token/agenda/agenda.json" % base) as r:
+            assert r.status == 401
+        async with s.get("%s/kiosk/%s/agenda/agenda.json" % (base, kiosk.make_token(1, now=time.time() - 3 * 86400, key=KEY))) as r:
+            assert r.status == 401
+    run(_with(kiosk.Hooks(document=lambda: None, agenda=lambda: state["doc"]), go))

@@ -1,0 +1,79 @@
+{
+ "id": "d5a2f84596",
+ "updated": "2026-10-19T01:00:00.000000Z",
+ "title": "Tomorrow",
+ "hold_s": 60,
+ "days": [
+  {
+   "date": "2026-10-19",
+   "label": "Monday, October 19",
+   "relative": "Tomorrow",
+   "today": false,
+   "events": [
+    {
+     "title": "School holiday",
+     "all_day": true,
+     "start": "2026-10-19T00:00:00-04:00",
+     "end": "2026-10-20T00:00:00-04:00",
+     "time": "",
+     "end_time": "",
+     "location": ""
+    },
+    {
+     "title": "Morning standup",
+     "all_day": false,
+     "start": "2026-10-19T09:00:00-04:00",
+     "end": "2026-10-19T09:30:00-04:00",
+     "time": "9:00 AM",
+     "end_time": "9:30 AM",
+     "location": ""
+    },
+    {
+     "title": "Dentist",
+     "all_day": false,
+     "start": "2026-10-19T10:15:00-04:00",
+     "end": "2026-10-19T11:00:00-04:00",
+     "time": "10:15 AM",
+     "end_time": "11:00 AM",
+     "location": "12 Example St, Town, ST 11111"
+    },
+    {
+     "title": "Lunch with a friend",
+     "all_day": false,
+     "start": "2026-10-19T12:00:00-04:00",
+     "end": "2026-10-19T13:30:00-04:00",
+     "time": "12:00 PM",
+     "end_time": "1:30 PM",
+     "location": "Example Cafe"
+    },
+    {
+     "title": "Design review",
+     "all_day": false,
+     "start": "2026-10-19T13:00:00-04:00",
+     "end": "2026-10-19T14:00:00-04:00",
+     "time": "1:00 PM",
+     "end_time": "2:00 PM",
+     "location": ""
+    },
+    {
+     "title": "Pickup",
+     "all_day": false,
+     "start": "2026-10-19T15:30:00-04:00",
+     "end": "2026-10-19T16:00:00-04:00",
+     "time": "3:30 PM",
+     "end_time": "4:00 PM",
+     "location": "Example Elementary School"
+    },
+    {
+     "title": "Dinner",
+     "all_day": false,
+     "start": "2026-10-19T18:30:00-04:00",
+     "end": "2026-10-19T20:30:00-04:00",
+     "time": "6:30 PM",
+     "end_time": "8:30 PM",
+     "location": ""
+    }
+   ]
+  }
+ ]
+}

@@ -160,3 +160,60 @@ def test_nav_cfg_carries_the_places(monkeypatch):
     class H:
         def get(self, *a, **k): raise OSError("no ha in tests")
     assert run(tools.nav_cfg(H())).places == {"Takoda Beer Garden": ""}
+
+
+# ---------------------------------------------------------------- calendar answer + agenda popup glue
+import datetime as dt                                                          # noqa: E402
+import claims                                                                  # noqa: E402
+
+
+class CalHttp:
+    """HA's calendar REST endpoint: records the window asked for and returns two events on whatever day starts the window."""
+    def __init__(self): self.params = []
+    def get(self, url, headers=None, timeout=None, params=None):
+        self.params.append(params); outer = self
+        start = dt.datetime.fromisoformat(params["start"])
+        rows = [{"summary": "Dentist", "start": {"dateTime": start.replace(hour=14).isoformat()}, "end": {"dateTime": start.replace(hour=15).isoformat()}, "location": "12 Main St\nTown, ST\nUSA"},
+                {"summary": "Holiday", "start": {"date": start.date().isoformat()}, "end": {"date": (start.date() + dt.timedelta(days=1)).isoformat()}}]
+        class R:
+            async def __aenter__(s): return s
+            async def __aexit__(s, *a): return False
+            async def json(s): return rows
+        return R()
+
+
+def run_calendar(monkeypatch, when, targets=True):
+    popups = []
+    async def fake_popup(http, events, days, title, now): popups.append((events, days, title))
+    monkeypatch.setattr(tools, "KIOSK_TARGETS", {"kitchen": SENSOR} if targets else {}); monkeypatch.setattr(tools, "CALENDARS", ["calendar.test"])
+    monkeypatch.setattr(tools, "_hdr", lambda: {}); monkeypatch.setattr(tools, "agenda_popup", fake_popup)
+    h = CalHttp()
+    async def go():
+        out = await tools.calendar(h, when); await asyncio.sleep(0); return out
+    return run(go()), popups, h
+
+
+def test_calendar_answer_is_unchanged_and_the_agenda_is_scheduled(monkeypatch):
+    out, popups, h = run_calendar(monkeypatch, "tomorrow")
+    assert "2:00 PM: Dentist" in out and "all day: Holiday" in out and "|| LOCATIONS" in out                      # the spoken payload, as before
+    (events, days, title), = popups
+    assert sorted(e.summary for e in events) == ["Dentist", "Holiday"]
+    assert days == [dt.date.today() + dt.timedelta(days=1)] and dt.datetime.fromisoformat(h.params[0]["start"]).date() == days[0]
+    assert dt.datetime.fromisoformat(h.params[0]["end"]) - dt.datetime.fromisoformat(h.params[0]["start"]) == dt.timedelta(days=1)
+
+
+def test_calendar_windows_for_a_weekday_a_week_and_a_missing_display(monkeypatch):
+    out, popups, h = run_calendar(monkeypatch, "date:2026-10-23")
+    assert popups[0][1] == [dt.date(2026, 10, 23)]
+    out, popups, h = run_calendar(monkeypatch, "week")
+    assert len(popups[0][1]) == 7 and dt.datetime.fromisoformat(h.params[0]["end"]) - dt.datetime.fromisoformat(h.params[0]["start"]) == dt.timedelta(days=7)
+    assert any(day in out for day in ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))      # a multi-day answer names the weekday
+    out, popups, h = run_calendar(monkeypatch, "today", targets=False)
+    assert popups == [] and "Dentist" in out                                                                          # no display configured: no popup, same answer
+
+
+def test_calendar_when_keywords():
+    today = dt.date.today(); wd = (today + dt.timedelta(days=3))
+    assert claims.calendar_when("what's on my calendar tomorrow") == "tomorrow" and claims.calendar_when("check my calendar") == "today"
+    assert claims.calendar_when("what's on my schedule this week") == "week" and claims.calendar_when("anything next week") == "next week" and claims.calendar_when("this weekend") in ("weekend", "today")
+    assert claims.calendar_when("what's on my calendar " + wd.strftime("%A")) == "date:" + wd.isoformat()

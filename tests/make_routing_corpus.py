@@ -38,7 +38,9 @@ WEATHER_NONE = ["what location is that weather for", "did you find out where the
 CALENDAR = ["what's on my calendar today", "what's on my schedule tomorrow", "do I have any meetings today", "what do I have on my schedule for tomorrow", "what's my next appointment",
             "am I busy tomorrow", "when is my dentist appointment", "where is my workout tomorrow", "what time is my meeting", "check my calendar", "what's on my agenda",
             "anything on the calendar this week", "do you know where my workout is", "what is the location for my workout tomorrow morning",
-            "can you check my calendar to see where my workout is", "in the meantime what's on my schedule tomorrow", "do I have anything going on this weekend"]
+            "can you check my calendar to see where my workout is", "in the meantime what's on my schedule tomorrow", "do I have anything going on this weekend",
+            "what's on my calendar friday", "do I have anything on saturday", "what's my schedule next week", "show me tomorrow's schedule", "put the calendar on the kitchen screen",
+            "what do I have on wednesday", "am I free thursday", "what's on my agenda for the week", "what's on the calendar for the day after tomorrow"]
 RANDOM = ["flip a coin", "toss a coin", "heads or tails", "roll a die", "roll two dice", "roll a d20", "pick a number between 1 and 10", "give me a random number",
           "pick a number from one to a hundred", "choose between pizza and tacos"]
 NOTES = ["take notes", "I need you to take notes", "start taking notes", "are you able to create the note in DocMost"]
