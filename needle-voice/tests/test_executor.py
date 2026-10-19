@@ -237,7 +237,7 @@ def test_notify_failure_is_an_execution_error():
 def test_show_page_is_limited_to_the_agenda_page_and_a_bounded_hold():
     h = FakeHass()
     assert asyncio.run(ex.execute_show_page(h, "/kiosk-agenda/agenda", 60)) is True
-    assert h.calls == [("script", "dashboard_show", {"dashboard": "/kiosk-agenda/agenda", "hold_seconds": 60})]
+    assert h.calls == [("script", "turn_on", {"entity_id": "script.dashboard_show", "variables": {"dashboard": "/kiosk-agenda/agenda", "hold_seconds": 60}})]     # started, not awaited
 
 
 @pytest.mark.parametrize("path,hold", [("/kiosk-route/route", 60), ("/lovelace/0", 60), ("/kiosk-agenda/../x", 60), ("/kiosk-agenda/agenda x", 60), ("kiosk-agenda/agenda", 60),
@@ -252,4 +252,4 @@ def test_show_page_refuses_anything_else_before_calling(path, hold):
 
 def test_show_page_failure_is_an_execution_error():
     with pytest.raises(ExecutionError):
-        asyncio.run(ex.execute_show_page(FakeHass(fail_on=("script", "dashboard_show")), "/kiosk-agenda/agenda", 60))
+        asyncio.run(ex.execute_show_page(FakeHass(fail_on=("script", "turn_on")), "/kiosk-agenda/agenda", 60))

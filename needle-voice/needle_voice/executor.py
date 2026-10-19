@@ -270,7 +270,9 @@ async def execute_show_page(hass: Any, path: str, hold_s: int, context: Any = No
             or isinstance(hold_s, bool) or not isinstance(hold_s, int) or not 10 <= hold_s <= 300):
         raise ExecutionError("show_page_refused")
     try:
-        await hass.services.async_call("script", "dashboard_show", {"dashboard": path, "hold_seconds": hold_s}, blocking=True, context=context)
+        # script.turn_on (not a direct script.dashboard_show call): the script holds the page for `hold_s` seconds, and a direct call waits for it to finish, so the
+        # REST client timed out after 10 s and reported a popup that had actually worked as failed. turn_on returns as soon as the script has started.
+        await hass.services.async_call("script", "turn_on", {"entity_id": "script.dashboard_show", "variables": {"dashboard": path, "hold_seconds": hold_s}}, blocking=False, context=context)
     except Exception as e:  # noqa: BLE001
         raise ExecutionError(f"service_call_failed:{type(e).__name__}") from e
     return True
