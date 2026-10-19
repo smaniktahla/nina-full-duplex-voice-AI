@@ -34,3 +34,11 @@ def test_tick_prompt_is_append_only():
     p1 = pol.build(600, "hello", [], "", "", 0); pol.commit("hello", "hello", "", "silent")
     p2 = pol.build(1200, "there", [], "", "", 0)
     assert p2.startswith(p1[: p1.rindex("<|im_start|>user")])               # history grows only at the tail: KV cache stays valid
+
+
+def test_collapse_loops_caps_repeats():
+    from live.claims import collapse_loops
+    w = ("what's my agenda for a " + "f***ing " * 40).split()
+    assert collapse_loops(w) == "what's my agenda for a f***ing f***ing f***ing".split()
+    assert collapse_loops("no no no".split()) == ["no", "no", "no"]
+    assert collapse_loops("what is the weather".split()) == "what is the weather".split()
