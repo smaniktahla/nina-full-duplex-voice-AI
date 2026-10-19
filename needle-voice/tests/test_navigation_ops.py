@@ -50,7 +50,7 @@ def test_eta_ok_and_request_shape():
     url, headers, body = log[0]
     assert url == nav.ROUTES_URL and headers["X-Goog-Api-Key"] == "k" and "routes.duration" in headers["X-Goog-FieldMask"]
     assert body["destination"] == {"address": "12 Main Street"} and body["routingPreference"] == "TRAFFIC_AWARE" and "departureTime" not in body
-    assert r.telemetry == {"code": "eta", "eta_s": 1380, "static_s": 900, "meters": 16093}
+    assert r.telemetry == {"code": "eta", "eta_s": 1380, "static_s": 900, "meters": 16093, "resolved": "address"}
     assert "Main" not in str(r.telemetry)                                       # no destination text in telemetry
 
 
@@ -156,7 +156,7 @@ def test_send_uses_the_active_route_and_never_recalculates():
     c = cfg(resp=(200, DETAIL), notify=notify, log=log); c.store = store
     run(nav.handle("how long to get to Example Museum", None, c, NOW)); n = len(log)
     r = run(nav.handle("send it to my phone", None, c, NOW))
-    assert r.status == Status.UNVERIFIED and sent[-1].endswith("destination=Example%20Museum") and len(log) == n                    # no new Routes call
+    assert r.status == Status.UNVERIFIED and sent[-1].endswith("destination=40.200000%2C-73.200000") and len(log) == n                    # the exact coordinates of the active route, no new Routes call
     r = run(nav.send_active(c)); assert r.status == Status.UNVERIFIED and len(sent) == 2 and len(log) == n
     e = cfg(notify=notify); e.store = rs.RouteStore(); assert run(nav.send_active(e)).status == Status.NO_MATCH
 
@@ -228,3 +228,69 @@ def test_bare_place_names_are_biased_toward_the_household_region():
     log.clear(); c.places = {"Takoda Beer Garden": ""}
     run(nav.handle("how far is it to Takoda Beer Garden", None, c, NOW))
     assert log[0][2]["destination"] == {"address": "Takoda Beer Garden"}                                  # a listed place is used as listed, not re-biased
+
+
+# ---------------------------------------------------------------- Google Places: "Costco" is the Costco near home, not one 157 miles away
+PLACES_RESP = {"places": [
+    {"displayName": {"text": "Costco Wholesale"}, "formattedAddress": "7373 Boston Blvd, Springfield, VA 22153, USA", "location": {"latitude": 38.77, "longitude": -77.18}},
+    {"displayName": {"text": "Costco Wholesale"}, "formattedAddress": "7940 Richmond Hwy, Alexandria, VA 22306, USA", "location": {"latitude": 38.74, "longitude": -77.09}}]}
+
+
+def places_cfg(places_resp=(200, PLACES_RESP), log=None, **kw):
+    """Routes and Places go to different URLs: a fake that answers each its own way and logs every call."""
+    async def post(url, headers, body):
+        if log is not None:
+            log.append((url, headers, body))
+        if url == nav.PLACES_URL:
+            if isinstance(places_resp, Exception):
+                raise places_resp
+            return places_resp[0], places_resp[1]
+        return 200, DETAIL
+    c = nav.NavConfig(api_key="k", home=HOME, post_json=post, use_places=True, **kw)
+    nav._PLACES_CACHE.clear()
+    return c
+
+
+def test_a_named_place_is_looked_up_near_home_and_routed_to_by_coordinates():
+    log, store = [], rs.RouteStore(); c = places_cfg(log=log); c.store, c.offer_display = store, True
+    r = run(nav.handle("how far is it to Costco", None, c, NOW))
+    assert log[0][0] == nav.PLACES_URL and log[0][2]["textQuery"] == "Costco" and log[0][2]["locationBias"]["circle"]["center"] == {"latitude": HOME[0], "longitude": HOME[1]}
+    assert log[0][1]["X-Goog-FieldMask"] == nav.PLACES_MASK
+    assert log[1][0] == nav.ROUTES_URL and log[1][2]["destination"] == {"location": {"latLng": {"latitude": 38.77, "longitude": -77.18}}}       # the exact place, not a name
+    assert r.status == Status.SUCCESS and r.speech.startswith("Costco Wholesale on Boston Boulevard is about 10 miles away, around 23 minutes") and r.speech.endswith("kitchen screen?")
+    assert store.get().destination_label == "Costco Wholesale" and r.telemetry["resolved"] == "places" and "Costco" not in str(r.telemetry)
+
+
+def test_time_question_also_names_the_place():
+    r = run(nav.handle("how long to get to Costco", None, places_cfg(), NOW))
+    assert r.speech.startswith("It's about 23 minutes by car with current traffic") and "to Costco Wholesale on Boston Boulevard, 10 miles" in r.speech
+
+
+def test_places_failures_fall_back_to_the_bare_name_and_say_nothing_false():
+    for resp in ((403, {}), (429, {}), (500, {}), OSError("down")):
+        log = []; c = places_cfg(places_resp=resp, log=log); c.region = "VA"
+        r = run(nav.handle("how far is it to Costco", None, c, NOW))
+        assert r.status == Status.SUCCESS and log[1][2]["destination"] == {"address": "Costco, VA"} and r.telemetry["resolved"] == "fallback" and "Wholesale" not in r.speech, resp
+    log = []; c = places_cfg(places_resp=(200, {"places": []}), log=log)
+    assert run(nav.handle("how far is it to Costco", None, c, NOW)).telemetry["resolved"] == "fallback"                                  # Google found nothing: try the name
+
+
+def test_street_addresses_skip_places_and_listed_places_are_searched_as_listed():
+    log = []; c = places_cfg(log=log)
+    run(nav.handle("how far is it to 12 Elm Street", None, c, NOW))
+    assert [u for u, _, _ in log] == [nav.ROUTES_URL] and log[0][2]["destination"] == {"address": "12 Elm Street"}
+    log.clear(); c = places_cfg(log=log); c.places = {"Takoda Beer Garden": "Takoda Beer Garden"}
+    run(nav.handle("how far is it to dakota beer garden", None, c, NOW))
+    assert log[0][2]["textQuery"] == "Takoda Beer Garden"                                                                                  # a mis-heard name is searched by its canonical spelling
+
+
+def test_places_answers_are_cached_for_a_day():
+    log = []; c = places_cfg(log=log)
+    run(nav.handle("how far is it to Costco", None, c, NOW)); run(nav.handle("how far is it to costco", None, c, NOW))
+    assert [u for u, _, _ in log].count(nav.PLACES_URL) == 1
+
+
+def test_spoken_street():
+    assert nav.spoken_street("7373 Boston Blvd, Springfield, VA 22153, USA") == "Boston Boulevard"
+    assert nav.spoken_street("5325 Port Royal Rd, Springfield, VA") == "Port Royal Road" and nav.spoken_street("715 Florida Ave NW, Washington, DC") == "Florida Avenue Northwest"
+    assert nav.spoken_street("Springfield, VA") == "Springfield" and nav.spoken_street("") == ""
