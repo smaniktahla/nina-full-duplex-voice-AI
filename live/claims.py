@@ -33,9 +33,15 @@ WEATHER_FOLLOWUP = re.compile(r"\b(location|where|coming from|source|why|which (
 
 
 def calendar_when(text: str) -> str:
-    low = (text or "").lower()
-    return ("tomorrow" if "tomorrow" in low else "today" if re.search(r"\b(today|tonight|this morning|this afternoon)\b", low) else "week"
-            if re.search(r"\b(week|weekend)\b", low) or not re.search(r"\b(calendar|schedule|agenda)\b", low) else "today")
+    """The day(s) a calendar question is about, as the keyword tools.calendar understands: today | tomorrow | week | next week | weekend | date:YYYY-MM-DD (a weekday)."""
+    import datetime as dt
+    from needle_voice import agenda_ops
+    now = dt.datetime.now().astimezone()
+    days, title = agenda_ops.resolve_days(text, now)
+    if len(days) > 1:
+        return "next week" if title == "Next week" else "weekend" if title == "This weekend" else "week"
+    k = (days[0] - now.date()).days
+    return "today" if k == 0 else "tomorrow" if k == 1 else "date:" + days[0].isoformat()
 
 
 def weather_when(text: str) -> str:

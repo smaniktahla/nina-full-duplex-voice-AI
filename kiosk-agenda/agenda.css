@@ -1,0 +1,28 @@
+:root { --bg:#10151b; --panel:#171e26; --fg:#e8edf2; --dim:#8b97a4; --accent:#3aa0ff; --now:#3ddc84; --line:#26303b; }
+* { box-sizing:border-box; }
+html, body { height:100%; margin:0; background:var(--bg); color:var(--fg); font:20px/1.3 system-ui, sans-serif; }
+#app { height:100%; display:flex; flex-direction:column; padding:22px 34px 26px; }
+header { display:flex; align-items:baseline; gap:22px; border-bottom:1px solid var(--line); padding-bottom:12px; }
+#title { font-size:2.6rem; font-weight:700; }
+#date { font-size:1.5rem; color:var(--dim); }
+#days { flex:1; overflow-y:auto; padding-top:8px; }
+.day h2 { font-size:1.25rem; color:var(--accent); margin:18px 0 6px; font-weight:600; }
+.day:first-child h2 { margin-top:6px; }
+.allday { display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 6px; }
+.allday span { background:#173049; border:1px solid #24527a; border-radius:999px; padding:6px 16px; font-size:1.1rem; }
+.ev { display:grid; grid-template-columns:9.5rem 1fr; gap:14px; padding:12px 0; border-bottom:1px solid var(--line); }
+.ev .t { font-size:1.45rem; font-weight:600; color:var(--fg); white-space:nowrap; }
+.ev .t small { display:block; font-size:.95rem; font-weight:400; color:var(--dim); }
+.ev .n { font-size:1.55rem; font-weight:600; overflow-wrap:anywhere; }
+.ev .l { font-size:1.05rem; color:var(--dim); margin-top:2px; overflow-wrap:anywhere; }
+.ev.past { opacity:.42; }
+.ev.now { border-left:5px solid var(--now); padding-left:12px; background:linear-gradient(90deg, rgba(61,220,132,.09), transparent); }
+.ev.now .t { color:var(--now); }
+.ev.clash .n::after { content:"  overlaps"; font-size:.85rem; font-weight:400; color:#ffb020; }
+.multi .ev { padding:7px 0; grid-template-columns:8rem 1fr; }
+.multi .ev .n { font-size:1.2rem; } .multi .ev .t { font-size:1.15rem; }
+#empty { font-size:2rem; color:var(--dim); margin:60px 0; text-align:center; }
+#msg { min-height:1.2em; color:var(--dim); font-size:.95rem; }
+#timer { height:4px; background:var(--line); border-radius:2px; overflow:hidden; margin-top:6px; }
+#timer i { display:block; height:100%; width:100%; background:var(--accent); transform-origin:left; }
+@media (max-width: 800px) { #app { padding:14px 16px; } .ev { grid-template-columns:7rem 1fr; } #title { font-size:2rem; } }

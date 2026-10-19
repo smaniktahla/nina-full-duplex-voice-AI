@@ -1114,7 +1114,8 @@ def main():
     async def kiosk_close():                                       # the viewer's Close button = "close the map"
         return await tools_mod.kiosk_close(app["http"])
     kiosk.attach(app, kiosk.Hooks(document=lambda: tools_mod.route_store().to_document(), on_close=kiosk_close if tools_mod.KIOSK_TARGETS else None,
-                                    on_phone=kiosk_phone if (tools_mod.PHONE_NOTIFY and tools_mod.nav_configured()) else None))
+                                    on_phone=kiosk_phone if (tools_mod.PHONE_NOTIFY and tools_mod.nav_configured()) else None,
+                                    agenda=tools_mod.agenda_doc))
     try:
         from speaker_id import web as speaker_web                  # enrollment routes; optional, the voice server runs without it
         speaker_web.add_routes(app)

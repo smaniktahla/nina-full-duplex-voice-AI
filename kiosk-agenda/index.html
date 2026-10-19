@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agenda</title>
+<link rel="stylesheet" href="agenda.css">
+</head>
+<body>
+<main id="app">
+  <header>
+    <div id="title">Agenda</div>
+    <div id="date"></div>
+  </header>
+  <section id="days" aria-live="polite"></section>
+  <div id="empty" hidden>Nothing scheduled.</div>
+  <div id="msg" role="status"></div>
+  <div id="timer" hidden><i></i></div>
+</main>
+<script src="agenda.js"></script>
+</body>
+</html>

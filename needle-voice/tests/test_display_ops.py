@@ -176,3 +176,50 @@ def test_owns_matches_handle_rule():
     assert d.owns("show me the route", e) and not d.owns("put that on the kitchen display", e) and d.owns("put that on the kitchen display", s)
     assert d.owns("yes show me", e, offered=True) and not d.owns("yes show me", e) and not d.owns("show me the weather map", s)
     assert d.owns("close the map", e)                                           # closing needs no referent: it answers 'nothing to close'
+
+
+# ---------------------------------------------------------------- the agenda popup (a side effect of a calendar answer; never speaks)
+class AgendaFake(Fake):
+    """The kiosk after `script.dashboard_show`: the path changes, the agenda viewer fetches the document a moment later."""
+    def __init__(self, mode="ok", path="/dashboard-weather/0", online=True):
+        super().__init__(mode, path, online)
+        self.pages, self.agendas, self.akey, self.akt, self.apending = [], [], None, -99.0, None
+        self.io = d.DisplayIO(self.act, self.get_state, self.write_document, self.served, self.sleep,
+                              show_page=self.show_page, write_agenda=self.write_agenda, served_agenda=lambda: (self.akey, (self.t - self.akt) if self.akey else float("inf")))
+
+    async def show_page(self, path, hold):
+        self.pages.append((path, hold))
+        if self.mode == "reject":
+            return False
+        if self.mode != "ignore":
+            self.state[SENSOR] = path
+            if self.mode != "no_viewer":
+                self.apending = (self.t + 1.0, self.agendas[-1])
+        return True
+
+    async def write_agenda(self, doc):
+        self.agendas.append(doc); return True
+
+    async def sleep(self, s):
+        await super().sleep(s)
+        if self.apending and self.t >= self.apending[0]:
+            doc = self.apending[1]; self.akey, self.akt, self.apending = "%s|%s" % (doc["id"], doc["updated"]), self.t, None
+
+
+DOC = {"id": "ag1", "updated": "t1", "title": "Tomorrow", "days": []}
+
+
+def test_agenda_popup_is_claimed_only_when_observed():
+    f = AgendaFake(); r = run(d.show_agenda(f.io, CFG, DOC))
+    assert r.status is Status.SUCCESS and r.side_effect and f.pages == [("/kiosk-agenda/agenda", 60)] and f.agendas == [DOC] and "Tomorrow" not in str(r.telemetry)
+    for mode in ("ignore", "no_viewer"):
+        f = AgendaFake(mode); r = run(d.show_agenda(f.io, CFG, DOC)); assert r.status is Status.UNVERIFIED and r.side_effect and len(f.pages) == 1, mode
+    f = AgendaFake("reject"); assert run(d.show_agenda(f.io, CFG, DOC)).status is Status.EXECUTION_FAILED
+
+
+def test_agenda_popup_never_replaces_a_pinned_route_or_pokes_an_offline_kiosk():
+    f = AgendaFake(); f.state[CFG.active_flag] = "on"
+    r = run(d.show_agenda(f.io, CFG, DOC)); assert r.status is Status.UNAVAILABLE and r.reason == "route_on_screen" and not f.pages and not f.agendas
+    f = AgendaFake(online=False); r = run(d.show_agenda(f.io, CFG, DOC)); assert r.status is Status.UNAVAILABLE and not f.pages and not f.agendas
+    assert run(d.show_agenda(f.io, CFG, DOC, target="garage")).status is Status.UNSUPPORTED
+    bare = Fake(); assert run(d.show_agenda(bare.io, CFG, DOC)).reason == "agenda_not_configured"              # an IO without the agenda pieces

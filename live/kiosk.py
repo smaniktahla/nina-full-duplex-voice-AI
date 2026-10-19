@@ -11,6 +11,7 @@ two action endpoints, all under that path. Nothing else on the server is reachab
 
   GET  /kiosk/<token>/index.html | route.css | route.js | vendor/*   the viewer (a fixed whitelist read at startup, no path traversal)
   GET  /kiosk/<token>/route.json                                     the active route (204 when there is none), never cached
+  GET  /kiosk/<token>/agenda/index.html | agenda.css | agenda.js     the agenda viewer (kiosk-agenda/); .../agenda/agenda.json = the day's agenda (204 when none)
   POST /kiosk/<token>/action/close | phone                           run Hooks.on_close / on_phone; 200 only if the hook reports success, else 502
 
 Served over plain HTTP on the LAN by a SEPARATE kiosk-only listener (`serve`, env KIOSK_PORT; off when unset): an HA dashboard page is http and a
@@ -29,6 +30,7 @@ from aiohttp import web
 DIR = os.path.expanduser(os.environ.get("NINA_AUTH_DIR", "~/.config/nina"))
 KEY = os.path.join(DIR, "kiosk_key")
 VIEWER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "kiosk-route")
+AGENDA_VIEWER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "kiosk-agenda")
 SCOPE = "route"
 DEFAULT_DAYS = 30
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
@@ -43,11 +45,20 @@ def served() -> tuple:
     return SERVED["key"], (time.monotonic() - SERVED["t"]) if SERVED["key"] else float("inf")
 
 
+SERVED_AGENDA = {"key": None, "t": 0.0}                                     # the same for the agenda document
+
+
+def served_agenda() -> tuple:
+    """(key, age_seconds) of the last agenda document a viewer fetched; (None, inf) if none yet."""
+    return SERVED_AGENDA["key"], (time.monotonic() - SERVED_AGENDA["t"]) if SERVED_AGENDA["key"] else float("inf")
+
+
 @dataclass
 class Hooks:
     document: Callable[[], Optional[dict]]                                   # the viewer document, or None when no route is active
     on_close: Optional[Callable[[], Awaitable[bool]]] = None                 # close the route; True only when it was done
     on_phone: Optional[Callable[[], Awaitable[bool]]] = None                 # send the destination to the phone; True only when sent
+    agenda: Optional[Callable[[], Optional[dict]]] = None                    # the day's agenda document for the agenda viewer, or None
 
 
 # ---------------------------------------------------------------- token
@@ -83,10 +94,10 @@ def make_link(base: str, days: float = DEFAULT_DAYS) -> str:
 
 
 # ---------------------------------------------------------------- handlers
-def _files(root: str) -> dict:
+def _files(root: str, names=("index.html", "route.css", "route.js")) -> dict:
     """Whitelist of viewer files: {url-relative-name: absolute path}. Read once; a request can only ever name a key of this dict."""
     out = {}
-    for name in ("index.html", "route.css", "route.js"):
+    for name in names:
         if os.path.isfile(os.path.join(root, name)):
             out[name] = os.path.join(root, name)
     vend = os.path.join(root, "vendor")
@@ -103,8 +114,9 @@ def _headers(extra=None):
     return h
 
 
-def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path: str = None) -> None:
+def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path: str = None, agenda_root: str = AGENDA_VIEWER) -> None:
     files = _files(root)
+    agenda_files = _files(agenda_root, ("index.html", "agenda.css", "agenda.js"))
     key = _key(key_path)
 
     def deny(status, text):
@@ -114,6 +126,19 @@ def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path:
         if not check_token(request.match_info["token"], key=key):
             return deny(401, "link expired or invalid")
         name = request.match_info["name"]
+        if name.startswith("agenda/"):                                       # the agenda viewer: its own whitelist and document, same signed link
+            sub = name[len("agenda/"):]
+            if sub == "agenda.json":
+                doc = hooks.agenda() if hooks.agenda else None
+                if not doc:
+                    return web.Response(status=204, headers=_headers({"Cache-Control": "no-store"}))
+                SERVED_AGENDA["key"], SERVED_AGENDA["t"] = "%s|%s" % (doc.get("id"), doc.get("updated")), time.monotonic()
+                return web.json_response(doc, headers=_headers({"Cache-Control": "no-store"}))
+            apath = agenda_files.get(sub)
+            if not apath:
+                return deny(404, "not found")
+            return web.Response(body=open(apath, "rb").read(), content_type=TYPES.get(os.path.splitext(sub)[1], "application/octet-stream").split(";")[0],
+                                charset="utf-8", headers=_headers({"Cache-Control": "no-cache"}))
         if name == "route.json":
             doc = hooks.document()
             if not doc:
@@ -151,10 +176,10 @@ def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path:
     app.router.add_post("/kiosk/{token}/action/{action}", post)
 
 
-async def serve(hooks: Hooks, port: int, host: str = "0.0.0.0", root: str = VIEWER, key_path: str = None) -> web.AppRunner:
+async def serve(hooks: Hooks, port: int, host: str = "0.0.0.0", root: str = VIEWER, key_path: str = None, agenda_root: str = AGENDA_VIEWER) -> web.AppRunner:
     """Start the kiosk-only plain-http listener; returns the runner (`runner.addresses[0][1]` is the bound port; await runner.cleanup() to stop). port 0 picks a free port (tests)."""
     app = web.Application()
-    add_routes(app, hooks, root, key_path)
+    add_routes(app, hooks, root, key_path, agenda_root)
     runner = web.AppRunner(app, access_log=None)                             # no access log: the token is in the path
     await runner.setup()
     site = web.TCPSite(runner, host, port)

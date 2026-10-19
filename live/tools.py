@@ -191,7 +191,14 @@ def display_env(http):
         async def write_document(doc):
             return bool(doc) and route_store().to_document() is not None
 
-        _disp["io"] = d.DisplayIO(act, get_state, write_document, kiosk.served, asyncio.sleep)
+        async def show_page(path, hold_s):
+            return await executor.execute_show_page(hass, path, hold_s)
+
+        async def write_agenda(doc):
+            _disp["agenda"] = doc
+            return True
+
+        _disp["io"] = d.DisplayIO(act, get_state, write_document, kiosk.served, asyncio.sleep, show_page=show_page, write_agenda=write_agenda, served_agenda=kiosk.served_agenda)
         _disp["cfg"] = d.DisplayConfig(targets=dict(KIOSK_TARGETS or {}))
     return route_store(), _disp["io"], _disp["cfg"]
 
@@ -272,6 +279,27 @@ async def kiosk_phone(http, cfg=None):
     from needle_voice import navigation_ops as nav
     res = await nav.send_active(cfg or await nav_cfg(http))
     return bool(res.side_effect)
+
+
+# ---------------------------------------------------------------- the agenda popup (display_ops.show_agenda + kiosk.py's agenda viewer)
+AGENDA_HOLD_S = int(household.get("agenda_hold_s") or 60)
+
+
+def agenda_doc():
+    """The agenda document the kiosk viewer fetches (None until a calendar question has been answered with a display configured)."""
+    return _disp.get("agenda")
+
+
+async def agenda_popup(http, events, days, title, now):
+    from needle_voice import agenda_ops, display_ops
+    try:
+        doc = agenda_ops.build_document(events, days, now, hold_s=AGENDA_HOLD_S, title=title if len(days) > 1 else "")
+        store, io, cfg = display_env(http)
+        cfg.agenda_hold_s = AGENDA_HOLD_S
+        res = await display_ops.show_agenda(io, cfg, doc)
+        print("agenda popup: %s %s %s" % (res.status.value, res.reason, agenda_ops.summary(doc)), flush=True)
+    except Exception as e:                                                       # noqa: BLE001 - a failed popup must never break the answer
+        print("agenda popup failed:", type(e).__name__, str(e)[:80], flush=True)
 
 
 def claim(text):
@@ -487,13 +515,22 @@ def compact_location(loc):
 
 
 async def calendar(http, when="today"):
+    """Answer a calendar question and, when a kitchen display is configured, pop the day's agenda up on it (a side effect: the answer is spoken either way).
+    `when`: today | tomorrow | week | weekend | next week | a weekday name | 'date:YYYY-MM-DD' (anything agenda_ops.resolve_days understands)."""
     import datetime as dt
+    from needle_voice import agenda_ops, calendar_ops
     when = (when or "today").lower()
     now = dt.datetime.now().astimezone()
-    start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-    if "tomorrow" in when:
-        start += dt.timedelta(days=1)
-    end = start + dt.timedelta(days=7 if "week" in when else 1)
+    if when.startswith("date:"):
+        try:
+            days, title = [dt.date.fromisoformat(when[5:15])], when[5:15]
+        except ValueError:
+            days, title = agenda_ops.resolve_days("today", now)
+    else:
+        days, title = agenda_ops.resolve_days(when, now)
+    multi = len(days) > 1
+    start = dt.datetime.combine(days[0], dt.time.min, tzinfo=now.tzinfo)
+    end = dt.datetime.combine(days[-1], dt.time.min, tzinfo=now.tzinfo) + dt.timedelta(days=1)
 
     async def one(ent):
         try:
@@ -506,6 +543,9 @@ async def calendar(http, when="today"):
     cals = CALENDARS or [i for i in await _states_list(http) if i.startswith("calendar.") and not any(x in i for x in household.get("calendar_exclude", None))]
     evs = sorted((x for part in await asyncio.gather(*[one(c) for c in cals]) for x in part),
                  key=lambda p: (p[0].get("start", {}).get("dateTime") or p[0].get("start", {}).get("date") or ""))
+    if KIOSK_TARGETS:                                                                  # the agenda on the kitchen screen: never delays or changes the spoken answer
+        norm = [x for e, ent in evs for x in calendar_ops.parse_events([e], now.tzinfo, ent)]
+        asyncio.ensure_future(agenda_popup(http, norm, days, title, now))
     if not evs:
         return "No events on the calendar for %s." % when
     lines, locs = [], []
@@ -514,7 +554,7 @@ async def calendar(http, when="today"):
         when_s = s.get("dateTime", "")
         if when_s:
             d = dt.datetime.fromisoformat(when_s)
-            when_s = d.strftime("%A %-I:%M %p") if "week" in when else d.strftime("%-I:%M %p")
+            when_s = d.strftime("%A %-I:%M %p") if multi else d.strftime("%-I:%M %p")
         else:
             when_s = "all day"
         lines.append("%s: %s" % (when_s, e.get("summary", "event")))

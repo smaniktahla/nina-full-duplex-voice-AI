@@ -290,6 +290,15 @@
 {"text": "can you check my calendar to see where my workout is", "route": "calendar", "ctx": {}}
 {"text": "in the meantime what's on my schedule tomorrow", "route": "calendar", "ctx": {}}
 {"text": "do I have anything going on this weekend", "route": "calendar", "ctx": {}}
+{"text": "what's on my calendar friday", "route": "calendar", "ctx": {}}
+{"text": "do I have anything on saturday", "route": "calendar", "ctx": {}}
+{"text": "what's my schedule next week", "route": "calendar", "ctx": {}}
+{"text": "show me tomorrow's schedule", "route": "calendar", "ctx": {}}
+{"text": "put the calendar on the kitchen screen", "route": "calendar", "ctx": {}}
+{"text": "what do I have on wednesday", "route": "calendar", "ctx": {}}
+{"text": "am I free thursday", "route": "calendar", "ctx": {}}
+{"text": "what's on my agenda for the week", "route": "calendar", "ctx": {}}
+{"text": "what's on the calendar for the day after tomorrow", "route": "calendar", "ctx": {}}
 {"text": "flip a coin", "route": "random", "ctx": {}}
 {"text": "toss a coin", "route": "random", "ctx": {}}
 {"text": "heads or tails", "route": "random", "ctx": {}}
