@@ -1,0 +1,8 @@
+{
+  "server": "https://<nina-server-host>:8443",
+  "token_file": "~/.config/nina-kiosk/service_token",
+  "cert_sha256": "<hex sha256 of the server's self-signed certificate (DER); empty = do not verify>",
+  "wake": "hey_nina",
+  "input_device": "pulse",
+  "output_device": "pulse"
+}
