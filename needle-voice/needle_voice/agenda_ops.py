@@ -29,12 +29,22 @@ def _next_weekday(today: dt.date, wd: int, nxt: bool) -> dt.date:
     return today + dt.timedelta(days=delta)
 
 
-def resolve_days(text: str, now: dt.datetime) -> tuple:
-    """-> (list of dates, title). One date for a day question; several for 'this week' / 'the weekend' / 'next week'. Default: today."""
+def resolve_days(text: str, now: dt.datetime, base: dt.date | None = None) -> tuple:
+    """-> (list of dates, title). One date for a day question; several for 'this week' / 'the weekend' / 'next week'. Default: today.
+    `base` is the day the kitchen screen is already showing: "the next day" / "the day after that" / "the previous day" are relative to it (and mean today +/- 1 without one)."""
     t = (text or "").lower()
     today = now.date()
+    anchor = base or today
     if re.search(r"\bday after tomorrow\b", t):
         return [today + dt.timedelta(days=2)], "The day after tomorrow"
+    if re.search(r"\b(?:next|following)\s+day\b|\bday after (?:that|it)\b|\bthe day after\b", t):
+        d = anchor + dt.timedelta(days=1)
+        return [d], _name(d, today)
+    if re.search(r"\b(?:previous|prior)\s+day\b|\bday before\b", t):
+        d = anchor - dt.timedelta(days=1)
+        return [d], _name(d, today)
+    if re.search(r"\byesterday\b", t):
+        return [today - dt.timedelta(days=1)], "Yesterday"
     if re.search(r"\btomorrow\b", t):
         return [today + dt.timedelta(days=1)], "Tomorrow"
     m = re.search(r"\b(?:(next|this|on)\s+)?(monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", t)
@@ -54,6 +64,11 @@ def resolve_days(text: str, now: dt.datetime) -> tuple:
 
 def clock(t: dt.datetime) -> str:
     return t.strftime("%-I:%M %p")                                   # "9:00 AM": a wall display shows minutes always
+
+
+def _name(d: dt.date, today: dt.date) -> str:
+    k = (d - today).days
+    return "Today" if k == 0 else "Tomorrow" if k == 1 else "Yesterday" if k == -1 else d.strftime("%A")
 
 
 def _fmt(d: dt.date) -> str:

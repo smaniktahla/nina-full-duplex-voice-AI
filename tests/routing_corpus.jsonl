@@ -309,6 +309,30 @@
 {"text": "give me a random number", "route": "random", "ctx": {}}
 {"text": "pick a number from one to a hundred", "route": "random", "ctx": {}}
 {"text": "choose between pizza and tacos", "route": "random", "ctx": {}}
+{"text": "and tomorrow", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "what about tomorrow", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "tomorrow", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "how about friday", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "what about saturday", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "and the day after", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "the next day", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "and the day after that", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "what about yesterday", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "the previous day", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "how's tomorrow look", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "what's tomorrow", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "tomorrow's agenda", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "show me friday", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "and today", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "what about next week", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "and monday?", "route": "calendar", "ctx": {"agenda": true}}
+{"text": "how about pizza tomorrow", "route": "none", "ctx": {"agenda": true}}
+{"text": "tomorrow I'm going to the beach with the kids and then to dinner", "route": "none", "ctx": {"agenda": true}}
+{"text": "play some music tomorrow", "route": "none", "ctx": {"agenda": true}}
+{"text": "remind me to call mom tomorrow", "route": "none", "ctx": {"agenda": true}}
+{"text": "and tomorrow", "route": "none", "ctx": {}}
+{"text": "what about friday", "route": "none", "ctx": {}}
+{"text": "the next day", "route": "none", "ctx": {}}
 {"text": "take notes", "route": "notes", "ctx": {}}
 {"text": "I need you to take notes", "route": "notes", "ctx": {}}
 {"text": "start taking notes", "route": "notes", "ctx": {}}

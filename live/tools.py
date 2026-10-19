@@ -196,6 +196,7 @@ def display_env(http):
 
         async def write_agenda(doc):
             _disp["agenda"] = doc
+            _disp["agenda_t"] = time.monotonic()
             return True
 
         _disp["io"] = d.DisplayIO(act, get_state, write_document, kiosk.served, asyncio.sleep, show_page=show_page, write_agenda=write_agenda, served_agenda=kiosk.served_agenda)
@@ -285,6 +286,20 @@ async def kiosk_phone(http, cfg=None):
 AGENDA_HOLD_S = int(household.get("agenda_hold_s") or 60)
 
 
+def agenda_fresh():
+    """True for a couple of minutes after an agenda went to the screen, so 'and tomorrow?' is read as a calendar follow-up."""
+    return time.monotonic() - _disp.get("agenda_t", -1e9) < 150.0
+
+
+def agenda_base():
+    """The first day of the agenda last shown (a date), or None: 'the next day' is relative to it."""
+    import datetime as dt
+    try:
+        return dt.date.fromisoformat(((_disp.get("agenda") or {}).get("days") or [{}])[0]["date"]) if agenda_fresh() else None
+    except (KeyError, ValueError, IndexError, TypeError):
+        return None
+
+
 def agenda_doc():
     """The agenda document the kiosk viewer fetches (None until a calendar question has been answered with a display configured)."""
     return _disp.get("agenda")
@@ -305,7 +320,7 @@ async def agenda_popup(http, events, days, title, now):
 def claim(text):
     """Which deterministic tool claims this request ('' = none): claims.claim with this server's state (active route, fresh offer, what is configured)."""
     import claims
-    return claims.claim(text, store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES)
+    return claims.claim(text, store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh())
 
 
 def display_owns(text, offered=False):

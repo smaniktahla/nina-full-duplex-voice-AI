@@ -24,7 +24,7 @@ def load():
 
 def claimed(case):
     c = case["ctx"]
-    got = claims.claim(case["text"], store=Store(c.get("route")), offered=bool(c.get("offered")))
+    got = claims.claim(case["text"], store=Store(c.get("route")), offered=bool(c.get("offered")), agenda_fresh=bool(c.get("agenda")))
     if not got and notes_tool.voice_command(case["text"], bool(c.get("recording"))):
         return "notes"
     return got or "none"
