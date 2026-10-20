@@ -61,6 +61,23 @@ with sync_playwright() as p:
     put(dict(doc, id="back-to-agenda"))
     pg.wait_for_function("document.getElementById('title').textContent==='Tomorrow'", timeout=5000)
     check("agenda replaces countdown", pg.locator(".countdown").count() == 0 and pg.locator(".ev").count() == 6)
+    # signed dismissal action: retry failures and clear only on successful POST
+    put({"kind": "timer", "id": "dismiss-me", "updated": "1", "title": "Timer", "remaining_s": 0, "stop_action": "../action/timer-stop"})
+    pg.wait_for_selector(".timer-stop", timeout=5000)
+    pg.route("**/action/timer-stop", lambda r: r.fulfill(status=502, content_type="application/json", body='{"ok":false}'))
+    pg.click(".timer-stop")
+    pg.wait_for_function("document.getElementById('msg').textContent.includes('Try again')")
+    check("failed dismiss allows retry", pg.is_enabled(".timer-stop"))
+    pg.unroute("**/action/timer-stop")
+    dismissals = []
+    def dismiss(route):
+        dismissals.append((route.request.method, route.request.post_data_json))
+        put(None)
+        route.fulfill(status=200, content_type="application/json", body='{"ok":true}')
+    pg.route("**/action/timer-stop", dismiss)
+    pg.click(".timer-stop")
+    pg.wait_for_function("document.getElementById('empty').textContent.includes('No agenda requested')")
+    check("dismiss sends timer id and clears popup", dismissals == [("POST", {"id": "dismiss-me"})] and pg.locator(".timer-stop").count() == 0)
     # expired link
     pg.route("**/agenda.json*", lambda r: r.fulfill(status=401, body="expired")); pg.wait_for_function("document.getElementById('msg').textContent.includes('expired')", timeout=6000)
     check("expired link is reported", True); pg.unroute("**/agenda.json*")

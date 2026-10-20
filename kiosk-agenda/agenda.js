@@ -21,6 +21,17 @@
       $("timer").hidden = true;
       var countdown = el("div", "countdown");
       $("days").appendChild(countdown);
+      if (doc.stop_action) {
+        var stop = el("button", "timer-stop", "Dismiss timer");
+        stop.onclick = function () {
+          stop.disabled = true;
+          fetch(doc.stop_action, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: doc.id }) })
+            .then(function (r) { if (!r.ok) throw new Error("dismiss failed"); return r.json(); })
+            .then(function (r) { if (!r.ok) throw new Error("dismiss failed"); poll(); })
+            .catch(function () { stop.disabled = false; $("msg").textContent = "Couldn't dismiss the timer. Try again or ask Nina to stop the timer."; });
+        };
+        $("days").appendChild(stop);
+      }
       var deadline = performance.now() + Math.max(0, Number(doc.remaining_s) || 0) * 1000;
       function update() {
         var n = Math.max(0, Math.ceil((deadline - performance.now()) / 1000));

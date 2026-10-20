@@ -32,6 +32,7 @@ def test_lifecycle_and_naming():
     now[0] += 900
     assert "finished" in timer.handle("check the timer")[0]
     assert timer.document()["remaining_s"] == 0
+    assert not timer.handle("set a timer for 2 minutes")[1]
     timer.handle("cancel the timer")
     assert timer.current is None
     assert "no timer" in timer.handle("check the timer")[0]
@@ -50,6 +51,11 @@ def test_request_schedules_expiry_and_cancellation(monkeypatch):
     async def run():
         monkeypatch.setattr(tools, "_timer", Timer())
         monkeypatch.setattr(tools, "_timer_task", None)
+        monkeypatch.setattr(tools, "_timer_ringing", False)
+        sounds = []
+        async def listener(**message):
+            sounds.append(message["active"])
+        monkeypatch.setattr(tools, "_timer_listeners", {listener})
         calls = []
         async def popup(http):
             calls.append(tools._timer.document())
@@ -59,6 +65,12 @@ def test_request_schedules_expiry_and_cancellation(monkeypatch):
         assert "I've set" in answer
         await asyncio.sleep(1.05)
         assert len(calls) == 2 and calls[-1]["remaining_s"] == 0
+        assert sounds == [False, True] and tools._timer_ringing
+        timer_id = tools._timer.current["id"]
+        assert not await tools.kiosk_timer_stop(None, "stale-id")
+        assert tools._timer_ringing
+        assert await tools.kiosk_timer_stop(None, timer_id)
+        assert sounds[-1] is False and not tools._timer_ringing
         await tools.timer_request(None, "set a timer for 2 minutes")
         task = tools._timer_task
         await tools.timer_request(None, "cancel the timer")

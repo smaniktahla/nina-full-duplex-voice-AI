@@ -1007,6 +1007,8 @@ class Session:
                         tts=self.sh.tts_engine.kind, voices=self.sh.tts_engine.voices, voice=self.voice, sens=self.stt.sens,
                         tts_note=self.sh.tts_engine.note)
         await self.send_mgr()
+        if tools_mod._timer_ringing:
+            await self.send(t="timer_alarm", active=True)
         try:
             async for msg in self.ws:
                 if msg.type == web.WSMsgType.BINARY:
@@ -1022,6 +1024,8 @@ class Session:
                     m = json.loads(msg.data)
                     if m.get("t") == "stop":
                         self.interrupt("stop button")
+                    elif m.get("t") == "timer_alarm_stop":
+                        await tools_mod.timer_request(self.http, "stop the timer")
                     elif m.get("t") == "sens":
                         self.stt.sens = max(0.0, min(0.9, float(m.get("v", 0))))
                         log("distant-voice filter set to", self.stt.sens)
@@ -1059,7 +1063,12 @@ async def ws_handler(request):
     ws = web.WebSocketResponse(max_msg_size=1 << 20, heartbeat=20)
     await ws.prepare(request)
     log("client connected", request.remote, request.headers.get("User-Agent", "")[:80])
-    await Session(ws, request.app["shared"], request.app["http"]).run()
+    session = Session(ws, request.app["shared"], request.app["http"])
+    tools_mod._timer_listeners.add(session.send)
+    try:
+        await session.run()
+    finally:
+        tools_mod._timer_listeners.discard(session.send)
     log("client disconnected", request.remote)
     return ws
 
@@ -1123,9 +1132,12 @@ def main():
 
     async def kiosk_close():                                       # the viewer's Close button = "close the map"
         return await tools_mod.kiosk_close(app["http"])
+    async def kiosk_timer_stop(timer_id):
+        return await tools_mod.kiosk_timer_stop(app["http"], timer_id)
+
     kiosk.attach(app, kiosk.Hooks(document=lambda: tools_mod.route_store().to_document(), on_close=kiosk_close if tools_mod.KIOSK_TARGETS else None,
                                     on_phone=kiosk_phone if (tools_mod.PHONE_NOTIFY and tools_mod.nav_configured()) else None,
-                                    agenda=tools_mod.agenda_doc))
+                                    agenda=tools_mod.agenda_doc, on_timer_stop=kiosk_timer_stop))
     try:
         from speaker_id import web as speaker_web                  # enrollment routes; optional, the voice server runs without it
         speaker_web.add_routes(app)

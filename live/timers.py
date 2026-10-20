@@ -64,8 +64,8 @@ class Timer:
             self.naming_until = 0
             return "The timer is cancelled.", False
         if re.search(r"\b(set|start|create)\b", text, re.I):
-            if self.current and self.remaining() > 0:
-                return "There is already a timer running. Please cancel it before setting another one.", False
+            if self.current:
+                return "There is already a timer set. Please cancel it before setting another one.", False
             seconds = duration(text)
             if seconds is None:
                 return "How long should I set the timer for? Please say set a timer followed by a duration between 1 second and 24 hours.", False

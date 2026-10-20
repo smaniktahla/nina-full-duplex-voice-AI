@@ -58,6 +58,7 @@ class Hooks:
     document: Callable[[], Optional[dict]]                                   # the viewer document, or None when no route is active
     on_close: Optional[Callable[[], Awaitable[bool]]] = None                 # close the route; True only when it was done
     on_phone: Optional[Callable[[], Awaitable[bool]]] = None                 # send the destination to the phone; True only when sent
+    on_timer_stop: Optional[Callable[[str], Awaitable[bool]]] = None
     agenda: Optional[Callable[[], Optional[dict]]] = None                    # the day's agenda document for the agenda viewer, or None
 
 
@@ -132,6 +133,8 @@ def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path:
                 doc = hooks.agenda() if hooks.agenda else None
                 if not doc:
                     return web.Response(status=204, headers=_headers({"Cache-Control": "no-store"}))
+                if doc.get("kind") == "timer" and hooks.on_timer_stop:
+                    doc = dict(doc, stop_action="../action/timer-stop")
                 SERVED_AGENDA["key"], SERVED_AGENDA["t"] = "%s|%s" % (doc.get("id"), doc.get("updated")), time.monotonic()
                 return web.json_response(doc, headers=_headers({"Cache-Control": "no-store"}))
             apath = agenda_files.get(sub)
@@ -161,13 +164,17 @@ def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path:
     async def post(request):
         if not check_token(request.match_info["token"], key=key):
             return deny(401, "link expired or invalid")
-        fn = {"close": hooks.on_close, "phone": hooks.on_phone}.get(request.match_info["action"])
-        if request.match_info["action"] not in ("close", "phone"):
+        fn = {"close": hooks.on_close, "phone": hooks.on_phone, "timer-stop": hooks.on_timer_stop}.get(request.match_info["action"])
+        if request.match_info["action"] not in ("close", "phone", "timer-stop"):
             return deny(404, "not found")
         if fn is None:
             return deny(501, "not available")
         try:
-            ok = await fn()
+            if request.match_info["action"] == "timer-stop":
+                body = await request.json()
+                ok = await fn(body.get("id"))
+            else:
+                ok = await fn()
         except Exception:                                                    # noqa: BLE001
             ok = False
         return web.json_response({"ok": bool(ok)}, status=200 if ok else 502, headers=_headers({"Cache-Control": "no-store"}))

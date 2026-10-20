@@ -20,6 +20,15 @@ from timers import Timer
 
 _timer = Timer()
 _timer_task = None
+_timer_listeners = set()
+_timer_ringing = False
+
+
+async def timer_sound(active):
+    """Notify connected voice clients independently of kiosk availability."""
+    await asyncio.gather(*(listener(t="timer_alarm", active=active) for listener in tuple(_timer_listeners)), return_exceptions=True)
+
+
 SEARX = household.get("searx_url", "SEARX_URL")
 HERMES_URL = household.get("hermes_url", "HERMES_URL")
 HERMES_HOST = household.get("hermes_ssh_host", "HERMES_HOST")   # ssh alias used once to read the API key; "" = read local file
@@ -614,19 +623,27 @@ async def timer_popup(http):
 
 
 async def timer_request(http, text):
-    global _timer_task
+    global _timer_task, _timer_ringing
     old = _timer.current
     answer, created = _timer.handle(text)
-    if old is not _timer.current and _timer_task:
-        _timer_task.cancel()
-        _timer_task = None
+    if old is not _timer.current:
+        if _timer_task:
+            _timer_task.cancel()
+            _timer_task = None
+        _timer_ringing = False
+        await timer_sound(False)
     if created:
         current = _timer.current
 
         async def expire():
+            global _timer_ringing
             await asyncio.sleep(_timer.remaining())
             if _timer.current is current:
+                _timer_ringing = True
+                await timer_sound(True)
+            while _timer.current is current:
                 await timer_popup(http)
+                await asyncio.sleep(45)
         _timer_task = asyncio.create_task(expire())
     if _timer.current:
         asyncio.create_task(timer_popup(http))
@@ -635,3 +652,11 @@ async def timer_request(http, text):
         if (_disp.get("agenda") or {}).get("kind") == "timer":
             _disp["agenda"] = None
     return "[DONE] " + answer
+
+
+async def kiosk_timer_stop(http, timer_id):
+    # A stale popup must never cancel a replacement timer.
+    if not _timer.current or _timer.current["id"] != timer_id:
+        return False
+    await timer_request(http, "stop the timer")
+    return True

@@ -14,8 +14,16 @@ Creation, naming, status and expiry reuse the agenda viewer and its
 `display_ops.show_agenda` / `script.dashboard_show` interruption path, including
 route pin protection, offline checks, verified delivery, and bounded popup holds.
 No additional Home Assistant dashboard is needed. The countdown continues when
-dashboard rotation resumes. Expiry opens a "Time is up!" popup. This version has
-no audible alarm. A Nina process restart clears timer state.
+dashboard rotation resumes. Expiry opens a "Time is up!" popup and plays a repeated
+three-tone alarm through connected Nina voice clients until dismissed.
+Say "stop the timer", tap Dismiss timer on the kiosk, or use Stop alarm on the
+voice page to silence it across clients. The expiry popup refreshes every 45
+seconds until dismissed, using the same bounded dashboard interruption path. The alarm
+uses the audio context enabled by Start, independently of kiosk popup availability;
+keep a Nina voice client connected with its speaker volume enabled. Disconnecting
+stops local playback; reconnecting resumes an undismissed alarm. Status requests
+do not restart the alarm. A Nina process
+restart clears timer state.
 
 `live/timers.py` owns the process-local monotonic deadline. The signed agenda
 document endpoint supplies current remaining time on reload; the viewer counts

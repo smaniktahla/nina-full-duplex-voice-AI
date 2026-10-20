@@ -28,3 +28,5 @@ header { display:flex; align-items:baseline; gap:22px; border-bottom:1px solid v
 @media (max-width: 800px) { #app { padding:14px 16px; } .ev { grid-template-columns:7rem 1fr; } #title { font-size:2rem; } }
 
 .countdown { font-size: clamp(64px, 13vw, 180px); font-variant-numeric: tabular-nums; text-align: center; padding: 12vh 0; }
+
+.timer-stop { display: block; margin: 0 auto; padding: 20px 40px; font: inherit; font-size: 28px; cursor: pointer; border-radius: 12px; }
