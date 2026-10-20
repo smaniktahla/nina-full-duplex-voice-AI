@@ -12,6 +12,24 @@
   function clock(iso) { var d = new Date(iso); return isNaN(d) ? "" : d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); }
 
   function render(doc) {
+    clearInterval(tick);
+    if (doc.kind === "timer") {
+      $("title").textContent = doc.title || "Timer";
+      $("date").textContent = "Countdown";
+      $("days").replaceChildren();
+      $("empty").hidden = true;
+      $("timer").hidden = true;
+      var countdown = el("div", "countdown");
+      $("days").appendChild(countdown);
+      var deadline = performance.now() + Math.max(0, Number(doc.remaining_s) || 0) * 1000;
+      function update() {
+        var n = Math.max(0, Math.ceil((deadline - performance.now()) / 1000));
+        countdown.textContent = n ? String(Math.floor(n / 3600)).padStart(2, "0") + ":" +
+          String(Math.floor(n / 60) % 60).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0") : "Time is up!";
+      }
+      update(); tick = setInterval(update, 250);
+      return;
+    }
     var days = doc.days || [], multi = days.length > 1;
     $("title").textContent = doc.title || "Agenda";
     $("date").textContent = multi ? "" : (days[0] && days[0].label) || "";
@@ -59,7 +77,7 @@
       var key = d ? (d.id || "") + "|" + (d.updated || "") : "none";
       if (key === lastKey) return;
       lastKey = key; $("msg").textContent = "";
-      if (d) render(d); else { $("days").replaceChildren(); $("title").textContent = "Agenda"; $("date").textContent = ""; $("empty").hidden = false; $("empty").textContent = "No agenda requested."; $("timer").hidden = true; }
+      if (d) render(d); else { clearInterval(tick); $("days").replaceChildren(); $("title").textContent = "Agenda"; $("date").textContent = ""; $("empty").hidden = false; $("empty").textContent = "No agenda requested."; $("timer").hidden = true; }
     }).catch(function (e) {
       $("msg").textContent = e && e.expired ? "This link has expired. Ask Nina again." : "Can't reach the agenda service. Showing the last agenda.";
     });

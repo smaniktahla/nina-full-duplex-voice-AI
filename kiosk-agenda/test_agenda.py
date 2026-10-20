@@ -52,6 +52,15 @@ with sync_playwright() as p:
     put(dict(doc, id="x1", title="X", days=[{"date": "d", "label": "L", "today": False, "events": [{"title": "<img src=x onerror=window.__pwned=1>", "all_day": False, "start": now.isoformat(), "end": now.isoformat(), "time": "1:00 PM", "location": "<b>b</b>"}]}]))
     pg.wait_for_function("document.getElementById('title').textContent==='X'", timeout=5000)
     check("event text is not interpreted as HTML", pg.evaluate("window.__pwned") is None and pg.locator(".ev img").count() == 0 and "<img" in pg.inner_text(".ev"))
+    # countdown continues locally, labels stay text, and returning to agenda clears it
+    put({"kind": "timer", "id": "timer1", "updated": "1", "title": "Turkey <b>oven</b>", "remaining_s": 2, "hold_s": 60})
+    pg.wait_for_selector(".countdown", timeout=5000)
+    check("timer label stays text", pg.inner_text("#title") == "Turkey <b>oven</b>" and pg.locator("#title b").count() == 0)
+    pg.wait_for_function("document.querySelector('.countdown').textContent === 'Time is up!'", timeout=4000)
+    check("timer expires locally", True)
+    put(dict(doc, id="back-to-agenda"))
+    pg.wait_for_function("document.getElementById('title').textContent==='Tomorrow'", timeout=5000)
+    check("agenda replaces countdown", pg.locator(".countdown").count() == 0 and pg.locator(".ev").count() == 6)
     # expired link
     pg.route("**/agenda.json*", lambda r: r.fulfill(status=401, body="expired")); pg.wait_for_function("document.getElementById('msg').textContent.includes('expired')", timeout=6000)
     check("expired link is reported", True); pg.unroute("**/agenda.json*")

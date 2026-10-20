@@ -16,6 +16,10 @@ import time
 import aiohttp
 
 import household
+from timers import Timer
+
+_timer = Timer()
+_timer_task = None
 SEARX = household.get("searx_url", "SEARX_URL")
 HERMES_URL = household.get("hermes_url", "HERMES_URL")
 HERMES_HOST = household.get("hermes_ssh_host", "HERMES_HOST")   # ssh alias used once to read the API key; "" = read local file
@@ -302,7 +306,10 @@ def agenda_base():
 
 def agenda_doc():
     """The agenda document the kiosk viewer fetches (None until a calendar question has been answered with a display configured)."""
-    return _disp.get("agenda")
+    doc = _disp.get("agenda")
+    if doc and doc.get("kind") == "timer" and _timer.current and doc.get("id") == _timer.current["id"]:
+        return dict(doc, remaining_s=_timer.remaining())
+    return doc
 
 
 async def agenda_popup(http, events, days, title, now):
@@ -320,6 +327,8 @@ async def agenda_popup(http, events, days, title, now):
 def claim(text):
     """Which deterministic tool claims this request ('' = none): claims.claim with this server's state (active route, fresh offer, what is configured)."""
     import claims
+    if _timer.owns(text):
+        return "timer"
     return claims.claim(text, store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh())
 
 
@@ -588,3 +597,41 @@ async def calendar(http, when="today"):
     if locs:                                       # in the payload for follow-ups, but kept apart so a summary doesn't read addresses out
         out += " || LOCATIONS (private; say one only if the user asks where an event is): " + "; ".join(locs)
     return out
+
+
+async def timer_popup(http):
+    """Use the agenda viewer and its verified dashboard interruption path."""
+    if not KIOSK_TARGETS:
+        return
+    from needle_voice import display_ops
+    try:
+        doc = _timer.document()
+        if doc:
+            _, io, cfg = display_env(http)
+            await display_ops.show_agenda(io, cfg, doc)
+    except Exception as exc:
+        print("timer popup failed:", type(exc).__name__, flush=True)
+
+
+async def timer_request(http, text):
+    global _timer_task
+    old = _timer.current
+    answer, created = _timer.handle(text)
+    if old is not _timer.current and _timer_task:
+        _timer_task.cancel()
+        _timer_task = None
+    if created:
+        current = _timer.current
+
+        async def expire():
+            await asyncio.sleep(_timer.remaining())
+            if _timer.current is current:
+                await timer_popup(http)
+        _timer_task = asyncio.create_task(expire())
+    if _timer.current:
+        asyncio.create_task(timer_popup(http))
+    elif old:
+        # Clear a visible countdown without navigating away from another popup.
+        if (_disp.get("agenda") or {}).get("kind") == "timer":
+            _disp["agenda"] = None
+    return "[DONE] " + answer
