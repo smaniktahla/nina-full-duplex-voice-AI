@@ -40,3 +40,8 @@ def test_alarm_repeats_until_dismissed():
         assert page.evaluate("sent") == [{"t": "timer_alarm_stop"}]
         assert not errors
         browser.close()
+
+
+if __name__ == "__main__":
+    test_alarm_repeats_until_dismissed()
+    print("PASS persistent timer alarm audio and dismissal")

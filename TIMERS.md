@@ -34,7 +34,9 @@ Validation:
 ```sh
 python -m pytest tests/test_timers.py tests/test_display_wiring.py tests/test_kiosk.py tests/test_routing_corpus.py needle-voice/tests/test_display_ops.py needle-voice/tests/test_executor.py -q
 python kiosk-agenda/test_agenda.py
+python kiosk-agenda/test_timer_alarm.py
 ```
 
-The viewer test requires Playwright and Chromium. Three existing tests require
+The browser tests require Playwright and Chromium and run in their own CI job.
+The pure-logic job remains independent of browser dependencies. Three existing tests require
 POSIX date formatting/file mode semantics and fail on Windows.
