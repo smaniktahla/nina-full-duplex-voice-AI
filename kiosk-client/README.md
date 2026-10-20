@@ -15,3 +15,10 @@ is fully clipped).
 
 Update a kiosk: `scripts/deploy_kiosk_client.sh [ssh-host] [git-ref]` (default host `kiosk`, ref `origin/main`) fetches the repo on the kiosk and restarts the service.
 If the microphone callback stops for 15 s (PipeWire restarted, device lost) the client exits and systemd restarts it.
+
+
+Timer alarms: the client handles Nina's `timer_alarm` messages and mixes a repeating
+three-tone alarm into the speaker stream until the server sends `active: false`.
+Say "Nina, stop the timer" or tap Dismiss timer on the kiosk countdown to stop it.
+Speech interruption does not dismiss the alarm. Volume and ducking still apply.
+Disconnect clears local playback; the server restores an undismissed alarm on reconnect.

@@ -107,6 +107,20 @@ class Playback:
         self.q = collections.deque()
         self.n = 0
         self.ducked = False
+        self.alarm_active = False
+        self.alarm_pos = 0
+        self.alarm_pcm = np.zeros(int(1.5 * self.rate), np.int16)
+        for i, hz in enumerate((880, 660, 880)):
+            t = np.arange(int(0.22 * self.rate)) / self.rate
+            env = np.minimum(1, np.minimum(t, 0.22 - t) / 0.02)
+            start = int(i * 0.25 * self.rate)
+            self.alarm_pcm[start:start + len(t)] = (np.sin(2 * np.pi * hz * t) * env * 0.2 * 32767).astype(np.int16)
+
+    def alarm(self, active):
+        active = bool(active)
+        if active and not self.alarm_active:
+            self.alarm_pos = 0
+        self.alarm_active = active
 
     def push(self, rate, pcm: bytes):
         a = np.frombuffer(pcm[:len(pcm) // 2 * 2], np.int16)
@@ -148,6 +162,10 @@ class Playback:
             else:
                 self.q[0] = a[k:]
         self.n = max(0, self.n - i)
+        if self.alarm_active:
+            indices = (np.arange(frames) + self.alarm_pos) % len(self.alarm_pcm)
+            self.alarm_pos = (self.alarm_pos + frames) % len(self.alarm_pcm)
+            out = np.clip(out.astype(np.int32) + self.alarm_pcm[indices], -32768, 32767).astype(np.int16)
         g = self.volume * (self.duck_gain if self.ducked else 1.0)
         return out if g == 1.0 else np.clip(out.astype(np.float32) * g, -32768, 32767).astype(np.int16)
 
@@ -199,6 +217,9 @@ class Client:
             log.info("connected: tts=%s stt=%s", m.get("tts"), m.get("stt"))
         elif t == "mgr":
             log.info("session %s (wake: %s)", m.get("state"), m.get("wake"))
+        elif t == "timer_alarm":
+            self.play.alarm(m.get("active", False))
+            log.info("timer alarm %s", "ringing" if self.play.alarm_active else "dismissed")
         elif t == "cancel":
             self.play.cancel()
         elif t == "duck":
@@ -238,6 +259,7 @@ class Client:
             finally:
                 task.cancel()
                 self.connected = False
+                self.play.alarm(False)
                 self.play.cancel()
 
     async def run(self):

@@ -60,10 +60,38 @@ def test_server_messages_drive_the_playback():
     c.on_json({"t": "earcon", "kind": "nonsense"}); c.on_json({"t": "mgr", "state": "ACTIVE"}); c.on_json({"t": "hello", "tts": "x"}); c.on_json({"t": "unknown"})
 
 
-def test_watchdog_settings_and_config_example_name_the_echo_cancelled_devices():
+def test_watchdog_settings_and_config_example_name_the_echo_cancelled_devices(monkeypatch):
     assert k.DEFAULTS["mic_stall_s"] >= 5
     ex = json.load(open(os.path.join(os.path.dirname(__file__), "..", "kiosk-client", "config.example.json")))
     assert ex["input_device"] == "nina_ec_source" and ex["output_device"] == "nina_ec_sink"
     c = k.Client(dict(k.DEFAULTS)); t0 = c.last_mic
-    import time; time.sleep(0.01); c.loop = type("L", (), {"call_soon_threadsafe": lambda *a: None})(); c.q = None
+    monkeypatch.setattr(k.time, "monotonic", lambda: t0 + 1)
+    c.loop = type("L", (), {"call_soon_threadsafe": lambda *a: None})(); c.q = None
     c.connected = False; c._mic_cb(np.zeros(320, np.int16).tobytes(), 320, None, None); assert c.last_mic > t0        # every callback feeds the watchdog
+
+
+def test_timer_alarm_loops_until_dismissed_and_survives_speech_cancel():
+    c = k.Client(dict(k.DEFAULTS))
+    c.on_json({"t": "timer_alarm", "active": True})
+    cycle = c.play.fill(len(c.play.alarm_pcm))
+    assert np.abs(cycle).max() > 5000 and not cycle[-2400:].any()
+    for _ in range(25):
+        assert np.array_equal(cycle, c.play.fill(len(cycle)))
+    c.on_json({"t": "cancel", "why": "barge-in"})
+    assert c.play.alarm_active and c.play.fill(2400).any()
+    c.on_json({"t": "timer_alarm", "active": False})
+    assert not c.play.alarm_active and not c.play.fill(2400).any()
+
+
+def test_alarm_respects_volume_ducking_and_does_not_overflow():
+    p = k.Playback(volume=0.5)
+    p.alarm(True)
+    a = p.fill(len(p.alarm_pcm))
+    p.duck(True)
+    b = p.fill(len(p.alarm_pcm))
+    assert np.abs(a).max() < 3300
+    assert np.abs(b).max() < np.abs(a).max() * 0.13
+    p.duck(False)
+    p.push(24000, np.full(2400, 32767, np.int16).tobytes())
+    mixed = p.fill(2400)
+    assert mixed.min() > 0 and mixed.max() <= 16384
