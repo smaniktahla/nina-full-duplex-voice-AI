@@ -101,6 +101,7 @@ h2{font-size:1.05rem;margin:4px 0 8px}h3{font-size:.95rem;margin:0 0 8px}code{ba
       <p><small>Default folder can also be set with the <code>SPEAKER_AUDIO_DIR</code> environment variable. Changing it does not move existing clips.</small></p></div>
     <small>Say "wait", "stop" or "hold on" to interrupt. Headphones give the best echo behaviour; speakers rely on the browser's echo cancellation.</small>
   </section>
+  <button id="alarmstop" hidden>Stop alarm</button>
   <small id="hint">Say "wait", "stop" or "hold on" to interrupt. Headphones give the best echo behaviour; speakers rely on the browser's echo cancellation.</small>
 </main>
 <script>
@@ -122,6 +123,28 @@ const worklet=`class Cap extends AudioWorkletProcessor{
     if(this.n===640){this.port.postMessage(this.buf.slice().buffer);this.n=0}}}
   return true}}registerProcessor('cap',Cap)`;
 
+let alarmNodes=new Set(),alarmInterval=null;
+function stopTimerAlarm(){
+  clearInterval(alarmInterval);alarmInterval=null;
+  for(const o of alarmNodes){try{o.stop()}catch(e){}}alarmNodes.clear();$('alarmstop').hidden=true;
+}
+function startTimerAlarm(){
+  stopTimerAlarm();if(!ctx)return;
+  $('alarmstop').hidden=false;
+  const ring=()=>{
+    if(!ctx||ctx.state==='closed'){stopTimerAlarm();return}
+    if(ctx.state==='suspended')ctx.resume().catch(()=>log('s','Timer finished. Audio is blocked; enable sound in the browser.'));
+    [880,660,880].forEach((hz,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain(),t=ctx.currentTime+i*0.25;
+      o.frequency.value=hz;o.connect(g);g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.0001,t);g.gain.exponentialRampToValueAtTime(0.2,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+0.2);o.start(t);o.stop(t+0.22);
+      alarmNodes.add(o);o.onended=()=>{alarmNodes.delete(o);o.disconnect();g.disconnect()};
+    });
+  };
+  ring();alarmInterval=setInterval(ring,1500);
+}
+$('alarmstop').onclick=()=>{stopTimerAlarm();if(ws&&ws.readyState===1)ws.send(JSON.stringify({t:'timer_alarm_stop'}))};
 function cancelPlayback(){for(const s of src){try{s.onended=null;s.stop()}catch(e){}}src.clear();nextT=0;if(gain)gain.gain.value=1}
 function play(buf){
   const sr=new DataView(buf).getUint32(0,true), pcm=new Int16Array(buf.slice(4));
@@ -156,6 +179,7 @@ async function start(){
       $('sinfo').textContent=(asleep?'asleep \u2014 say \u201c'+(m.wake==='off'?'':m.wake.replace('_',' '))+'\u201d, press Wake, or choose Always listening \u00b7 ':'')+'session: '+(m.session||'none')+(m.tasks?' \u00b7 '+m.tasks+' task(s) pending':'')+(m.wake==='off'?' \u00b7 always listening':'');
       $('wakebtn').disabled=!asleep&&m.state!=='IDLE';$('sleepbtn').disabled=asleep||m.wake==='off'}
     else if(m.t==='session_event'){if(['transition','dismissed','interruption','ambient_ignored','activated'].includes(m.event))log('s','\u2699 '+m.event+(m.to?' \u2192 '+m.to:'')+(m.reason?' ('+m.reason+')':'')+(m.why?' ('+m.why+')':''))}
+    else if(m.t==='timer_alarm'){if(m.active){startTimerAlarm();log('s','Timer finished.')}else stopTimerAlarm()}
     else if(m.t==='earcon')beep(m.kind)
     else if(m.t==='stt'){ if(m.kind==='partial')$('live').textContent=m.text||' ';
       else{$('live').innerHTML='&nbsp;';if(m.text){const d=log('u',m.text);if(m.id)utt[m.id]=d}} }
@@ -172,6 +196,7 @@ async function start(){
     $('meter').firstElementChild.style.width=Math.min(100,mx*1.6)+'%';if(running||!ws||ws.readyState<2)requestAnimationFrame(loop)})();
 }
 function shutdown(){
+  stopTimerAlarm();
   mgrState='DORMANT';$('sess').textContent='DORMANT';$('sess').className='chip on DORMANT';running=false;cancelPlayback();setState('OFF');$('live').innerHTML='&nbsp;';
   try{node&&node.disconnect()}catch(e){}
   try{stream&&stream.getTracks().forEach(t=>t.stop())}catch(e){}

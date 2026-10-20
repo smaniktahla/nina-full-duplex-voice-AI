@@ -165,3 +165,25 @@ def test_agenda_viewer_and_document_share_the_signed_link():
         async with s.get("%s/kiosk/%s/agenda/agenda.json" % (base, kiosk.make_token(1, now=time.time() - 3 * 86400, key=KEY))) as r:
             assert r.status == 401
     run(_with(kiosk.Hooks(document=lambda: None, agenda=lambda: state["doc"]), go))
+
+
+def test_timer_dismiss_uses_signed_link_and_passes_timer_id():
+    calls = []
+    async def stop(timer_id):
+        calls.append(timer_id)
+        return timer_id == "timer-1"
+    async def go(s, base):
+        token = kiosk.make_token(1, key=KEY)
+        url = base + "/kiosk/" + token
+        async with s.get(url + "/agenda/agenda.json") as r:
+            doc = await r.json()
+            assert doc["stop_action"] == "../action/timer-stop"
+        async with s.post(base + "/kiosk/bad.token/action/timer-stop", json={"id": "timer-1"}) as r:
+            assert r.status == 401
+        assert calls == []
+        async with s.post(url + "/action/timer-stop", json={"id": "stale"}) as r:
+            assert r.status == 502
+        async with s.post(url + "/action/timer-stop", json={"id": "timer-1"}) as r:
+            assert r.status == 200 and (await r.json())["ok"]
+        assert calls == ["stale", "timer-1"]
+    run(_with(kiosk.Hooks(document=lambda: None, agenda=lambda: {"kind": "timer", "id": "timer-1", "updated": "u"}, on_timer_stop=stop), go))
