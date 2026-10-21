@@ -22,12 +22,12 @@
 4. **Cut over** when nobody is connected: `scripts/deploy_voice.sh` (default ref `origin/main`). It checks CI is green for the commit, refuses if clients are connected (`--force` to override),
    builds the release, stops the old server and waits for GPU memory to free, switches `~/nina-current`, starts the new one, waits for `/api/config`, runs the smoke test (Kokoro loaded, wake words present, a typed question answered),
    and **rolls back automatically** to the previous target if any of that fails.
-5. *(Optional, recommended)* make it a service so it restarts on failure and starts at boot:
+5. **Make it a service (do this: without it the voice server stays down after every reboot).** AI2 reboots weekly (Wed 03:00); a `nohup` server does not come back, which left voice down for ~6.5 hours on 2026-10-21. The unit waits for the local llama-server, restarts on failure and retries forever:
    ```
-   mkdir -p ~/.config/systemd/user && cp ops/nina-voice.service ~/.config/systemd/user/ && systemctl --user daemon-reload
+   mkdir -p ~/.config/systemd/user && cp live/ops/nina-voice.service ~/.config/systemd/user/ && systemctl --user daemon-reload
    sudo loginctl enable-linger salil && systemctl --user enable --now nina-voice
    ```
-   (`deploy_voice.sh` and `rollback_voice.sh` use the unit automatically when it exists.)
+   (`deploy_voice.sh` and `rollback_voice.sh` use the unit automatically when it exists; logs go to `~/.local/share/nina/server.log`. Installed on AI2 2026-10-21; a `kill -9` of the server was seen to restart it.)
 6. **After one stable day:** rename the legacy trees (`duplex-sim` -> `duplex-sim.legacy`, `needle-voice` -> `needle-voice.legacy`) so nobody edits them by accident. Keep them for a week as the `legacy` rollback target, then delete. (`~/nina-current` must no longer point at them first.)
 
 ## Rollback, from smallest to largest
