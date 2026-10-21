@@ -77,3 +77,21 @@ def test_request_schedules_expiry_and_cancellation(monkeypatch):
         await asyncio.sleep(0)
         assert task.cancelled() and tools._timer.current is None
     asyncio.run(run())
+
+
+def test_transcribed_timer_for_duration_creates_instead_of_checking_status():
+    for text in ("at timer for 5 minutes.", "a timer for five minutes", "timer for 5 minutes", "please timer for five minutes"):
+        timer = Timer(clock=lambda: 0)
+        answer, created = timer.handle(text)
+        assert created and timer.remaining() == 300 and "I've set a timer for 5 minutes" in answer
+        original = timer.current
+        assert not timer.handle(text)[1] and timer.current is original
+
+
+def test_status_questions_do_not_create_timers_from_mentioned_durations():
+    for text in ("how much time is left on the timer", "is the timer for 5 minutes", "what happened to the timer for 5 minutes"):
+        timer = Timer(clock=lambda: 0)
+        assert not timer.handle(text)[1] and timer.current is None
+    timer = Timer(clock=lambda: 0)
+    answer, created = timer.handle("at timer for 25 hours")
+    assert not created and timer.current is None and "How long" in answer
