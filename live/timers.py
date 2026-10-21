@@ -63,7 +63,10 @@ class Timer:
             self.current = None
             self.naming_until = 0
             return "The timer is cancelled.", False
-        if re.search(r"\b(set|start|create)\b", text, re.I):
+        # Whisper may drop "set a" or transcribe it as "at". Keep status
+        # questions separate by accepting only a leading timer-for fragment.
+        implicit_create = re.match(r"^(?:please\s+)?(?:(?:a|at)\s+)?timer\s+for\s+\S", text.strip(), re.I)
+        if re.search(r"\b(set|start|create)\b", text, re.I) or implicit_create:
             if self.current:
                 return "There is already a timer set. Please cancel it before setting another one.", False
             seconds = duration(text)
