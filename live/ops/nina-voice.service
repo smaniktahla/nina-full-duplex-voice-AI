@@ -1,0 +1,20 @@
+[Unit]
+Description=Nina voice server (https :8443, kiosk listener) - started at boot, restarted if it dies
+After=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+# AI2 reboots weekly (Wed 03:00). Wait for the local llama-server before starting, and keep retrying: the model needs a minute after boot.
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 120); do curl -sf -m 2 http://127.0.0.1:8080/health >/dev/null && exit 0; sleep 2; done; exit 1'
+# the deploy script switches ~/nina-current; run.sh resolves it at every start and reads ~/.config/nina/env
+ExecStart=%h/nina-current/live/run.sh
+Restart=on-failure
+RestartSec=15
+TimeoutStartSec=360
+TimeoutStopSec=20
+StandardOutput=append:%h/.local/share/nina/server.log
+StandardError=append:%h/.local/share/nina/server.log
+
+[Install]
+WantedBy=default.target
