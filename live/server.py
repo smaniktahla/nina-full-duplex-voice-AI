@@ -54,8 +54,9 @@ BARGE = re.compile(r"\b(wait|stop|hold on|hang on|pause|never ?mind|shut up|be q
 LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak naturally and helpfully in plain spoken English (no markdown, "
              "no lists). Keep each spoken chunk to one natural clause.\n"
              "Timers: use @timer with the user request verbatim to set, cancel, label, or check a timer. Never claim a timer is set without a tool result. "
+             "Current time questions -> @clock with the request. The clock tool uses the household timezone. "
              "TOOLS (they run in the background; keep talking while they work). ROUTING: anything about the home (lights, switches, "
-             "temperatures, what's on, the time) or current weather -> '@ha <request in plain words>'; weather forecasts -> "
+             "temperatures, what's on) or current weather -> '@ha <request in plain words>'; weather forecasts -> "
              "'@weather today' / '@weather tomorrow' / '@weather week'; the user's calendar -> '@calendar today' / '@calendar tomorrow' / "
              "'@calendar week'; random numbers, coin flips, dice and picking between options -> '@random <the request in plain words>' (a real random-number service answers: NEVER invent a random result yourself). These answer in under a second: NEVER use @search or @hermes for weather, calendar or home questions. "
              "@ha is ONLY for devices, sensors, the time and current weather: never use it for personal facts or general questions. Only if those fail, escalate. For the rest: "
@@ -73,7 +74,7 @@ LIVE_NOTE = ("\nThis is a live spoken conversation with one person. Speak natura
              "Pending tasks appear as {pending: #id kind \"task\" ...}. If the user refines, narrows or changes what they want from a pending "
              "task, do NOT start a new tool: say a short acknowledgement then '@revise #<id> <the refinement in your own words>' "
              "(for a search give the full new query). If they drop it (never mind / cancel that), say so then '@cancel #<id>'.")
-TOOL_RE = re.compile(r"@(search|hermes|ha|weather|calendar|timer|random|revise|cancel|remember|forget|notes)\b[:\s]*(.*)$", re.S)
+TOOL_RE = re.compile(r"@(search|hermes|ha|weather|calendar|timer|clock|random|revise|cancel|remember|forget|notes)\b[:\s]*(.*)$", re.S)
 if notes_tool.enabled():
     LIVE_NOTE += notes_tool.PROMPT
 SESSION_LOG = os.environ.get("SESSION_LOG", os.path.expanduser("~/.local/share/needle_voice/sessions.jsonl"))
@@ -465,6 +466,7 @@ class Session:
                 res = await (self.notes.finish(g) if k == "notes" else web_search(self.http, g) if k == "search" else ha_say(self.http, g) if k == "ha" else
                              weather(self.http, g) if k == "weather" else calendar(self.http, g) if k == "calendar" else
                              tools_mod.timer_request(self.http, g) if k == "timer" else
+                             tools_mod.clock_request(self.http, g) if k == "clock" else
                              tools_mod.random_request(self.http, g) if k == "random" else
                              tools_mod.display_request(self.http, g, offered=tools_mod.offer_fresh()) if k == "display" else
                              tools_mod.nav_request(self.http, g) if k == "nav" else
@@ -530,7 +532,7 @@ class Session:
         if action == "notes":
             self.notes.handle(arg)
             return
-        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer"):
+        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer", "clock"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
             return
@@ -737,7 +739,7 @@ class Session:
             if not self.answer_open:
                 self.cont_n = 0
             claimed = tools_mod.claim(user_said or "") if (RESPONDER and not events and not tool) else ""
-            if claimed in ("display", "nav", "random", "timer"):
+            if claimed in ("display", "nav", "random", "timer", "clock"):
                 # show/close the route, distance and travel time, coin/dice: code and a tool answer; the model cannot know and must not guess
                 log("   (%s request without a tool tag: starting @%s)" % (claimed, claimed))
                 self.start_tool(claimed, user_said)

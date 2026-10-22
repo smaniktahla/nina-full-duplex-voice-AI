@@ -660,3 +660,8 @@ async def kiosk_timer_stop(http, timer_id):
         return False
     await timer_request(http, "stop the timer")
     return True
+
+
+async def clock_request(http, text):
+    from clock_tool import answer
+    return "[DONE] " + answer(household.get("timezone"))
