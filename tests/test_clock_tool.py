@@ -24,3 +24,16 @@ def test_configured_timezone_midnight_noon_and_daylight_saving():
     assert clock_tool.answer("America/New_York", dt.datetime(2026, 1, 1, 5, 3, tzinfo=utc)) == "It's 12:03 AM."
     assert clock_tool.answer("America/New_York", dt.datetime(2026, 7, 1, 16, 0, tzinfo=utc)) == "It's 12:00 PM."
     assert clock_tool.answer("America/Los_Angeles", dt.datetime(2026, 7, 1, 16, 0, tzinfo=utc)) == "It's 9:00 AM."
+
+
+def test_clipped_question_and_known_wake_greeting_echo_are_clock_requests():
+    for text in ("Time is it", "Time is it?", "Yeah, what's up? Time is it",
+                 "Hey, what's up? What time is it?", "Hey! What can I do for you? Time is it",
+                 "Yeah, what\u2019s up? What\u2019s the time?", "Nina, time is it right now?"):
+        assert claims.claim(text, display=False, nav=False) == "clock", text
+
+
+def test_echo_handling_does_not_claim_greeting_only_or_other_questions():
+    for text in ("Yeah, what's up?", "Time is it in London?", "Yeah, what's up? What time is dinner?",
+                 "Repeat the words what time is it", "Hey! What can I do for you? Set a timer for 5 minutes"):
+        assert not clock_tool.owns(text), text

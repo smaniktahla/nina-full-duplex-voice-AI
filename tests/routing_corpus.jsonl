@@ -394,3 +394,8 @@
 {"text": "what is the time", "route": "clock", "ctx": {}}
 {"text": "tell me the current time", "route": "clock", "ctx": {}}
 {"text": "can you tell me the time", "route": "clock", "ctx": {}}
+{"text": "Time is it", "route": "clock", "ctx": {}}
+{"text": "Yeah, what's up? Time is it", "route": "clock", "ctx": {}}
+{"text": "Hey, what's up? What time is it?", "route": "clock", "ctx": {}}
+{"text": "Hey! What can I do for you? Time is it", "route": "clock", "ctx": {}}
+{"text": "Nina, time is it right now?", "route": "clock", "ctx": {}}

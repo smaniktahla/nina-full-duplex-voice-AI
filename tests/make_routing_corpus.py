@@ -108,6 +108,9 @@ def main():
     add("show me a picture of a cat", "none", route=True)
     for text in ("what time is it", "what time is it now", "what time is it right now", "what is the time", "tell me the current time", "can you tell me the time"):
         add(text, "clock")
+    for text in ("Time is it", "Yeah, what's up? Time is it", "Hey, what's up? What time is it?",
+                 "Hey! What can I do for you? Time is it", "Nina, time is it right now?"):
+        add(text, "clock")
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "routing_corpus.jsonl")
     seen, n = set(), 0
     with open(out, "w") as f:
