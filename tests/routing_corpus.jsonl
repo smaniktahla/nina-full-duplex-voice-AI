@@ -350,7 +350,6 @@
 {"text": "how far is the moon from earth", "route": "none", "ctx": {}}
 {"text": "how long is a marathon", "route": "none", "ctx": {}}
 {"text": "how tall is Mount Everest", "route": "none", "ctx": {}}
-{"text": "what time is it", "route": "none", "ctx": {}}
 {"text": "who won the game last night", "route": "none", "ctx": {}}
 {"text": "can you hear me", "route": "none", "ctx": {}}
 {"text": "hello Nina", "route": "none", "ctx": {}}
@@ -389,3 +388,9 @@
 {"text": "show me the weather", "route": "weather", "ctx": {}}
 {"text": "show me the pool camera", "route": "none", "ctx": {"route": true}}
 {"text": "show me a picture of a cat", "route": "none", "ctx": {"route": true}}
+{"text": "what time is it", "route": "clock", "ctx": {}}
+{"text": "what time is it now", "route": "clock", "ctx": {}}
+{"text": "what time is it right now", "route": "clock", "ctx": {}}
+{"text": "what is the time", "route": "clock", "ctx": {}}
+{"text": "tell me the current time", "route": "clock", "ctx": {}}
+{"text": "can you tell me the time", "route": "clock", "ctx": {}}

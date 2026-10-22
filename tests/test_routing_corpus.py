@@ -40,7 +40,7 @@ def test_corpus_is_big_and_varied():
     routes = {}
     for c in cases:
         routes[c["route"]] = routes.get(c["route"], 0) + 1
-    assert set(routes) == {"display", "nav", "calendar", "weather", "random", "notes", "none"} and min(routes.values()) >= 5, routes
+    assert set(routes) == {"display", "nav", "calendar", "weather", "random", "notes", "none", "clock"} and min(routes.values()) >= 5, routes
 
 
 def test_every_phrase_routes_as_labeled():

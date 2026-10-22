@@ -49,7 +49,7 @@ AGENDA_FOLLOWUP_NONE = ["how about pizza tomorrow", "tomorrow I'm going to the b
 NOTES = ["take notes", "I need you to take notes", "start taking notes", "are you able to create the note in DocMost"]
 NOTES_RECORDING = ["write that down", "okay write that down", "that's all", "save the notes"]
 NONE = ["what's the capital of France", "tell me a joke", "how long does it take to boil an egg", "how long does a cat live", "how far is the sun", "how far is the moon from earth",
-        "how long is a marathon", "how tall is Mount Everest", "what time is it", "who won the game last night", "can you hear me", "hello Nina", "thank you", "okay thanks",
+        "how long is a marathon", "how tall is Mount Everest", "who won the game last night", "can you hear me", "hello Nina", "thank you", "okay thanks",
         "I'm gonna go on a walk", "turn on the kitchen light", "how long should I cook chicken", "how far can a drone fly", "what's the distance from earth to mars",
         "how long till Christmas", "how many days until my birthday", "how long is the movie", "how many kilometers is a mile", "what are the directions for making pancakes",
         "how long does it take to learn guitar", "how far did the ball go", "is the sun hot", "what's a good restaurant", "read me the news", "set a timer for ten minutes",
@@ -106,6 +106,8 @@ def main():
     add("show me the weather", "weather")
     add("show me the pool camera", "none", route=True)
     add("show me a picture of a cat", "none", route=True)
+    for text in ("what time is it", "what time is it now", "what time is it right now", "what is the time", "tell me the current time", "can you tell me the time"):
+        add(text, "clock")
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "routing_corpus.jsonl")
     seen, n = set(), 0
     with open(out, "w") as f:

@@ -12,6 +12,7 @@ weather, random. '' means nobody claims it: it goes to the reply model / Hermes 
 Pure; the callers pass the state (active route store, fresh offer) and which tools are configured.
 """
 import re
+import clock_tool
 import sys
 import os
 
@@ -73,6 +74,8 @@ def weather_question(text: str) -> bool:
 
 def claim(text: str, *, store=None, offered: bool = False, display: bool = True, nav: bool = True, places: dict = None, agenda_fresh: bool = False) -> str:
     t = text or ""
+    if clock_tool.owns(t):
+        return "clock"
     if display and display_ops.owns(t, store, offered):
         return "display"
     if nav and navigation_ops.owns(t, store, places):
