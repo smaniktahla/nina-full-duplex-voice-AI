@@ -234,9 +234,27 @@ def test_followups_only_count_with_an_agenda_showing_and_only_day_words():
     assert f("and tomorrow") == "calendar" and f("what about friday") == "calendar" and f("the next day") == "calendar" and f("how's tomorrow look") == "calendar"
     assert f("and tomorrow", False) == "" and f("how about pizza tomorrow") == "" and f("remind me to call mom tomorrow") == ""
     assert f("what's the weather tomorrow") == "weather"                                    # a weather question stays a weather question
-    assert claims.calendar_when("the next day", dt.date(2026, 10, 23)) == "date:2026-10-24"
+    base = dt.date.today() + dt.timedelta(days=5)                                           # relative to today: a fixed date turns into "today" once the calendar reaches it
+    assert claims.calendar_when("the next day", base) == "date:%s" % (base + dt.timedelta(days=1)).isoformat()
 
 
 def test_server_always_reads_the_day_from_the_words_for_calendar_and_weather():
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
     assert 'elif owned in ("calendar", "weather"):' in src and "day corrected" in src and "tools_mod.agenda_base()" in src
+
+
+def test_leave_by_picks_the_calendar_event_and_says_when_there_is_none(monkeypatch):
+    import datetime as dt
+    from needle_voice.calendar_ops import Event
+    tools._disp.pop("offer_t", None)
+    now = dt.datetime.now().astimezone()
+    mk = lambda t, h, loc="12 Example Road": Event(t, now + dt.timedelta(hours=h), now + dt.timedelta(hours=h + 1), False, loc)
+    s = rs.RouteStore(); c = nav_cfg_fake(s)
+    out = run(tools.nav_request(None, "when should I leave for my dentist appointment", cfg=c, events=[mk("Standup", 1, ""), mk("Dentist", 5)]))
+    assert out.startswith("[DONE] ") and ("Leave by" in out or "You should leave now" in out) and "for Dentist" in out and s.get().destination_label == "Dentist"
+    assert tools.offer_fresh() is True                                                                                          # 'yes show me' now means this trip
+    assert run(tools.nav_request(None, "when should I leave", cfg=nav_cfg_fake(rs.RouteStore()), events=[])) == "[NOT DONE] I don't see anything on your calendar in the next day and a half."
+    out = run(tools.nav_request(None, "when should I leave", cfg=nav_cfg_fake(rs.RouteStore()), events=[mk("Standup", 1, "")]))
+    assert out.startswith("[NOT DONE] Your next event, Standup") and "doesn't have a location" in out
+    out = run(tools.nav_request(None, "when should I leave to get to Takoda Beer Garden", cfg=nav_cfg_fake(rs.RouteStore()), events=[mk("Dentist", 5)]))
+    assert out == "[NOT DONE] What time do you need to be there?"                                                             # a named place, no matching event: ask for the time
