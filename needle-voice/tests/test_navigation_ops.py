@@ -166,7 +166,7 @@ def test_owns_needs_a_travel_word_and_a_referent():
     assert nav.owns("how long to get to the Stony Brook train station", empty) and nav.owns("how long is the drive to Takoda Beer Garden", empty)
     assert not nav.owns("how long does it take to boil an egg", empty) and not nav.owns("how long to boil an egg", full)
     assert nav.owns("send it to my phone", full) and not nav.owns("send it to my phone", empty)
-    assert not nav.owns("turn on the lights", full) and not nav.owns("when should I leave", full)
+    assert not nav.owns("turn on the lights", full) and nav.owns("when should I leave", full)
 
 
 # ---------------------------------------------------------------- what the live voice test showed: mangled names and trailing chatter
@@ -294,3 +294,51 @@ def test_spoken_street():
     assert nav.spoken_street("7373 Boston Blvd, Springfield, VA 22153, USA") == "Boston Boulevard"
     assert nav.spoken_street("5325 Port Royal Rd, Springfield, VA") == "Port Royal Road" and nav.spoken_street("715 Florida Ave NW, Washington, DC") == "Florida Avenue Northwest"
     assert nav.spoken_street("Springfield, VA") == "Springfield" and nav.spoken_street("") == ""
+
+
+# ---------------------------------------------------------------- leave-by from the calendar
+from needle_voice.calendar_ops import Event                                     # noqa: E402
+
+LNOW = dt.datetime(2026, 10, 24, 9, 0, tzinfo=dt.timezone.utc)
+
+
+def ev(title, hours, loc="12 Example Road", all_day=False):
+    s = LNOW + dt.timedelta(hours=hours)
+    return Event(title, s, s + dt.timedelta(hours=1), all_day, loc)
+
+
+def test_leave_phrases_parse():
+    for t in ("when should I leave", "when do I need to leave", "what time do I have to leave", "when do we need to leave for soccer", "time to leave", "leave by"):
+        assert nav.parse(t)[0] == "leave", t
+    assert nav.parse("time to leave")[1] == "" and nav.parse("when should I leave for my dentist appointment")[0] == "leave"
+    assert nav.parse("when should I leave to get to Takoda Beer Garden") == ("leave", "Takoda Beer Garden")
+
+
+def test_pick_event_generic_named_and_the_failures():
+    events = [ev("Standup", 1, loc=""), ev("Dentist", 4), ev("Lunch with Sam", 3, loc="Cafe Example"), ev("Birthday", 2, all_day=True), ev("Old thing", -5), ev("Far future", 80)]
+    e, why, kind = nav.pick_event("when should I leave", events, LNOW)
+    assert (e.summary, kind, why) == ("Lunch with Sam", "ok", "")                 # first upcoming event WITH a location: the video call and the all-day event are skipped
+    assert nav.pick_event("when should I leave for my dentist appointment", events, LNOW)[0].summary == "Dentist"
+    e, why, kind = nav.pick_event("when should I leave for soccer", events, LNOW); assert e is None and kind == "no_match"
+    e, why, kind = nav.pick_event("when should I leave", [ev("Standup", 1, loc="")], LNOW)
+    assert e is None and kind == "no_location" and "Standup" in why and "doesn't have a location" in why
+    assert nav.pick_event("when should I leave", [], LNOW)[2] == "no_events" and nav.pick_event("when should I leave", [ev("Far future", 80)], LNOW)[2] == "no_events"
+    assert nav.pick_event("when should I leave", [ev("Just started", -0.1)], LNOW)[0].summary == "Just started"       # 15 minutes of grace
+
+
+def test_leave_by_uses_the_event_keeps_the_route_and_offers():
+    store, log = rs.RouteStore(), []
+    c = cfg(resp=(200, DETAIL), log=log); c.store, c.offer_display = store, True
+    ctx = nav.NavContext("12 Example Road", LNOW + dt.timedelta(hours=4), "Dentist")
+    r = run(nav.handle("when should I leave for my dentist appointment", ctx, c, LNOW))
+    assert r.status == Status.SUCCESS and r.speech.startswith("Leave by ") and "for Dentist" in r.speech and r.speech.endswith("Want me to show it on the kitchen screen?")
+    assert log[0][2]["destination"] == {"address": "12 Example Road"}                  # the event's location, not "my dentist appointment"
+    assert "departureTime" in log[0][2] and log[0][1]["X-Goog-FieldMask"] == rs.DETAIL_FIELD_MASK
+    assert store.get().destination_label == "Dentist" and len(store.get().routes) == 2
+    assert r.telemetry["code"] == "leave_by" and r.telemetry["offer"] is True and "Dentist" not in str(r.telemetry) and "Example" not in str(r.telemetry)
+
+
+def test_leave_by_without_context_still_asks_for_a_time():
+    r = run(nav.handle("when should I leave to get to Takoda Beer Garden", None, cfg(), LNOW))
+    assert r.status == Status.AMBIGUOUS and r.speech == "What time do you need to be there?"
+    r = run(nav.handle("when should I leave", None, cfg(), LNOW)); assert r.status == Status.AMBIGUOUS

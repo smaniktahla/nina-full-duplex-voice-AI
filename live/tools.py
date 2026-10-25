@@ -275,12 +275,38 @@ def nav_owns(text):
     return nav_configured() and nav.owns(text, route_store())
 
 
-async def nav_request(http, text, cfg=None):
-    """Spoken navigation request -> navigation_ops. Reply convention as ha_say. The ETA answer stores the route and may end with an offer to show it."""
+async def _calendar_events(http, start, end):
+    """Timed and all-day events from every household calendar between two datetimes, as calendar_ops.Event (empty if HA cannot be reached)."""
+    from needle_voice import calendar_ops
+
+    async def one(ent):
+        try:
+            async with http.get(HA_URL + "/api/calendars/" + ent, headers=_hdr(), timeout=aiohttp.ClientTimeout(total=10),
+                                params={"start": start.isoformat(), "end": end.isoformat()}) as r:
+                return [x for e in await r.json() for x in calendar_ops.parse_events([e], start.tzinfo, ent)]
+        except Exception:                                                        # noqa: BLE001
+            return []
+    cals = CALENDARS or [i for i in await _states_list(http) if i.startswith("calendar.") and not any(x in i for x in household.get("calendar_exclude", None))]
+    return [x for part in await asyncio.gather(*[one(c) for c in cals]) for x in part]
+
+
+async def nav_request(http, text, cfg=None, events=None):
+    """Spoken navigation request -> navigation_ops. Reply convention as ha_say. The ETA answer stores the route and may end with an offer to show it.
+    'When should I leave (for X)' needs the calendar: the event is picked here (navigation_ops.pick_event) and its location and start go in as context."""
+    import datetime as dt
     from needle_voice import navigation_ops as nav
     from needle_voice.result import Status
     cfg = cfg or await nav_cfg(http)
-    res = await nav.handle(text, None, cfg)
+    ctx = None
+    if nav.parse(text)[0] == "leave":
+        now = dt.datetime.now().astimezone()
+        evs = events if events is not None else await _calendar_events(http, now - dt.timedelta(minutes=15), now + dt.timedelta(hours=nav.HORIZON_H))
+        ev, why, kind = nav.pick_event(text, evs, now)
+        if ev is not None:
+            ctx = nav.NavContext(ev.location, ev.start, ev.summary)
+        elif not (kind == "no_match" and nav.parse(text)[1]):                    # a named PLACE with no matching event goes on to ask what time you need to be there
+            return "[NOT DONE] " + why
+    res = await nav.handle(text, ctx, cfg)
     if res.telemetry.get("offer"):
         _disp["offer_t"] = time.monotonic()
     if res.status is Status.SUCCESS:

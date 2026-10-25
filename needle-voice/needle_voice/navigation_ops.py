@@ -44,6 +44,7 @@ class NavContext:
     """What the previous turns established. `destination`/`event_start` are normally the next calendar event with a location."""
     destination: str = ""
     event_start: dt.datetime | None = None          # timezone-aware
+    title: str = ""                                 # the calendar event's title (spoken back, never logged)
     t: float = 0.0                                  # monotonic time it was set (the caller expires it after CTX_TTL_S)
 
 
@@ -73,7 +74,7 @@ _DISTANCE = re.compile(r"(?i)\bhow far\b|\bhow many miles\b|\bmiles away\b|\bdis
 _FAR = re.compile(r"(?i)\bhow far\b|\bdistance\b|\bhow many miles\b|\bmiles away\b|^(?:is|are)\s+.+\s+far\b|\bis it far\b")
 _FAR_DEST = re.compile(r"(?i)\b(?:how (?:far|many (?:miles|minutes|kilometers|km|hours))(?: away)?|distance)\s+(?:is|are|to)\s+(?:it\s+(?:to\s+)?)?(.+?)\s*[?.!]*$")
 _IS_FAR = re.compile(r"(?i)^(?:is|are)\s+(?!it\b)(.+?)\s+far\b")
-_LEAVE = re.compile(r"(?i)\b(when (?:should|do|must|shall) (?:i|we) (?:leave|go|head out|get going|set off)|what time (?:should|do) (?:i|we) (?:leave|go|head out)|time to leave|leave by)\b")
+_LEAVE = re.compile(r"(?i)\b(when (?:should|do|must|shall|will) (?:i|we)(?: (?:need|have|got))?(?: to)? (?:leave|go|head out|get going|set off)|what time (?:should|do|must) (?:i|we)(?: (?:need|have|got) to)? (?:leave|go|head out)|time to leave|leave by)\b")
 _SEND = re.compile(r"(?i)\b(send|push|put|text|share|get|forward|message)\b.*\b(phone|mobile)\b|\b(navigate|directions?)\b.*\b(phone|mobile)\b|\bsend (?:it|that|the directions) to my phone\b"
                    r"|\b(?:text|message|send|email)\s+me\b.*\b(?:route|directions?|map|that|it|this)\b")
 _DEST = re.compile(r"(?i)\b(?:to|for|toward|towards)\s+(.+?)\s*[?.!]*$")
@@ -117,6 +118,8 @@ def _parse_one(text: str) -> tuple:
     if dest and (_PRON.fullmatch(dest) or _PRON.search(dest) and len(dest.split()) <= 4 or dest.lower() in ("my phone", "phone", "me", "my mobile")):
         dest = ""
     if intent == "send" and re.search(r"(?i)\bphone\b", dest):
+        dest = ""
+    if intent == "leave" and dest.lower() in ("leave", "go", "head out", "get going", "set off", "leave now"):         # "time to leave": 'to leave' is not a place
         dest = ""
     return intent, dest
 
@@ -318,6 +321,34 @@ async def resolve_destination(cfg: NavConfig, raw: str, label: str = "", listed:
     return Dest(label or raw, bias_region(raw, cfg.region) if (raw and not listed and not re.search(r"\d", raw)) else raw, "", "address")
 
 
+# ----------------------------------------------------------------------------------------------- leave-by: which calendar event?
+_STOP = frozenset("a an the my our your their his her for to at on in of when what time should do does did i we you need have has got leave leaving head out go get going set off by is "
+                  "it that this next appointment meeting event schedule please then so be there arrive arriving".split())
+HORIZON_H = 36
+
+
+def _words(x: str) -> set:
+    return {w for w in re.findall(r"[a-z0-9]+", (x or "").lower()) if len(w) > 2 and w not in _STOP}
+
+
+def pick_event(text: str, events: list, now: dt.datetime, horizon_h: float = HORIZON_H):
+    """Which upcoming event does 'when should I leave (for X)' mean? -> (event | None, spoken_reason, kind), kind in ok | no_events | no_match | no_location.
+    Timed events from 15 minutes ago to `horizon_h` ahead. Words in the request that match an event title pick that event; otherwise the first upcoming event that
+    HAS a location (a video call has nowhere to drive to). Pure: `events` are calendar_ops.Event-like (summary, start, all_day, location)."""
+    up = sorted((e for e in events if not e.all_day and now - dt.timedelta(minutes=15) <= e.start <= now + dt.timedelta(hours=horizon_h)), key=lambda e: e.start)
+    if not up:
+        return None, "I don't see anything on your calendar in the next day and a half.", "no_events"
+    want = _words(text)
+    pool = [e for e in up if want & _words(e.summary)] if want else up
+    if want and not pool:
+        return None, "I don't see an event like that on your calendar in the next day and a half.", "no_match"
+    for e in pool:
+        if (e.location or "").strip():
+            return e, "", "ok"
+    e = pool[0]
+    return None, "Your next event, %s at %s, doesn't have a location, so I can't work out the drive." % (e.summary, clock(e.start)), "no_location"
+
+
 # ----------------------------------------------------------------------------------------------- the request
 async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.datetime | None = None) -> ToolResult:
     now = now or dt.datetime.now().astimezone()
@@ -327,6 +358,8 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
     if not cfg.api_key or not cfg.post_json or not cfg.home:
         return _fail("not_configured", "Navigation isn't set up yet: it needs a Google Maps key.", Status.UNAVAILABLE)
     active = cfg.store.get() if cfg.store else None
+    if intent == "leave" and ctx and ctx.event_start and ctx.destination:
+        dest = ""                                                              # the caller matched a calendar event: the words after 'for' name the event, not a place
     label, query = resolve_place(dest, cfg.places) if dest else ("", "")
     raw = query or (active.destination_label if (intent == "send" and active) else "") or (ctx.destination if ctx else "")
     if not raw:
@@ -342,20 +375,27 @@ async def handle(text: str, ctx: NavContext | None, cfg: NavConfig, now: dt.date
             return ToolResult(Status.AMBIGUOUS, "What time do you need to be there?", reason="no_arrival_time", telemetry={"code": "no_arrival_time"}, domain="navigation")
         depart = max(now + dt.timedelta(minutes=1), start - dt.timedelta(minutes=30))
         target = await resolve_destination(cfg, raw, label, listed)
-        res = await route(cfg, target.route_to, depart if depart > now + dt.timedelta(minutes=2) else None)
+        res = await route(cfg, target.route_to, depart if depart > now + dt.timedelta(minutes=2) else None, detail=cfg.store is not None)
         bad = _from_route(res)
         if bad:
             return bad
-        _, secs, static, meters, _p = res
+        _, secs, static, meters, parsed = res
         leave_at = start - dt.timedelta(seconds=secs) - dt.timedelta(minutes=cfg.buffer_min)
         predicted = depart > now + dt.timedelta(minutes=2)
+        title = (" for " + ctx.title) if (ctx and ctx.title) else ""
         if leave_at <= now:
-            speech = "You should leave now: the drive is %s and you need to be there at %s." % (spoken_minutes(secs), clock(start))
+            speech = "You should leave now: the drive is %s and you need to be there at %s%s." % (spoken_minutes(secs), clock(start), title)
         else:
-            speech = "Leave by %s to be there at %s. The drive is %s%s, plus a %d minute buffer." % (
-                clock(leave_at), clock(start), ("typically " if predicted else "") + spoken_minutes(secs), traffic_note(secs, static), cfg.buffer_min)
-        return ToolResult(Status.SUCCESS, speech, reason="read", telemetry={"code": "leave_by", "eta_s": secs, "buffer_min": cfg.buffer_min, "predicted": predicted},
-                          domain="navigation")
+            speech = "Leave by %s to be there at %s%s. The drive is %s%s, plus a %d minute buffer." % (
+                clock(leave_at), clock(start), title, ("typically " if predicted else "") + spoken_minutes(secs), traffic_note(secs, static), cfg.buffer_min)
+        tel = {"code": "leave_by", "eta_s": secs, "buffer_min": cfg.buffer_min, "predicted": predicted}
+        if cfg.store is not None and parsed and parsed[0]:
+            kept = cfg.store.set((ctx.title if ctx and ctx.title else "") or target.label or raw, parsed[0], parsed[1], parsed[2])     # "show it" / "send it to my phone" now mean this trip
+            tel.update(routes=len(parsed[0]), route_id=kept.id)
+            if cfg.offer_display:
+                speech += OFFER
+                tel["offer"] = True
+        return ToolResult(Status.SUCCESS, speech, reason="read", telemetry=tel, domain="navigation")
 
     target = await resolve_destination(cfg, raw, label, listed)
     res = await route(cfg, target.route_to, None, detail=cfg.store is not None)     # eta (+ polyline, steps, alternates when there is a store to keep them in)
@@ -447,4 +487,6 @@ def owns(text: str, store=None, places: dict = None) -> bool:
         return place_ok(dest, bool(_STRONG.search(text or "") or _DISTANCE.search(text or "")), places)
     if intent == "send":
         return bool(dest) or bool(store and store.get())
+    if intent == "leave":                                                       # the caller (tools.nav_request) looks up the calendar event; with none it says so
+        return True
     return False
