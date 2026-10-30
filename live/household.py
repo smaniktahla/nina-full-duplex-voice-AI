@@ -37,6 +37,7 @@ DEFAULTS = {
     "places": {},                               # frequent destinations {"Canonical Name": "search text for Google, or empty"}: heard names are matched to these
     "stt_vocabulary": [],                       # extra words/names the speech recogniser should expect (places are included automatically)
     "phone_notify_service": "",                 # "mobile_app_<phone>": where 'send it to my phone' pushes directions (empty = off, the button is hidden)
+    "routines": {},                             # spoken routines, see live/routines.py: {"morning": {"turn_on": [entity ids], "report": ["weather", "calendar"]}, "night": {"turn_off": [...]}}
     "timezone": "America/New_York",             # note dates/times are written in this zone
 }
 

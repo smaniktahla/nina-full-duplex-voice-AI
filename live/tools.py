@@ -171,6 +171,7 @@ RNG_URL = household.get("rng_url", "RNG_URL")
 
 
 # ---------------------------------------------------------------- route on the kitchen display (Needle's display_ops + route_store + kiosk.py)
+ROUTINES = household.get("routines")                                             # {"morning": {...}, "night": {...}}: see routines.py (empty = routines off)
 KIOSK_TARGETS = household.get("kiosk_targets")
 _disp = {}
 
@@ -364,7 +365,7 @@ def claim(text):
     import claims
     if _timer.owns(text):
         return "timer"
-    return claims.claim(text, store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh())
+    return claims.claim(text, store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh(), routine_cfg=ROUTINES)
 
 
 def display_owns(text, offered=False):
@@ -691,3 +692,36 @@ async def kiosk_timer_stop(http, timer_id):
 async def clock_request(http, text):
     from clock_tool import answer
     return "[DONE] " + answer(household.get("timezone"))
+
+
+async def routine_request(http, text):
+    """'good morning' / 'good night': the configured devices (verified, routines.py), then the spoken reports. Same reply convention as ha_say."""
+    import routines
+    name = routines.parse(text)
+    if name not in (ROUTINES or {}):
+        return "[NOT DONE] That routine isn't set up."
+
+    class IO:
+        async def state(self, entity):
+            try:
+                async with http.get("%s/api/states/%s" % (HA_URL, entity), headers=_hdr(), timeout=aiohttp.ClientTimeout(total=8)) as r:
+                    return await r.json() if r.status == 200 else None
+            except Exception:                                                      # noqa: BLE001
+                return None
+
+        async def call(self, domain, service, entity):
+            try:
+                async with http.post("%s/api/services/%s/%s" % (HA_URL, domain, service), headers=_hdr(), json={"entity_id": entity},
+                                     timeout=aiohttp.ClientTimeout(total=10)) as r:
+                    return r.status == 200
+            except Exception:                                                      # noqa: BLE001
+                return False
+
+        async def sleep(self, s):
+            await asyncio.sleep(s)
+
+    speech, ok = await routines.run(name, ROUTINES, IO())
+    out = ("[DONE] " if ok else "[NOT DONE] ") + speech
+    for rep in ROUTINES[name].get("report", []):
+        out += " || " + ("Weather: " + await weather(http, "today") if rep == "weather" else "Schedule: " + await calendar(http, "today"))
+    return out + " (say the devices result in one short sentence, then the weather, then the schedule)"

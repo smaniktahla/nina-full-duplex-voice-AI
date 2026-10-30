@@ -16,5 +16,7 @@
   "region": "<state or area code, e.g. VA>",
   "places": {"Example Beer Garden": "Example Beer Garden, <town>"},
   "phone_notify_service": "mobile_app_<your-phone>",
+  "routines": {"morning": {"turn_on": ["light.example_lamp", "switch.example_shelf_lights"], "report": ["weather", "calendar"]},
+               "night": {"turn_off": ["light.example_lamp", "switch.example_shelf_lights", "media_player.example_tv"]}},
   "timezone": "America/New_York"
 }
