@@ -35,9 +35,9 @@ def run(name, io):
 
 
 def test_phrases_are_whole_utterance_and_need_config():
-    for t in ("Good morning", "good morning!", "Hey Nina, good night", "goodnight", "good night Nina"):
+    for t in ("Good morning", "good morning!", "Hey Nina, good night", "goodnight", "good night Nina", "Morning.", "hey nina morning"):
         assert routines.parse(t) in ("morning", "night")
-    for t in ("good morning what's the weather", "say good night to the kids", "good morning america"):
+    for t in ("good morning what's the weather", "say good night to the kids", "good morning america", "morning meeting", "night"):
         assert routines.parse(t) == ""
     assert routines.owns("good morning", CFG) == "morning"
     assert routines.owns("good morning", {}) == "" and routines.owns("good morning", None) == ""
@@ -79,3 +79,14 @@ def test_config_problems():
     assert routines.problems(CFG) == []
     bad = {"night": {"turn_off": ["lock.front_door"], "report": ["news"], "explode": []}}
     assert len(routines.problems(bad)) == 3
+
+
+def test_good_night_routine_wins_over_the_goodbye_but_only_when_configured(monkeypatch):
+    import tools
+    from needle_voice.session import DISMISS_RE
+    assert DISMISS_RE.search("good night")                                  # the built-in goodbye still matches the words
+    monkeypatch.setattr(tools, "ROUTINES", CFG)
+    assert tools.routine_owns("Good night") and tools.routine_owns("hey nina good night")
+    assert not tools.routine_owns("ok thanks good night") and not tools.routine_owns("good night everyone")
+    monkeypatch.setattr(tools, "ROUTINES", {})
+    assert not tools.routine_owns("good night")

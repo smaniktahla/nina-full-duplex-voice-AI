@@ -588,7 +588,9 @@ class Session:
             return
         if text:
             self.dismiss_buf = (self.dismiss_buf + " " + text)[-160:]
-            if self.sess.check_dismissal(self.dismiss_buf):
+            if tools_mod.routine_owns((self.user_buf + " " + text).strip()):
+                self.dismiss_buf = ""                                    # "good night" as a routine is a request, not a goodbye
+            elif self.sess.check_dismissal(self.dismiss_buf):
                 log("DISMISSED by: %r" % self.dismiss_buf[-60:])
                 self.dismiss_buf = ""
                 self.interrupt("dismissal")
@@ -603,6 +605,16 @@ class Session:
         if RESPONDER and self.resp_task is not None and not self.resp_task.done():
             if text:
                 self.pol.commit(text, text, "", "silent")                  # input keeps flowing (user_buf above); the reply in progress owns the output
+            return
+        if (not text and self.user_buf and silent_ms >= CFG["tick_ms"] and not self.stt.in_utt and not self.stt.pending
+                and tools_mod.routine_owns(self.user_buf)):
+            # a finished "good morning" / "good night": code runs the routine. The tick model must not get to decide (it picks silence for a bare greeting).
+            said, self.user_buf = self.user_buf, ""
+            log("   (routine request %r: starting @routine)" % said)
+            self.sess.add_turn("user", said)
+            self.notes.capture("user", said)
+            self.pol.commit(said, said, "", "silent")
+            self.start_tool("routine", said)
             return
         if self.answer_open and text and not is_backchannel(text):
             self.answer_open = False

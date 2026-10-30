@@ -695,6 +695,12 @@ async def clock_request(http, text):
     return "[DONE] " + answer(household.get("timezone"))
 
 
+def routine_owns(text):
+    """Is this whole utterance a configured routine phrase? ('good night' is also a goodbye: the routine must win over the dismissal.)"""
+    import routines
+    return routines.owns(text, ROUTINES)
+
+
 async def routine_request(http, text):
     """'good morning' / 'good night': the configured devices (verified, routines.py), then the spoken reports. Same reply convention as ha_say."""
     import routines
