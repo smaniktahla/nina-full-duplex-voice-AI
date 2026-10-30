@@ -35,9 +35,9 @@ def run(name, io):
 
 
 def test_phrases_are_whole_utterance_and_need_config():
-    for t in ("Good morning", "good morning!", "Hey Nina, good night", "goodnight", "good night Nina"):
+    for t in ("Good morning", "good morning!", "Hey Nina, good night", "goodnight", "good night Nina", "Morning.", "hey nina morning"):
         assert routines.parse(t) in ("morning", "night")
-    for t in ("good morning what's the weather", "say good night to the kids", "good morning america"):
+    for t in ("good morning what's the weather", "say good night to the kids", "good morning america", "morning meeting", "night"):
         assert routines.parse(t) == ""
     assert routines.owns("good morning", CFG) == "morning"
     assert routines.owns("good morning", {}) == "" and routines.owns("good morning", None) == ""

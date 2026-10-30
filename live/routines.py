@@ -15,13 +15,14 @@ DOMAINS = {"light", "switch", "media_player"}
 ACTIONS = {"turn_on": "on", "turn_off": "off"}
 REPORTS = ("weather", "calendar")
 _PHRASE = re.compile(r"(?:(?:hey )?nina )?(?:please )?good ?(morning|night)(?: nina)?")
+_BARE_MORNING = re.compile(r"(?:(?:hey )?nina )?morning(?: nina)?")        # speech recognition sometimes clips the leading 'good'
 
 
 def parse(text):
     """'morning' | 'night' | '' for a bare greeting-style request. Whole utterance only: 'good morning, what's the weather' is a weather question."""
     t = " ".join(re.sub(r"[^a-z' ]", " ", (text or "").lower().replace("’", "'")).split())
     m = _PHRASE.fullmatch(t)
-    return m.group(1) if m else ""
+    return m.group(1) if m else "morning" if _BARE_MORNING.fullmatch(t) else ""
 
 
 def owns(text, cfg):
