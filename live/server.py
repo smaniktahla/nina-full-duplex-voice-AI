@@ -467,6 +467,7 @@ class Session:
                              weather(self.http, g) if k == "weather" else calendar(self.http, g) if k == "calendar" else
                              tools_mod.timer_request(self.http, g) if k == "timer" else
                              tools_mod.clock_request(self.http, g) if k == "clock" else
+                             tools_mod.routine_request(self.http, g) if k == "routine" else
                              tools_mod.random_request(self.http, g) if k == "random" else
                              tools_mod.display_request(self.http, g, offered=tools_mod.offer_fresh()) if k == "display" else
                              tools_mod.nav_request(self.http, g) if k == "nav" else
@@ -532,7 +533,7 @@ class Session:
         if action == "notes":
             self.notes.handle(arg)
             return
-        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer", "clock"):
+        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer", "clock", "routine"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
             return
@@ -739,7 +740,7 @@ class Session:
             if not self.answer_open:
                 self.cont_n = 0
             claimed = tools_mod.claim(user_said or "") if (RESPONDER and not events and not tool) else ""
-            if claimed in ("display", "nav", "random", "timer", "clock"):
+            if claimed in ("display", "nav", "random", "timer", "clock", "routine"):
                 # show/close the route, distance and travel time, coin/dice: code and a tool answer; the model cannot know and must not guess
                 log("   (%s request without a tool tag: starting @%s)" % (claimed, claimed))
                 self.start_tool(claimed, user_said)
