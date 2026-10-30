@@ -588,7 +588,9 @@ class Session:
             return
         if text:
             self.dismiss_buf = (self.dismiss_buf + " " + text)[-160:]
-            if self.sess.check_dismissal(self.dismiss_buf):
+            if tools_mod.routine_owns((self.user_buf + " " + text).strip()):
+                self.dismiss_buf = ""                                    # "good night" as a routine is a request, not a goodbye
+            elif self.sess.check_dismissal(self.dismiss_buf):
                 log("DISMISSED by: %r" % self.dismiss_buf[-60:])
                 self.dismiss_buf = ""
                 self.interrupt("dismissal")
