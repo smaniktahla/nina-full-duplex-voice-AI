@@ -604,7 +604,8 @@ async def calendar(http, when="today"):
         try:
             async with http.get(HA_URL + "/api/calendars/" + ent, headers=_hdr(), timeout=aiohttp.ClientTimeout(total=10),
                                 params={"start": start.isoformat(), "end": end.isoformat()}) as r:
-                return [(e, ent) for e in await r.json()]
+                data = await r.json()
+                return [(e, ent) for e in data] if isinstance(data, list) else []     # one calendar erroring (HA answers 500 {"message": ...}) must not break the rest
         except Exception:
             return []
 
