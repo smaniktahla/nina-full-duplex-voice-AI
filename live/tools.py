@@ -723,6 +723,9 @@ async def routine_request(http, text):
 
     speech, ok = await routines.run(name, ROUTINES, IO())
     out = ("[DONE] " if ok else "[NOT DONE] ") + speech
-    for rep in ROUTINES[name].get("report", []):
+    reports = ROUTINES[name].get("report", [])
+    for rep in reports:
         out += " || " + ("Weather: " + await weather(http, "today") if rep == "weather" else "Schedule: " + await calendar(http, "today"))
-    return out + " (say the devices result in one short sentence, then the weather, then the schedule)"
+    if reports:
+        out += " (say the devices result in one short sentence, then " + ", then ".join("the " + ("weather" if r == "weather" else "schedule") for r in reports) + ")"
+    return out
