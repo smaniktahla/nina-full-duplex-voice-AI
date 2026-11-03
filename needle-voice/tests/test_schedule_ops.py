@@ -147,7 +147,7 @@ def test_asks_for_missing_title_and_time():
 def test_unknown_speaker_is_asked_which_calendar():
     cfg, st, log = mk()
     r = say("add lunch tomorrow at noon to my calendar", cfg, st, speaker=None)
-    assert r.speech == "Which calendar should I use?"
+    assert r.speech.startswith("Which calendar")
     r = say("the family calendar", cfg, st, speaker=None, t=2)
     assert "the Family calendar" in r.speech
     say("yes", cfg, st, speaker=None, t=3)
@@ -284,3 +284,25 @@ def test_titles_may_contain_edit_words():
     assert s.parse_intent("add cancel netflix to my calendar tomorrow at 9 am") == "create"
     assert s.parse_intent("add nina test delete me to my calendar on march 14th at 10 am") == "create"
     assert s.parse_intent("cancel my dentist appointment") == "" and s.parse_intent("hey nina, please delete the lunch event") == ""
+
+
+def test_preface_is_ignored_and_calendar_answers_are_forgiving():
+    cfg, st, log = mk()
+    r = say("Yeah, what's up? Hey, can you add an event for tomorrow on my calendar at 11 am?", cfg, st, speaker=None)
+    assert r.speech == "What should I call it?"
+    r = say("Haircut", cfg, st, speaker=None, t=2)
+    assert r.speech == "Which calendar: the Family calendar, or Salil's calendar?"
+    r = say("Salil's calendar", cfg, st, speaker=None, t=3)
+    assert r.speech.startswith("I'll add Haircut to Salil's calendar tomorrow at 11 AM")
+    st.pending = None
+    say("add lunch tomorrow at noon to my calendar", cfg, st, speaker=None, t=10)
+    assert say("family", cfg, st, speaker=None, t=11).speech.startswith("I'll add Lunch to the Family calendar")
+
+
+def test_default_calendar_when_speaker_unknown_and_none_named():
+    cfg, st, log = mk()
+    cfg.default_calendar = "calendar.salil"
+    r = say("add lunch tomorrow at noon to my calendar", cfg, st, speaker=None)
+    assert "Salil's calendar" in r.speech                                   # still named in the read-back
+    st.pending = None
+    assert "the Family calendar" in say("put lunch on the family calendar tomorrow at noon", cfg, st, speaker=None, t=5).speech     # naming one overrides

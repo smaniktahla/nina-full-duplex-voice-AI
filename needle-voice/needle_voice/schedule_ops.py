@@ -89,6 +89,7 @@ class SchedConfig:
     calendars: dict = field(default_factory=dict)         # spoken alias (lowercase) -> calendar id
     labels: dict = field(default_factory=dict)            # calendar id -> spoken label
     speaker_calendars: dict = field(default_factory=dict)  # speaker name (lowercase) -> calendar id
+    default_calendar: str = ""                            # used when the speaker is not recognised and no calendar was named ("" = ask)
     create_event: CreateEvent | None = None
     event_exists: EventExists | None = None
     delete_event: DeleteEvent | None = None
@@ -247,6 +248,9 @@ def parse_create(text: str, now: dt.datetime, intent: str | None = None) -> Draf
     """Pull title / time / duration / calendar out of one utterance. Missing slots stay empty/None; the handler asks for them."""
     intent = intent or parse_intent(text)
     work = _LEAD.sub("", text or "").strip()
+    first = _REMIND.search(work) if intent == "remind" else _CREATE.search(work)
+    if first:
+        work = work[first.start():]                  # drop anything said before the request ("Yeah, what's up? Hey, can you add ...")
     d = Draft(kind="reminder" if intent == "remind" else "event")
     m = _REMIND.search(work) if intent == "remind" else None
     if m:
@@ -461,6 +465,11 @@ def _res(status: Status, speech: str, code: str, **tel) -> ToolResult:
     return ToolResult(status, speech, reason=code, telemetry={"code": code, **tel}, domain="schedule")
 
 
+def _which(cfg: SchedConfig) -> str:
+    labels = [cfg.labels[c] for c in dict.fromkeys(cfg.calendars.values()) if c in cfg.labels]
+    return "Which calendar: %s?" % (", ".join(labels[:-1]) + ", or " + labels[-1] if len(labels) > 1 else labels[0]) if labels else "Which calendar should I use?"
+
+
 def _resolve_calendar(d: Draft, speaker: str | None, cfg: SchedConfig) -> "ToolResult | None":
     """Fill d.calendar. -> None when resolved, else a ToolResult (unknown name / need to ask)."""
     if d.calendar_name:
@@ -470,10 +479,11 @@ def _resolve_calendar(d: Draft, speaker: str | None, cfg: SchedConfig) -> "ToolR
         d.calendar = cid
         return None
     cid = cfg.speaker_calendars.get((speaker or "").lower())
+    cid = cid or cfg.default_calendar
     if cid:
         d.calendar = cid
         return None
-    return _res(Status.AMBIGUOUS, "Which calendar should I use?", "ask_calendar")
+    return _res(Status.AMBIGUOUS, _which(cfg), "ask_calendar")
 
 
 def _next_step(d: Draft, st: SchedState, speaker: str | None, cfg: SchedConfig, now: dt.datetime, now_s: float) -> ToolResult:
@@ -607,9 +617,10 @@ async def _pending_turn(text: str, p: Pending, st: SchedState, cfg: SchedConfig,
         nd.duration = nd.duration or d.duration
         d = _finish(nd)
     elif p.stage == "calendar":
-        name = re.sub(r"(?i)^(?:the |my |on |to |in )+|\s*calendar$", "", (text or "").strip()).strip().lower()
-        cid = cfg.calendars.get(name)
+        name = re.sub(r"(?i)^(?:the |my |on |to |in |it'?s |put it on |use )+|\s*calendar$", "", (text or "").strip(" .,!?")).strip().lower()
+        name = re.sub(r"(?i)'s$", "", name).strip()
+        cid = cfg.calendars.get(name) or cfg.calendars.get(name.split(" ")[0]) if name else None
         if not cid:
-            return _res(Status.AMBIGUOUS, "I don't have a calendar called %s. Which one?" % name if name else "Which calendar?", "ask_calendar_again")
+            return _res(Status.AMBIGUOUS, _which(cfg), "ask_calendar_again")
         d.calendar_name, d.calendar = name, cid
     return _next_step(d, st, speaker, cfg, now, now_s)

@@ -55,7 +55,7 @@ def test_read_back_then_yes_writes_to_the_speakers_calendar(monkeypatch):
 
 def test_unrecognised_speaker_is_asked_and_never_defaulted(monkeypatch):
     cfg, log = setup(monkeypatch)
-    assert say(ADD, cfg, who=None) == "Which calendar should I use?"
+    assert say(ADD, cfg, who=None) == "Which calendar: Alex's calendar, or the Family calendar?"
     assert say("the family calendar", cfg, who=None).startswith("I'll add Dentist appointment to the Family calendar")
     assert say("yes", cfg, who=None) and log["created"][0].calendar == "calendar.family"
 
@@ -65,3 +65,11 @@ def test_errors_are_spoken_not_raised(monkeypatch):
     cfg.create_event = None
     say(ADD, cfg)
     assert "can't reach your calendar" in say("yes", cfg)
+
+
+def test_default_calendar_from_household_config(monkeypatch):
+    cfg, log = setup(monkeypatch, {**SCHED, "default_calendar": "alex"})
+    real = tools.schedule_cfg(None)
+    assert real.default_calendar == "calendar.alex"
+    cfg.default_calendar = real.default_calendar
+    assert "Alex's calendar" in say(ADD, cfg, who=None)
