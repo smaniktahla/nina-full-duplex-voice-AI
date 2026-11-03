@@ -278,3 +278,9 @@ def test_future_dates_carry_their_own_dst_offset():
     d = s.parse_create("add dentist on march 14th 2028 at 10 am to my calendar", winter)
     assert d.start.utcoffset() == dt.timedelta(hours=-4) and d.start.hour == 10 and d.end.hour == 11      # EDT (-4), wall clock kept
     assert s.parse_create("add dentist tomorrow at 10 am", winter).start.utcoffset() == dt.timedelta(hours=-5)
+
+
+def test_titles_may_contain_edit_words():
+    assert s.parse_intent("add cancel netflix to my calendar tomorrow at 9 am") == "create"
+    assert s.parse_intent("add nina test delete me to my calendar on march 14th at 10 am") == "create"
+    assert s.parse_intent("cancel my dentist appointment") == "" and s.parse_intent("hey nina, please delete the lunch event") == ""

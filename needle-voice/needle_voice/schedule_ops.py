@@ -111,7 +111,7 @@ def parse_intent(text: str) -> str:
     if _REMIND.search(t):
         return "remind"
     m = _CREATE.search(t)
-    if m and _THING.search(t) and not re.search(r"(?i)\b(?:move|reschedule|cancel|delete)\b", t):
+    if m and _THING.search(t) and not re.match(r"(?i)^\W*(?:(?:hey,?\s+)?nina,?\s*)?(?:please\s+|can you\s+|could you\s+)?(?:move|reschedule|cancel|delete|remove)\b", t):          # a title may contain "cancel"
         return "create"
     return ""
 
