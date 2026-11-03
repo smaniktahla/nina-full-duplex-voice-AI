@@ -379,6 +379,15 @@ def schedule_owns(text):
     return schedule_configured() and schedule_ops.owns(text, schedule_state(), time.monotonic())
 
 
+def schedule_awaiting():
+    """True while Nina has asked a scheduling question (confirm / which calendar) that is still inside its window."""
+    if not schedule_configured():
+        return False
+    p = schedule_state().pending
+    from needle_voice import schedule_ops
+    return bool(p) and time.monotonic() - p.t <= schedule_ops.PENDING_TTL_S
+
+
 def schedule_cfg(http=None):
     """SchedConfig: the household's calendar allowlist plus three closures over Needle's executor (the only module that may write to HA)."""
     from needle_voice import schedule_ops, executor

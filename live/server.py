@@ -156,6 +156,7 @@ class Session:
         self.t0 = self.loop.time()
         self.stt = StreamingSTT(shared_model=sh.whisper, executor=sh.stt_pool, on_event=self.on_stt,
                                 sens=float(os.environ.get("SENS", "0.4")), hotwords=tools_mod.stt_hotwords())
+        self.stt.keep_trivial = tools_mod.schedule_awaiting
         self.tts = TtsModel()
         self.tts.WPS = 2.6
         self.reset_conv()
@@ -640,6 +641,16 @@ class Session:
             self.notes.capture("user", said)
             self.pol.commit(said, said, "", "silent")
             self.start_tool("routine", said)
+            return
+        if (not text and self.user_buf and silent_ms >= CFG["tick_ms"] and not self.stt.in_utt and not self.stt.pending
+                and tools_mod.schedule_awaiting() and tools_mod.schedule_owns(self.user_buf)):
+            # the answer to Nina's scheduling question ("yes", "make it 4", "no"): code handles it. The tick model picks silence for a bare "yes".
+            said, self.user_buf = self.user_buf, ""
+            log("   (schedule reply %r: starting @schedule)" % said)
+            self.sess.add_turn("user", said)
+            self.notes.capture("user", said)
+            self.pol.commit(said, said, "", "silent")
+            self.start_tool("schedule", said)
             return
         if self.answer_open and text and not is_backchannel(text):
             self.answer_open = False

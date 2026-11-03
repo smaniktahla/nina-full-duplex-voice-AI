@@ -100,7 +100,8 @@ _REMIND = re.compile(r"(?i)\bremind (?:me|us)\b\s*(?:to |about |that )?(?P<rest>
 _CREATE = re.compile(r"(?i)\b(?:add|create|make|schedule|book|put|set up|set)\b\s+(?P<rest>.+)")
 _THING = re.compile(r"(?i)\b(?:calendar|event|appointment|meeting|reminder|call)\b|^\s*(?:schedule|book)\b|\b(?:schedule|book)\s+(?:a|an|the)\b")
 _UNDO = re.compile(r"(?i)^\W*(?:undo(?: that| it)?|take that back|delete that|remove that|cancel that one|scratch that)\W*$")
-_YES = re.compile(r"(?i)^\W*(?:yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|confirm|confirmed|correct|that'?s right|please do|sounds good|yes please)\b\W*$")
+_YES_W = r"(?:yes|yeah|yep|yup|sure|ok|okay|do it|go ahead|go for it|confirm|confirmed|correct|that'?s (?:right|correct)|please do|please|sounds good|perfect|great|thanks|thank you)"
+_YES = re.compile(r"(?i)^\W*" + _YES_W + r"(?:\W+" + _YES_W + r")*\W*$")       # "yes, go ahead" / "yeah that's right, thanks"; "yes but make it 4" is not a confirmation
 _NO = re.compile(r"(?i)^\W*(?:no|nope|nah|cancel|never ?mind|forget it|don'?t|stop|abort|scratch that)\b\W*")
 
 
