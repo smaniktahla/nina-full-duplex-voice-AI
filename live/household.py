@@ -38,6 +38,7 @@ DEFAULTS = {
     "stt_vocabulary": [],                       # extra words/names the speech recogniser should expect (places are included automatically)
     "phone_notify_service": "",                 # "mobile_app_<phone>": where 'send it to my phone' pushes directions (empty = off, the button is hidden)
     "routines": {},                             # spoken routines, see live/routines.py: {"morning": {"turn_on": [entity ids], "report": ["weather", "calendar"]}, "night": {"turn_off": [...]}}
+    "schedule": {},                             # voice scheduling, see live/tools.py: {"calendars": {"alias": "calendar.x"}, "labels": {"calendar.x": "Salil's calendar"}, "speaker_calendars": {"speaker_id": "calendar.x"}}; empty = off
     "timezone": "America/New_York",             # note dates/times are written in this zone
 }
 

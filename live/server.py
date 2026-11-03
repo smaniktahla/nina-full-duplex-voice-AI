@@ -228,7 +228,7 @@ class Session:
             asyncio.ensure_future(self.send(t="stt", kind=kind, text=text, id=self.utt_n))
             audio = getattr(self.stt, "final_audio", None)
             if audio is not None and text.strip():
-                asyncio.ensure_future(self.label_speaker(self.utt_n, audio))
+                self.spk_task = asyncio.ensure_future(self.label_speaker(self.utt_n, audio))
         else:
             asyncio.ensure_future(self.send(t="stt", kind=kind, text=text))
         if kind == "partial":
@@ -471,6 +471,7 @@ class Session:
                              tools_mod.random_request(self.http, g) if k == "random" else
                              tools_mod.display_request(self.http, g, offered=tools_mod.offer_fresh()) if k == "display" else
                              tools_mod.nav_request(self.http, g) if k == "nav" else
+                             self.schedule_turn(g) if k == "schedule" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
                 return
@@ -482,12 +483,36 @@ class Session:
             self.sess.finish_task(j["id"])
             dt = (self.now() - j["t0"]) / 1000
             log("TOOL #%d %s done in %.1fs (rev %d) req=%s: %s" % (j["id"], j["kind"], dt, rev, (tools_mod._home.get("last_rid") if j["kind"] == "ha" else "-"), res[:160]))
+            if j["kind"] == "schedule":
+                # a read-back / confirmation is spoken exactly as code wrote it: the reply model must not paraphrase a time, title or calendar
+                j["told"] = True
+                self.sess.task_told(j["id"])
+                self.convo_add("user", j["goal"])
+                self.convo_add("assistant", res)
+                self.sess.add_turn("assistant", res)
+                self.speak(res, final=True)
+                self.set_state("SPEAKING")
+                await self.send(t="assistant", text=res)
             await self.send(t="tool", id=j["id"], kind=j["kind"], task=self.job_title(j), status="done", secs=round(dt, 1))
 
         t = asyncio.ensure_future(run())
         j["aio"] = t
         self.job_tasks.add(t)
         t.add_done_callback(self.job_tasks.discard)
+
+    async def schedule_turn(self, text):
+        """One scheduling turn. The speaker is whoever speaker recognition identified for THIS utterance (waited for briefly); unknown = Nina asks which calendar."""
+        who = None
+        task = getattr(self, "spk_task", None)
+        if task is not None:
+            try:
+                await asyncio.wait_for(asyncio.shield(task), 2.5)
+            except Exception:                                                # noqa: BLE001
+                pass
+            spk = getattr(self, "spk", None)
+            if spk and spk.get("id") and self.now() / 1000 - spk["t"] < 30:
+                who = spk["id"]
+        return await tools_mod.schedule_request(self.http, text, who)
 
     def start_tool(self, kind, task):
         st = self.sess.add_task(kind, task)
@@ -533,7 +558,7 @@ class Session:
         if action == "notes":
             self.notes.handle(arg)
             return
-        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer", "clock", "routine"):
+        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer", "clock", "routine", "schedule"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
             return
@@ -752,7 +777,7 @@ class Session:
             if not self.answer_open:
                 self.cont_n = 0
             claimed = tools_mod.claim(user_said or "") if (RESPONDER and not events and not tool) else ""
-            if claimed in ("display", "nav", "random", "timer", "clock", "routine"):
+            if claimed in ("display", "nav", "random", "timer", "clock", "routine", "schedule"):
                 # show/close the route, distance and travel time, coin/dice: code and a tool answer; the model cannot know and must not guess
                 log("   (%s request without a tool tag: starting @%s)" % (claimed, claimed))
                 self.start_tool(claimed, user_said)
@@ -930,12 +955,15 @@ class Session:
     async def label_speaker(self, uid, audio):
         """Who said utterance `uid`? Evidence for the transcript label only (no routing, no permissions); never delays the reply."""
         sp = getattr(self.sh, "speaker", None)
+        self.spk = None                                                      # the previous utterance's speaker never answers for this one
         if sp is None or not sp.enabled():
             return
         r = await sp.identify((np.clip(audio, -1, 1) * 32767).astype(np.int16).tobytes())
         if not r or not r.get("profiles") or r["status"] == "insufficient_audio":
             return
         log("SPEAKER utt %d: %s %s score=%.2f margin=%.2f" % (uid, r["status"], r.get("speaker_id") or "-", r["score"], r["margin"]))
+        if r["status"] == "identified" and r.get("speaker_id"):
+            self.spk = {"id": r["speaker_id"], "t": self.now() / 1000}
         await self.send(t="speaker", id=uid, status=r["status"], name=r.get("name"), score=r["score"], margin=r["margin"])
 
     async def greet(self):

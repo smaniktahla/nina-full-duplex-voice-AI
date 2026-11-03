@@ -42,7 +42,7 @@ _GENERIC = frozenset({"event", "appointment", "meeting", "reminder", "call", "th
 
 CreateEvent = Callable[["Draft"], Awaitable["str | None"]]          # -> "" or a uid once the write was accepted, None when it failed
 EventExists = Callable[["Draft", str], Awaitable["str | None"]]     # observed on the calendar? -> its uid ("" if unknown), None if not seen
-DeleteEvent = Callable[[str, str], Awaitable[bool]]                 # (calendar, uid) -> gone?
+DeleteEvent = Callable[[str, str, dt.datetime, dt.datetime], Awaitable[bool]]   # (calendar, uid, start, end) -> observed gone?
 
 
 @dataclass
@@ -73,6 +73,8 @@ class Undo:
     uid: str
     title: str
     t: float
+    start: dt.datetime | None = None
+    end: dt.datetime | None = None
 
 
 @dataclass
@@ -109,7 +111,7 @@ def parse_intent(text: str) -> str:
     if _REMIND.search(t):
         return "remind"
     m = _CREATE.search(t)
-    if m and _THING.search(t) and not re.search(r"(?i)\b(?:move|reschedule|cancel|delete)\b", t):
+    if m and _THING.search(t) and not re.match(r"(?i)^\W*(?:(?:hey,?\s+)?nina,?\s*)?(?:please\s+|can you\s+|could you\s+)?(?:move|reschedule|cancel|delete|remove)\b", t):          # a title may contain "cancel"
         return "create"
     return ""
 
@@ -349,8 +351,9 @@ def length_words(span: dt.timedelta) -> str:
     return "%d minutes" % mins if mins < 60 else "%d hours %d minutes" % divmod(mins, 60)
 
 
-def readback(d: Draft, now: dt.datetime, cal_label: str, own: bool) -> str:
-    where = "your calendar" if own else "the %s calendar" % cal_label
+def readback(d: Draft, now: dt.datetime, where: str) -> str:
+    """`where` is the spoken calendar phrase from cfg.labels ("Salil's calendar"). The calendar is ALWAYS named, never "your calendar":
+    the default comes from speaker recognition, and a wrong guess must be audible before the yes."""
     day = day_words(d.start, now)
     if d.kind == "reminder":
         return "I'll remind you to %s %s at %s. Is that right?" % (d.title[:1].lower() + d.title[1:], day, clock(d.start))
@@ -360,10 +363,10 @@ def readback(d: Draft, now: dt.datetime, cal_label: str, own: bool) -> str:
     return "I'll add %s to %s %s at %s for %s%s. Is that right?" % (d.title, where, day, clock(d.start), length_words(d.end - d.start), loc)
 
 
-def done_words(d: Draft, now: dt.datetime) -> str:
+def done_words(d: Draft, now: dt.datetime, where: str = "the calendar") -> str:
     if d.kind == "reminder":
         return "Done. I'll remind you %s at %s." % (day_words(d.start, now), clock(d.start))
-    return "Done. %s is on the calendar for %s%s." % (d.title, day_words(d.start, now), "" if d.all_day else " at " + clock(d.start))
+    return "Done. %s is on %s for %s%s." % (d.title, where, day_words(d.start, now), "" if d.all_day else " at " + clock(d.start))
 
 
 # ----------------------------------------------------------------------------------------------- reply classification (pure)
@@ -429,6 +432,30 @@ def patch(d: Draft, text: str, now: dt.datetime) -> Draft | None:
     return _finish(nd)
 
 
+_QUESTION = re.compile(r"(?i)^\W*(?:what|what's|whats|how|when|where|who|why|which|is|are|do|does|did|can|could|will|should|tell me)\b")
+
+
+def owns(text: str, st: SchedState, now_s: float) -> bool:
+    """Should the voice server hand this utterance to handle()? A fresh request, "undo that" while there is something to undo, or a plausible
+    reply to a pending question (so an unrelated question during the 60 s window still goes where it belongs)."""
+    t = text or ""
+    intent = parse_intent(t)
+    if intent == "undo":
+        return bool(st.undo and now_s - st.undo.t <= UNDO_TTL_S)
+    if intent:
+        return True
+    p = st.pending
+    if not p or now_s - p.t > PENDING_TTL_S:
+        return False
+    if p.stage == "confirm":
+        now = dt.datetime.now().astimezone()
+        if classify_reply(t) != "other" or _LOC_ASK.match(t):
+            return True
+        # a correction is short and is not a question ("what's the weather tomorrow" must not be read as "tomorrow instead")
+        return len(t.split()) <= 9 and not _QUESTION.match(t) and patch(p.draft, t, now) is not None
+    return len(t.split()) <= 10 and classify_reply(t) in ("other", "no")
+
+
 # ----------------------------------------------------------------------------------------------- the handler
 def _res(status: Status, speech: str, code: str, **tel) -> ToolResult:
     return ToolResult(status, speech, reason=code, telemetry={"code": code, **tel}, domain="schedule")
@@ -467,9 +494,8 @@ def _next_step(d: Draft, st: SchedState, speaker: str | None, cfg: SchedConfig, 
         if miss:
             st.pending = Pending(d, "calendar", now_s, speaker) if miss.status is Status.AMBIGUOUS else None
             return miss
-    own = d.calendar == cfg.speaker_calendars.get((speaker or "").lower())
     st.pending = Pending(d, "confirm", now_s, speaker)
-    return _res(Status.AMBIGUOUS, readback(d, now, cfg.labels.get(d.calendar, d.calendar_name or "that"), own), "confirm_pending", kind=d.kind)
+    return _res(Status.AMBIGUOUS, readback(d, now, cfg.labels.get(d.calendar, "that calendar")), "confirm_pending", kind=d.kind)
 
 
 async def _write(p: Pending, st: SchedState, cfg: SchedConfig, now: dt.datetime, now_s: float) -> ToolResult:
@@ -492,10 +518,10 @@ async def _write(p: Pending, st: SchedState, cfg: SchedConfig, now: dt.datetime,
         found = None
     seen = found is not None
     uid = found or uid
-    r = (_res(Status.SUCCESS, done_words(d, now), "created", kind=d.kind) if seen else
+    r = (_res(Status.SUCCESS, done_words(d, now, cfg.labels.get(d.calendar, "the calendar")), "created", kind=d.kind) if seen else
          _res(Status.UNVERIFIED, "I sent it, but I couldn't confirm it landed. Please check your calendar.", "created_unverified", kind=d.kind))
     r.side_effect = True
-    st.undo = Undo(d.calendar, uid, d.title, now_s) if uid else None
+    st.undo = Undo(d.calendar, uid, d.title, now_s, d.start, d.end) if uid else None
     return r
 
 
@@ -506,7 +532,7 @@ async def _undo(st: SchedState, cfg: SchedConfig, now_s: float) -> ToolResult:
     if not cfg.delete_event:
         return _res(Status.UNAVAILABLE, "I can't remove things from your calendar yet.", "undo_not_configured")
     try:
-        gone = await cfg.delete_event(u.calendar, u.uid)
+        gone = await cfg.delete_event(u.calendar, u.uid, u.start, u.end)
     except Exception:                                                       # noqa: BLE001
         gone = False
     if not gone:
@@ -525,6 +551,8 @@ async def handle(text: str, st: SchedState, cfg: SchedConfig, speaker: str | Non
     p = st.pending
     if p and now_s - p.t > PENDING_TTL_S:
         st.pending = p = None
+    if p and parse_intent(text) in ("create", "remind"):
+        st.pending = p = None                                   # a fresh, complete request replaces the half-finished one
     if p:
         return await _pending_turn(text, p, st, cfg, speaker, now, now_s)
     intent = parse_intent(text)

@@ -18,5 +18,8 @@
   "phone_notify_service": "mobile_app_<your-phone>",
   "routines": {"morning": {"turn_on": ["light.example_lamp", "switch.example_shelf_lights"], "report": ["weather", "calendar"]},
                "night": {"turn_off": ["light.example_lamp", "switch.example_shelf_lights", "media_player.example_tv"]}},
+  "schedule": {"calendars": {"alex": "calendar.alex_example", "family": "calendar.family"},
+               "labels": {"calendar.alex_example": "Alex's calendar", "calendar.family": "the Family calendar"},
+               "speaker_calendars": {"alex": "calendar.alex_example"}},
   "timezone": "America/New_York"
 }
