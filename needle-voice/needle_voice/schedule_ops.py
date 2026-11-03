@@ -40,8 +40,8 @@ _NUMS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, 
 _NUM = r"(?:\d+|" + "|".join(sorted((re.escape(k) for k in _NUMS), key=len, reverse=True)) + r")"
 _GENERIC = frozenset({"event", "appointment", "meeting", "reminder", "call", "thing", "something", "entry"})
 
-CreateEvent = Callable[["Draft"], Awaitable["str | None"]]          # -> uid, or None when the write failed
-EventExists = Callable[["Draft", str], Awaitable[bool]]             # did the event show up on that calendar?
+CreateEvent = Callable[["Draft"], Awaitable["str | None"]]          # -> "" or a uid once the write was accepted, None when it failed
+EventExists = Callable[["Draft", str], Awaitable["str | None"]]     # observed on the calendar? -> its uid ("" if unknown), None if not seen
 DeleteEvent = Callable[[str, str], Awaitable[bool]]                 # (calendar, uid) -> gone?
 
 
@@ -484,16 +484,18 @@ async def _write(p: Pending, st: SchedState, cfg: SchedConfig, now: dt.datetime,
         uid = await cfg.create_event(d)
     except Exception as e:                                                  # noqa: BLE001
         return _res(Status.EXECUTION_FAILED, "I couldn't add that, and nothing was saved.", "create_error", err=type(e).__name__)
-    if not uid:
+    if uid is None:
         return _res(Status.EXECUTION_FAILED, "I couldn't add that, and nothing was saved.", "create_failed")
     try:
-        seen = await cfg.event_exists(d, uid)
+        found = await cfg.event_exists(d, uid)
     except Exception:                                                       # noqa: BLE001
-        seen = False
+        found = None
+    seen = found is not None
+    uid = found or uid
     r = (_res(Status.SUCCESS, done_words(d, now), "created", kind=d.kind) if seen else
          _res(Status.UNVERIFIED, "I sent it, but I couldn't confirm it landed. Please check your calendar.", "created_unverified", kind=d.kind))
     r.side_effect = True
-    st.undo = Undo(d.calendar, uid, d.title, now_s)
+    st.undo = Undo(d.calendar, uid, d.title, now_s) if uid else None
     return r
 
 

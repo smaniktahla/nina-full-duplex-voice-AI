@@ -302,6 +302,97 @@ async def execute_notify(hass: Any, service: str, title: str, message: str, app_
     return True
 
 
+# --------------------------------------------------------------------------
+# calendar writes: create / find / delete on an ALLOWLISTED calendar entity, nothing else
+# --------------------------------------------------------------------------
+# Fixed table: calendar.create_event (service) and calendar/event/delete (websocket). No update, no recurring-series changes, no free-form
+# service names. `allowed` is the household's calendar allowlist; the entity must be in it. Callers (schedule_ops) decide WHEN; this decides WHAT.
+
+_CAL_ENTITY = re.compile(r"^calendar\.[a-z0-9_]+$")
+_CAL_UID = re.compile(r"^[A-Za-z0-9@_.+=-]{1,256}$")
+CAL_VERIFY_TRIES, CAL_VERIFY_DELAY_S = 4, 1.0
+
+
+def _calendar_checked(entity_id: Any, allowed: Any) -> str:
+    if not isinstance(entity_id, str) or not _CAL_ENTITY.match(entity_id) or entity_id not in set(allowed or ()):
+        raise ExecutionError("calendar_refused")
+    return entity_id
+
+
+async def execute_calendar_create(hass: Any, entity_id: str, allowed: Any, summary: str, start: Any, end: Any, all_day: bool = False,
+                                  location: str = "", description: str = "", context: Any = None) -> bool:
+    """Create ONE event. True once HA accepted the call; the caller must observe it (find_calendar_event) before claiming success."""
+    _calendar_checked(entity_id, allowed)
+    summary = str(summary or "").strip()[:120]
+    if not summary or end <= start:
+        raise ExecutionError("calendar_bad_event")
+    data: dict = {"entity_id": entity_id, "summary": summary}
+    if all_day:
+        data.update(start_date=start.date().isoformat(), end_date=end.date().isoformat())
+    else:
+        data.update(start_date_time=start.isoformat(timespec="seconds"), end_date_time=end.isoformat(timespec="seconds"))
+    if location:
+        data["location"] = str(location)[:200]
+    if description:
+        data["description"] = str(description)[:500]
+    try:
+        await hass.services.async_call("calendar", "create_event", data, blocking=True, context=context)
+    except Exception as e:  # noqa: BLE001
+        raise ExecutionError(f"service_call_failed:{type(e).__name__}") from e
+    return True
+
+
+async def find_calendar_event(hass: Any, entity_id: str, allowed: Any, summary: str, start: Any, end: Any, all_day: bool = False,
+                              tries: int = CAL_VERIFY_TRIES, delay_s: float = CAL_VERIFY_DELAY_S) -> "str | None":
+    """READ-ONLY: look for an event with this title and start on the calendar. -> its uid ('' if HA gave none), None if not seen.
+    Polls briefly because Google Calendar can lag a moment behind create_event."""
+    import datetime as dt
+    _calendar_checked(entity_id, allowed)
+    lo, hi = start - dt.timedelta(minutes=1), end + dt.timedelta(minutes=1)
+    for i in range(max(1, tries)):
+        rows = await hass.calendar_events(entity_id, lo.isoformat(timespec="seconds"), hi.isoformat(timespec="seconds"))
+        for r in rows if isinstance(rows, list) else []:
+            if not isinstance(r, dict) or str(r.get("summary") or "").strip() != str(summary).strip():
+                continue
+            raw = r.get("start")
+            raw = raw.get("date" if all_day else "dateTime") if isinstance(raw, dict) else raw
+            try:
+                got = dt.datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            same = got.date() == start.date() if all_day else (got.tzinfo is not None and abs((got - start).total_seconds()) < 60)
+            if same and not r.get("rrule") and not r.get("recurrence_id"):
+                uid = r.get("uid")
+                return uid if isinstance(uid, str) and _CAL_UID.match(uid) else ""
+        if i + 1 < tries:
+            await asyncio.sleep(delay_s)
+    return None
+
+
+async def execute_calendar_delete(hass: Any, entity_id: str, allowed: Any, uid: str) -> bool:
+    """Delete ONE non-recurring event by uid (websocket calendar/event/delete). True once HA reported success; observe with calendar_event_gone."""
+    _calendar_checked(entity_id, allowed)
+    if not isinstance(uid, str) or not _CAL_UID.match(uid):
+        raise ExecutionError("calendar_bad_uid")
+    await hass.ws_command({"type": "calendar/event/delete", "entity_id": entity_id, "uid": uid})
+    return True
+
+
+async def calendar_event_gone(hass: Any, entity_id: str, allowed: Any, uid: str, start: Any, end: Any,
+                              tries: int = CAL_VERIFY_TRIES, delay_s: float = CAL_VERIFY_DELAY_S) -> bool:
+    """READ-ONLY: True once no event with this uid remains in [start, end]."""
+    import datetime as dt
+    _calendar_checked(entity_id, allowed)
+    for i in range(max(1, tries)):
+        rows = await hass.calendar_events(entity_id, (start - dt.timedelta(minutes=1)).isoformat(timespec="seconds"),
+                                          (end + dt.timedelta(minutes=1)).isoformat(timespec="seconds"))
+        if not any(isinstance(r, dict) and r.get("uid") == uid for r in rows if isinstance(rows, list)):
+            return True
+        if i + 1 < tries:
+            await asyncio.sleep(delay_s)
+    return False
+
+
 def _is_available(hass: Any, entity_id: str) -> bool:
     st = hass.states.get(entity_id)
     return st is not None and str(st.state) != "unavailable"
@@ -552,8 +643,8 @@ class _Services:
 
 
 class RestHass:
-    def __init__(self, base: str, token: str, timeout: float = 10.0):
-        self.base, self.timeout = base.rstrip("/"), timeout
+    def __init__(self, base: str, token: str, timeout: float = 10.0, ws_transport: Any = None):
+        self.base, self.timeout, self.ws_transport = base.rstrip("/"), timeout, ws_transport
         self.headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
         self.states, self.services = _States(), _Services(self)
 
@@ -582,6 +673,14 @@ class RestHass:
         if not isinstance(rows, list):
             raise ExecutionError("rest_malformed_response")
         return rows
+
+    async def ws_command(self, payload: dict) -> Any:
+        """One authenticated websocket command (HA has no REST route for some calendar operations). The transport is injected because this
+        module is stdlib-only; live/ha_ws.py supplies it. Raises ExecutionError on any failure."""
+        if self.ws_transport is None:
+            raise ExecutionError("ws_unavailable")
+        url = self.base.replace("https://", "wss://", 1).replace("http://", "ws://", 1) + "/api/websocket"
+        return await self.ws_transport(url, self.headers["Authorization"].split(" ", 1)[1], payload, self.timeout)
 
     @staticmethod
     def _to_state(x: Any) -> "_State | None":

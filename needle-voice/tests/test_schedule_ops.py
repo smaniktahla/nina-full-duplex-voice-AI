@@ -15,7 +15,7 @@ def mk(**kw):
         return kw.get("uid", "u1")
 
     async def exists(d, uid):
-        return kw.get("exists", True)
+        return uid if kw.get("exists", True) else None
 
     async def delete(cal, uid):
         log["deleted"].append((cal, uid))

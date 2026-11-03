@@ -253,3 +253,106 @@ def test_show_page_refuses_anything_else_before_calling(path, hold):
 def test_show_page_failure_is_an_execution_error():
     with pytest.raises(ExecutionError):
         asyncio.run(ex.execute_show_page(FakeHass(fail_on=("script", "turn_on")), "/kiosk-agenda/agenda", 60))
+
+
+# ---------------------------------------------------------------------------------------------- calendar writes (VS-2)
+import datetime as _dt
+_TZ = _dt.timezone(_dt.timedelta(hours=-4))
+_S = _dt.datetime(2026, 10, 15, 15, tzinfo=_TZ)
+_E = _S + _dt.timedelta(hours=1)
+_ALLOWED = {"calendar.salil"}
+
+
+class CalHass(FakeHass):
+    def __init__(self, rows=None, ws_fail=False, **kw):
+        super().__init__(**kw)
+        self.rows, self.ws, self.ws_fail, self.reads = rows or [], [], ws_fail, 0
+
+    async def calendar_events(self, eid, a, b):
+        self.reads += 1
+        return list(self.rows)
+
+    async def ws_command(self, payload):
+        self.ws.append(payload)
+        if self.ws_fail:
+            raise ExecutionError("ws_rejected:x")
+        self.rows = [r for r in self.rows if r.get("uid") != payload["uid"]]
+
+
+def test_calendar_create_sends_one_fixed_call():
+    h = CalHass()
+    assert asyncio.run(ex.execute_calendar_create(h, "calendar.salil", _ALLOWED, "Dentist", _S, _E, location="Smile Dental", description="nina:reminder"))
+    assert h.calls and len(h.calls) == 1
+    c = h.calls[0]
+    assert (c[0], c[1]) == ("calendar", "create_event") and c[2]["start_date_time"] == "2026-10-15T15:00:00-04:00" and c[2]["location"] == "Smile Dental"
+
+
+def test_calendar_all_day_uses_dates():
+    h = CalHass()
+    asyncio.run(ex.execute_calendar_create(h, "calendar.salil", _ALLOWED, "Anniversary", _S.replace(hour=0), _S.replace(hour=0) + _dt.timedelta(days=1), all_day=True))
+    assert h.calls[0][2]["start_date"] == "2026-10-15" and h.calls[0][2]["end_date"] == "2026-10-16" and "start_date_time" not in h.calls[0][2]
+
+
+@pytest.mark.parametrize("eid", ["calendar.other", "light.kitchen_a", "calendar.salil; x", "", None])
+def test_calendar_refuses_calendars_outside_the_allowlist(eid):
+    h = CalHass()
+    for fn, args in ((ex.execute_calendar_create, ("x", _S, _E)), (ex.execute_calendar_delete, ("abc",)), (ex.find_calendar_event, ("x", _S, _E))):
+        with pytest.raises(ExecutionError, match="calendar_refused"):
+            asyncio.run(fn(h, eid, _ALLOWED, *args))
+    assert not h.calls and not h.ws
+
+
+def test_calendar_create_rejects_bad_events_and_surfaces_failures():
+    with pytest.raises(ExecutionError, match="calendar_bad_event"):
+        asyncio.run(ex.execute_calendar_create(CalHass(), "calendar.salil", _ALLOWED, "x", _E, _S))
+    with pytest.raises(ExecutionError, match="service_call_failed"):
+        asyncio.run(ex.execute_calendar_create(CalHass(fail_on=("calendar", "create_event")), "calendar.salil", _ALLOWED, "x", _S, _E))
+
+
+def _row(uid="u1", summary="Dentist", start="2026-10-15T15:00:00-04:00", **kw):
+    return {"uid": uid, "summary": summary, "start": {"dateTime": start}, "end": {"dateTime": "2026-10-15T16:00:00-04:00"}, **kw}
+
+
+def test_find_event_matches_title_and_start_and_skips_recurring():
+    h = CalHass([_row("a", "Other"), _row("b", start="2026-10-15T16:00:00-04:00"), _row("c", rrule="FREQ=WEEKLY"), _row("d")])
+    assert asyncio.run(ex.find_calendar_event(h, "calendar.salil", _ALLOWED, "Dentist", _S, _E, tries=1)) == "d"
+    h = CalHass([_row("a", "Other")])
+    assert asyncio.run(ex.find_calendar_event(h, "calendar.salil", _ALLOWED, "Dentist", _S, _E, tries=3, delay_s=0)) is None and h.reads == 3
+    assert asyncio.run(ex.find_calendar_event(CalHass([_row(uid=None)]), "calendar.salil", _ALLOWED, "Dentist", _S, _E, tries=1)) == ""
+
+
+def test_find_event_matches_across_timezones_and_all_day():
+    h = CalHass([_row(start="2026-10-15T19:00:00Z")])
+    assert asyncio.run(ex.find_calendar_event(h, "calendar.salil", _ALLOWED, "Dentist", _S, _E, tries=1)) == "u1"
+    h = CalHass([{"uid": "ad", "summary": "Anniv", "start": {"date": "2026-10-15"}, "end": {"date": "2026-10-16"}}])
+    assert asyncio.run(ex.find_calendar_event(h, "calendar.salil", _ALLOWED, "Anniv", _S.replace(hour=0), _S.replace(hour=0), True, tries=1)) == "ad"
+
+
+def test_delete_then_observe_gone():
+    h = CalHass([_row("u1")])
+    assert asyncio.run(ex.execute_calendar_delete(h, "calendar.salil", _ALLOWED, "u1"))
+    assert h.ws == [{"type": "calendar/event/delete", "entity_id": "calendar.salil", "uid": "u1"}]
+    assert asyncio.run(ex.calendar_event_gone(h, "calendar.salil", _ALLOWED, "u1", _S, _E, tries=1))
+    h = CalHass([_row("u1")])
+    assert not asyncio.run(ex.calendar_event_gone(h, "calendar.salil", _ALLOWED, "u1", _S, _E, tries=2, delay_s=0))
+
+
+def test_delete_rejects_odd_uids_and_reports_ws_failure():
+    h = CalHass([_row("u1")], ws_fail=True)
+    for bad in ("", "a b", "x" * 300, None, "u1; drop"):
+        with pytest.raises(ExecutionError, match="calendar_bad_uid"):
+            asyncio.run(ex.execute_calendar_delete(h, "calendar.salil", _ALLOWED, bad))
+    with pytest.raises(ExecutionError, match="ws_rejected"):
+        asyncio.run(ex.execute_calendar_delete(h, "calendar.salil", _ALLOWED, "u1"))
+
+
+def test_resthass_ws_command_uses_injected_transport():
+    seen = {}
+
+    async def transport(url, token, payload, timeout):
+        seen.update(url=url, token=token, payload=payload)
+        return "ok"
+    h = ex.RestHass("http://ha.local:8123/", "T0K", ws_transport=transport)
+    assert asyncio.run(h.ws_command({"type": "x"})) == "ok" and seen["url"] == "ws://ha.local:8123/api/websocket" and seen["token"] == "T0K"
+    with pytest.raises(ExecutionError, match="ws_unavailable"):
+        asyncio.run(ex.RestHass("http://ha.local:8123", "T").ws_command({"type": "x"}))
