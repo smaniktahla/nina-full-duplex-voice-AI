@@ -146,6 +146,8 @@ def test_route_intercept_sees_each_utterance_once():
 
 
 def test_stt_gets_the_household_names_as_hotwords(monkeypatch):
+    real = tools.household.get
+    monkeypatch.setattr(tools.household, "get", lambda k, d=None: [] if k == "stt_vocabulary" else real(k, d))      # the real household.json may carry its own words
     monkeypatch.setattr(tools, "PLACES", {"Takoda Beer Garden": "", "Example Cafe": "x"})
     assert tools.stt_hotwords().startswith("Takoda Beer Garden, Example Cafe")
     monkeypatch.setattr(tools, "PLACES", {}); assert tools.stt_hotwords() == ""
