@@ -643,10 +643,11 @@ class Session:
             self.start_tool("routine", said)
             return
         if (not text and self.user_buf and silent_ms >= CFG["tick_ms"] and not self.stt.in_utt and not self.stt.pending
-                and tools_mod.schedule_awaiting() and tools_mod.schedule_owns(self.user_buf)):
-            # the answer to Nina's scheduling question ("yes", "make it 4", "no"): code handles it. The tick model picks silence for a bare "yes".
+                and tools_mod.schedule_owns(self.user_buf)):
+            # a finished scheduling request or the answer to Nina's question ("yes", "make it 4", "no", "undo that"): code handles it.
+            # The tick model must not get to decide (it picks silence for a bare "yes", and "Sure." for a request it then drops).
             said, self.user_buf = self.user_buf, ""
-            log("   (schedule reply %r: starting @schedule)" % said)
+            log("   (schedule utterance %r: starting @schedule)" % said)
             self.sess.add_turn("user", said)
             self.notes.capture("user", said)
             self.pol.commit(said, said, "", "silent")
@@ -791,6 +792,7 @@ class Session:
             if claimed in ("display", "nav", "random", "timer", "clock", "routine", "schedule"):
                 # show/close the route, distance and travel time, coin/dice: code and a tool answer; the model cannot know and must not guess
                 log("   (%s request without a tool tag: starting @%s)" % (claimed, claimed))
+                self.user_buf = ""                                          # the direct hand-off in the tick must not start it a second time
                 self.start_tool(claimed, user_said)
                 return
             if claimed in ("calendar", "weather"):
