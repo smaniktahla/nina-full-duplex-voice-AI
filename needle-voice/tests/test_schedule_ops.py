@@ -213,3 +213,43 @@ def test_no_telemetry_leaks_titles():
     cfg, st, _ = mk()
     r = say("add secret surprise party tomorrow at 7 pm to my calendar", cfg, st)
     assert "surprise" not in repr(r.telemetry).lower()
+
+
+def test_location_in_creation():
+    d = s.parse_create("add dentist appointment at Smile Dental tomorrow at 3 pm to my calendar", NOW)
+    assert d.title == "Dentist appointment" and d.location == "Smile Dental" and d.start.hour == 15
+    d = s.parse_create("put dinner on the family calendar friday at 6 pm, the location is Luigi's on Main Street", NOW)
+    assert d.title == "Dinner" and d.location == "Luigi's on Main Street" and d.calendar_name == "family"
+    assert s.parse_create("add lunch tomorrow at noon to my calendar", NOW).location == ""
+    assert s.parse_create("remind me to look at the stars at 9 pm", NOW).location == ""
+
+
+def test_location_in_readback_and_saved():
+    cfg, st, log = mk()
+    r = say("add dentist at Smile Dental tomorrow at 3 pm to my calendar", cfg, st)
+    assert "location Smile Dental" in r.speech
+    say("yes", cfg, st, t=2)
+    assert log["created"][0].location == "Smile Dental"
+
+
+def test_add_edit_and_clear_location_while_confirming():
+    cfg, st, log = mk()
+    say("add dentist tomorrow at 3 pm to my calendar", cfg, st)
+    assert say("add a location", cfg, st, t=2).speech == "Where is it?"
+    r = say("Smile Dental on Oak Street", cfg, st, t=3)
+    assert "location Smile Dental on Oak Street" in r.speech
+    r = say("the location is the Takoda Beer Garden", cfg, st, t=4)
+    assert "location the Takoda Beer Garden" in r.speech and "Oak" not in r.speech
+    r = say("remove the location", cfg, st, t=5)
+    assert "location" not in r.speech and not log["created"]
+    say("put it at the office", cfg, st, t=6)
+    say("yes", cfg, st, t=7)
+    assert log["created"][0].location == "office"
+
+
+def test_location_question_can_be_declined():
+    cfg, st, log = mk()
+    say("add dentist tomorrow at 3 pm to my calendar", cfg, st)
+    say("add a location", cfg, st, t=2)
+    r = say("no", cfg, st, t=3)
+    assert "Is that right" in r.speech and not log["created"]

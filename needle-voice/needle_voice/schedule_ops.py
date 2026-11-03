@@ -27,6 +27,7 @@ UNDO_TTL_S = 300.0
 DEFAULT_MINUTES = 60
 REMINDER_MINUTES = 15
 MAX_TITLE = 120
+MAX_LOCATION = 200
 PAST_GRACE = dt.timedelta(minutes=5)
 HORIZON = dt.timedelta(days=730)
 MAX_DURATION = dt.timedelta(hours=24)
@@ -219,6 +220,27 @@ def _clean_title(s: str) -> str:
     return (s[:1].upper() + s[1:]) if s else ""
 
 
+_LOC_MARK = re.compile(r"(?i)\b(?:the\s+)?(?:location|address)\s*(?:is|of|to|:)?\s+(?:at\s+)?(?P<l>\S.*)$")
+_LOC_AT = re.compile(r"(?i)\bat\s+(?P<l>(?!\d)\S.*)$")
+_LOC_CLEAR = re.compile(r"(?i)\b(?:no|remove|clear|delete|without|drop)\b.*\blocation\b|\blocation\b.*\b(?:remove|clear|delete|none)\b")
+_LOC_ASK = re.compile(r"(?i)^\W*(?:(?:can you |please )?(?:add|set|give it|put|include)\s+)?(?:with\s+)?(?:a|the)\s+(?:location|address)\W*$|^\W*(?:add|set)\s+(?:a\s+)?(?:location|address)\W*$")
+
+
+def _clean_loc(s: str) -> str:
+    s = re.sub(r"\s+", " ", s or "").strip(" ,.;:!?-")
+    s = re.sub(r"(?i)^(?:it'?s |it is |at |in |the location is )+", "", s).strip(" ,.;:!?-")
+    s = re.sub(r"(?i)(?:\s+(?:on|at|for|in|to|and|by|around|my|the|a|an|of|from))+$", "", s).strip(" ,.;:!?-")
+    return s[:MAX_LOCATION]
+
+
+def _split_location(work: str):
+    """Event text left after time words are gone -> (text_without_location, location)."""
+    m = _LOC_MARK.search(work) or _LOC_AT.search(work)
+    if not m:
+        return work, ""
+    return work[:m.start()], _clean_loc(m.group("l"))
+
+
 def parse_create(text: str, now: dt.datetime, intent: str | None = None) -> Draft:
     """Pull title / time / duration / calendar out of one utterance. Missing slots stay empty/None; the handler asks for them."""
     intent = intent or parse_intent(text)
@@ -237,6 +259,8 @@ def parse_create(text: str, now: dt.datetime, intent: str | None = None) -> Draf
         work = _cut(work, allday)
     date, rel, work = _parse_date(work, now)
     clk, work = _parse_clock(work)
+    if intent != "remind":
+        work, d.location = _split_location(work)
     d.title = _clean_title(work)
     if d.title.lower() in _GENERIC and intent != "remind":
         d.title = ""
@@ -282,6 +306,8 @@ def validate(d: Draft, now: dt.datetime) -> str:
         return "bad_title"
     if d.start is None or d.end is None:
         return "no_time"
+    if len(d.location) > MAX_LOCATION:
+        return "bad_title"
     if d.end <= d.start or d.end - d.start > MAX_DURATION + (dt.timedelta(days=1) if d.all_day else dt.timedelta()):
         return "bad_duration"
     floor = day_start(now) if d.all_day else now - PAST_GRACE
@@ -329,8 +355,9 @@ def readback(d: Draft, now: dt.datetime, cal_label: str, own: bool) -> str:
     if d.kind == "reminder":
         return "I'll remind you to %s %s at %s. Is that right?" % (d.title[:1].lower() + d.title[1:], day, clock(d.start))
     if d.all_day:
-        return "I'll add %s to %s for %s, all day. Is that right?" % (d.title, where, day)
-    return "I'll add %s to %s %s at %s for %s. Is that right?" % (d.title, where, day, clock(d.start), length_words(d.end - d.start))
+        return "I'll add %s to %s for %s, all day%s. Is that right?" % (d.title, where, day, ", location " + d.location if d.location else "")
+    loc = ", location %s" % d.location if d.location else ""
+    return "I'll add %s to %s %s at %s for %s%s. Is that right?" % (d.title, where, day, clock(d.start), length_words(d.end - d.start), loc)
 
 
 def done_words(d: Draft, now: dt.datetime) -> str:
@@ -355,6 +382,14 @@ def patch(d: Draft, text: str, now: dt.datetime) -> Draft | None:
     work = re.sub(r"(?i)^\W*(?:no,?\s*|actually,?\s*|wait,?\s*|make it|change it to|change that to|move it to|let'?s (?:say|do)|instead)\b", " ", text or "")
     work = re.sub(r"(?i)\binstead\b", " ", work)
     nd = Draft(**{**d.__dict__})
+    if d.kind == "event":
+        if _LOC_CLEAR.search(text or ""):
+            nd.location = ""
+            return nd
+        m = _LOC_MARK.search(text or "") or re.search(r"(?i)\b(?:put|set|have|hold|make) it (?:at|in)\s+(?P<l>\S.*)$", text or "")
+        if m and _clean_loc(m.group("l")):
+            nd.location = _clean_loc(m.group("l"))
+            return nd
     m = re.search(r"(?i)\b(?:call it|name it|title it|rename it to|it'?s called)\s+(?P<t>.+)", work)
     if m:
         nd.title = _clean_title(m.group("t"))
@@ -367,6 +402,10 @@ def patch(d: Draft, text: str, now: dt.datetime) -> Draft | None:
         if bare and 1 <= int(bare.group(1)) <= 12 and int(bare.group(2) or 0) < 60:
             clk = (int(bare.group(1)), int(bare.group(2) or 0), False)
     if not (clk or date or rel is not None or dur):
+        m = re.match(r"(?i)^\W*(?:at|in)\s+(?P<l>\S.*)$", text or "")
+        if m and d.kind == "event" and _clean_loc(m.group("l")):
+            nd.location = _clean_loc(m.group("l"))
+            return nd
         return None
     if dur:
         nd.duration = dur
@@ -499,6 +538,15 @@ async def _pending_turn(text: str, p: Pending, st: SchedState, cfg: SchedConfig,
     d = p.draft
     speaker = p.speaker or speaker
     kind = classify_reply(text)
+    if p.stage == "location":
+        if kind == "no" or _LOC_CLEAR.search(text or ""):
+            p.stage = "confirm"
+        else:
+            d.location = _clean_loc(text)
+        return _next_step(d, st, speaker, cfg, now, now_s)
+    if p.stage == "confirm" and d.kind == "event" and _LOC_ASK.match(text or ""):
+        st.pending = Pending(d, "location", now_s, speaker)
+        return _res(Status.AMBIGUOUS, "Where is it?", "ask_location")
     if kind == "no" and p.stage in ("confirm", "title", "time", "calendar"):
         st.pending = None
         return _res(Status.CANCELLED, "Okay, I won't add it.", "declined")
