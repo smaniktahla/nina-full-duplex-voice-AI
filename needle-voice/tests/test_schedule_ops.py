@@ -269,3 +269,12 @@ def test_new_request_replaces_half_finished_one():
     say("add haircut to my calendar", cfg, st)                       # asks when
     r = say("add dinner tomorrow at 6 pm to my calendar", cfg, st, t=2)
     assert "Dinner" in r.speech and st.pending.stage == "confirm"
+
+
+def test_future_dates_carry_their_own_dst_offset():
+    import zoneinfo
+    ny = zoneinfo.ZoneInfo("America/New_York")
+    winter = dt.datetime(2026, 11, 2, 9, 0, tzinfo=ny)                       # EST (-5)
+    d = s.parse_create("add dentist on march 14th 2028 at 10 am to my calendar", winter)
+    assert d.start.utcoffset() == dt.timedelta(hours=-4) and d.start.hour == 10 and d.end.hour == 11      # EDT (-4), wall clock kept
+    assert s.parse_create("add dentist tomorrow at 10 am", winter).start.utcoffset() == dt.timedelta(hours=-5)

@@ -417,7 +417,10 @@ async def schedule_request(http, text, speaker=None, cfg=None):
     """Spoken scheduling turn -> schedule_ops. Returns the exact words to SAY (the server speaks them verbatim: a read-back must not be paraphrased)."""
     from needle_voice import schedule_ops
     try:
-        res = await schedule_ops.handle(text, schedule_state(), cfg or schedule_cfg(http), speaker, None, time.monotonic())
+        import datetime as dt, zoneinfo
+        # a real time zone, not "now's UTC offset": an event next spring must carry next spring's offset (daylight saving)
+        now = dt.datetime.now(zoneinfo.ZoneInfo(str(household.get("timezone") or "America/New_York")))
+        res = await schedule_ops.handle(text, schedule_state(), cfg or schedule_cfg(http), speaker, now, time.monotonic())
     except Exception as e:                                                   # noqa: BLE001
         print("schedule failed:", type(e).__name__, str(e)[:80], flush=True)
         return "Sorry, I couldn't do that just now."
