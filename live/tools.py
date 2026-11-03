@@ -360,12 +360,77 @@ async def agenda_popup(http, events, days, title, now):
         print("agenda popup failed:", type(e).__name__, str(e)[:80], flush=True)
 
 
+# ---------------------------------------------------------------- voice scheduling (Needle's schedule_ops: add events / reminders, read back, yes, verify)
+SCHEDULE = household.get("schedule") or {}
+_sched = {}
+
+
+def schedule_configured():
+    return bool(SCHEDULE.get("calendars"))
+
+
+def schedule_state():
+    from needle_voice import schedule_ops
+    return _sched.setdefault("st", schedule_ops.SchedState())
+
+
+def schedule_owns(text):
+    from needle_voice import schedule_ops
+    return schedule_configured() and schedule_ops.owns(text, schedule_state(), time.monotonic())
+
+
+def schedule_cfg(http=None):
+    """SchedConfig: the household's calendar allowlist plus three closures over Needle's executor (the only module that may write to HA)."""
+    from needle_voice import schedule_ops, executor
+    import ha_ws
+    cals = {str(k).lower(): v for k, v in (SCHEDULE.get("calendars") or {}).items()}
+    allowed = set(cals.values())
+    hass = executor.RestHass(HA_URL, _ha_token(), ws_transport=ha_ws.ws_command)
+
+    async def create(d):
+        try:
+            await executor.execute_calendar_create(hass, d.calendar, allowed, d.title, d.start, d.end, d.all_day, d.location,
+                                                   "nina:reminder" if d.kind == "reminder" else "Added by Nina")
+        except executor.ExecutionError as e:
+            # a timeout may still have created it: let the read-back decide (UNVERIFIED if unseen). Anything else was refused before or by HA.
+            return "" if "rest_timeout" in str(e.__cause__ or "") else None
+        return ""
+
+    async def exists(d, uid):
+        try:
+            return await executor.find_calendar_event(hass, d.calendar, allowed, d.title, d.start, d.end, d.all_day)
+        except executor.ExecutionError:
+            return None
+
+    async def delete(cal, uid, start, end):
+        try:
+            await executor.execute_calendar_delete(hass, cal, allowed, uid)
+            return await executor.calendar_event_gone(hass, cal, allowed, uid, start, end)
+        except executor.ExecutionError:
+            return False
+    return schedule_ops.SchedConfig(calendars=cals, labels=dict(SCHEDULE.get("labels") or {}),
+                                    speaker_calendars={str(k).lower(): v for k, v in (SCHEDULE.get("speaker_calendars") or {}).items()},
+                                    create_event=create, event_exists=exists, delete_event=delete)
+
+
+async def schedule_request(http, text, speaker=None, cfg=None):
+    """Spoken scheduling turn -> schedule_ops. Returns the exact words to SAY (the server speaks them verbatim: a read-back must not be paraphrased)."""
+    from needle_voice import schedule_ops
+    try:
+        res = await schedule_ops.handle(text, schedule_state(), cfg or schedule_cfg(http), speaker, None, time.monotonic())
+    except Exception as e:                                                   # noqa: BLE001
+        print("schedule failed:", type(e).__name__, str(e)[:80], flush=True)
+        return "Sorry, I couldn't do that just now."
+    print("schedule: %s %s" % (res.status.value, res.reason), flush=True)
+    return res.speech or "Sorry, I didn't catch that."
+
+
 def claim(text):
     """Which deterministic tool claims this request ('' = none): claims.claim with this server's state (active route, fresh offer, what is configured)."""
     import claims
     if _timer.owns(text):
         return "timer"
-    return claims.claim(text, store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh(), routine_cfg=ROUTINES)
+    return claims.claim(text, schedule=schedule_owns(text), store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh(), routine_cfg=ROUTINES)
 
 
 def display_owns(text, offered=False):

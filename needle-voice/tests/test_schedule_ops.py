@@ -17,10 +17,10 @@ def mk(**kw):
     async def exists(d, uid):
         return uid if kw.get("exists", True) else None
 
-    async def delete(cal, uid):
+    async def delete(cal, uid, start, end):
         log["deleted"].append((cal, uid))
         return kw.get("gone", True)
-    cfg = SchedConfig(calendars={"family": "calendar.family", "salil": "calendar.salil"}, labels={"calendar.family": "Family", "calendar.salil": "Salil"},
+    cfg = SchedConfig(calendars={"family": "calendar.family", "salil": "calendar.salil"}, labels={"calendar.family": "the Family calendar", "calendar.salil": "Salil's calendar"},
                       speaker_calendars={"salil": "calendar.salil"}, create_event=create, event_exists=exists, delete_event=delete)
     return cfg, SchedState(), log
 
@@ -87,10 +87,10 @@ def test_reminder_title_and_length():
 def test_create_read_back_then_yes_writes_once():
     cfg, st, log = mk()
     r = say("add dentist appointment to my calendar tomorrow at 3 pm", cfg, st)
-    assert r.status is Status.AMBIGUOUS and "your calendar tomorrow at 3 PM for an hour" in r.speech and not log["created"]
+    assert r.status is Status.AMBIGUOUS and "Salil's calendar tomorrow at 3 PM for an hour" in r.speech and not log["created"]
     r = say("yes", cfg, st, t=5)
     assert r.status is Status.SUCCESS and r.side_effect and len(log["created"]) == 1 and log["created"][0].calendar == "calendar.salil"
-    assert "Dentist appointment is on the calendar for tomorrow at 3 PM" in r.speech
+    assert "Dentist appointment is on Salil's calendar for tomorrow at 3 PM" in r.speech
     assert say("yes", cfg, st, t=6).status is Status.UNSUPPORTED and len(log["created"]) == 1
 
 
@@ -253,3 +253,19 @@ def test_location_question_can_be_declined():
     say("add a location", cfg, st, t=2)
     r = say("no", cfg, st, t=3)
     assert "Is that right" in r.speech and not log["created"]
+
+
+def test_owns_only_plausible_turns():
+    cfg, st, _ = mk()
+    assert s.owns("add lunch tomorrow at noon to my calendar", st, 0) and not s.owns("what's the weather", st, 0)
+    assert not s.owns("undo that", st, 0) and not s.owns("yes", st, 0)
+    say("add lunch tomorrow at noon to my calendar", cfg, st)
+    assert s.owns("yes", st, 1) and s.owns("make it 1 pm", st, 1) and s.owns("add a location", st, 1)
+    assert not s.owns("what's the weather", st, 1) and not s.owns("yes", st, 1 + s.PENDING_TTL_S + 1)
+
+
+def test_new_request_replaces_half_finished_one():
+    cfg, st, log = mk()
+    say("add haircut to my calendar", cfg, st)                       # asks when
+    r = say("add dinner tomorrow at 6 pm to my calendar", cfg, st, t=2)
+    assert "Dinner" in r.speech and st.pending.stage == "confirm"

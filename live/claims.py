@@ -8,6 +8,7 @@ weather, random. '' means nobody claims it: it goes to the reply model / Hermes 
   calendar  what is on the calendar, where/when is an appointment
   weather   forecast and current-conditions questions
   random    coin, dice, numbers, picks
+  schedule  add / remind (and answers to its read-back); needs the household's `schedule` calendars. Caller passes schedule_ops.owns().
   routine   'good morning' / 'good night': the household's configured device list, then spoken reports (routines.py)
 
 Pure; the callers pass the state (active route store, fresh offer) and which tools are configured.
@@ -74,10 +75,12 @@ def weather_question(text: str) -> bool:
     return bool(WEATHER_RE.search(t)) and not WEATHER_FOLLOWUP.search(t)
 
 
-def claim(text: str, *, store=None, offered: bool = False, display: bool = True, nav: bool = True, places: dict = None, agenda_fresh: bool = False, routine_cfg: dict = None) -> str:
+def claim(text: str, *, schedule: bool = False, store=None, offered: bool = False, display: bool = True, nav: bool = True, places: dict = None, agenda_fresh: bool = False, routine_cfg: dict = None) -> str:
     t = text or ""
     if clock_tool.owns(t):
         return "clock"
+    if schedule:                                                       # decided by schedule_ops.owns (pending question / fresh request / undo)
+        return "schedule"
     if routines.owns(t, routine_cfg):
         return "routine"
     if display and display_ops.owns(t, store, offered):
