@@ -244,7 +244,7 @@ def test_add_edit_and_clear_location_while_confirming():
     assert "location" not in r.speech and not log["created"]
     say("put it at the office", cfg, st, t=6)
     say("yes", cfg, st, t=7)
-    assert log["created"][0].location == "office"
+    assert log["created"][0].location == "the office"
 
 
 def test_location_question_can_be_declined():
