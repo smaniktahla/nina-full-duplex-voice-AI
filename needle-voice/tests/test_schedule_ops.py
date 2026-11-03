@@ -297,3 +297,12 @@ def test_preface_is_ignored_and_calendar_answers_are_forgiving():
     st.pending = None
     say("add lunch tomorrow at noon to my calendar", cfg, st, speaker=None, t=10)
     assert say("family", cfg, st, speaker=None, t=11).speech.startswith("I'll add Lunch to the Family calendar")
+
+
+def test_default_calendar_when_speaker_unknown_and_none_named():
+    cfg, st, log = mk()
+    cfg.default_calendar = "calendar.salil"
+    r = say("add lunch tomorrow at noon to my calendar", cfg, st, speaker=None)
+    assert "Salil's calendar" in r.speech                                   # still named in the read-back
+    st.pending = None
+    assert "the Family calendar" in say("put lunch on the family calendar tomorrow at noon", cfg, st, speaker=None, t=5).speech     # naming one overrides

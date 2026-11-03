@@ -89,6 +89,7 @@ class SchedConfig:
     calendars: dict = field(default_factory=dict)         # spoken alias (lowercase) -> calendar id
     labels: dict = field(default_factory=dict)            # calendar id -> spoken label
     speaker_calendars: dict = field(default_factory=dict)  # speaker name (lowercase) -> calendar id
+    default_calendar: str = ""                            # used when the speaker is not recognised and no calendar was named ("" = ask)
     create_event: CreateEvent | None = None
     event_exists: EventExists | None = None
     delete_event: DeleteEvent | None = None
@@ -478,6 +479,7 @@ def _resolve_calendar(d: Draft, speaker: str | None, cfg: SchedConfig) -> "ToolR
         d.calendar = cid
         return None
     cid = cfg.speaker_calendars.get((speaker or "").lower())
+    cid = cid or cfg.default_calendar
     if cid:
         d.calendar = cid
         return None

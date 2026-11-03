@@ -410,6 +410,7 @@ def schedule_cfg(http=None):
             return False
     return schedule_ops.SchedConfig(calendars=cals, labels=dict(SCHEDULE.get("labels") or {}),
                                     speaker_calendars={str(k).lower(): v for k, v in (SCHEDULE.get("speaker_calendars") or {}).items()},
+                                    default_calendar=cals.get(str(SCHEDULE.get("default_calendar") or "").lower(), SCHEDULE.get("default_calendar") or "") if SCHEDULE.get("default_calendar") else "",
                                     create_event=create, event_exists=exists, delete_event=delete)
 
 
