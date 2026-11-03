@@ -306,3 +306,12 @@ def test_default_calendar_when_speaker_unknown_and_none_named():
     assert "Salil's calendar" in r.speech                                   # still named in the read-back
     st.pending = None
     assert "the Family calendar" in say("put lunch on the family calendar tomorrow at noon", cfg, st, speaker=None, t=5).speech     # naming one overrides
+
+
+def test_dotted_times_and_part_of_day_cues():
+    now = dt.datetime(2026, 11, 3, 11, 36).astimezone()
+    for text, hh, mm in (("add dentist appointment tonight at 8.30 pm", 20, 30), ("dentist appointment tonight at 8:30", 20, 30),
+                         ("add dentist appointment at 8:30 tonight", 20, 30), ("add dentist appointment this evening at 7", 19, 0),
+                         ("add dentist appointment tomorrow morning at 8", 8, 0), ("add dentist appointment tomorrow at 8.15 am", 8, 15)):
+        d = s.parse_create(text, now)
+        assert d and (d.start.hour, d.start.minute) == (hh, mm) and not s.validate(d, now), text
