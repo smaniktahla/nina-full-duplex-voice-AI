@@ -379,6 +379,15 @@ def schedule_owns(text):
     return schedule_configured() and schedule_ops.owns(text, schedule_state(), time.monotonic())
 
 
+def schedule_utterance(buf, last_final):
+    """What to hand to @schedule: the latest finished utterance when it is one (the buffer holds everything said since Nina last spoke, so room chatter
+    would be glued onto the request or answer), else the whole buffer (a request the speaker paused in the middle of). '' = not for the scheduler."""
+    for t in (last_final, buf):
+        if t and t.strip() and schedule_owns(t):
+            return t.strip()
+    return ""
+
+
 def schedule_awaiting():
     """True while Nina has asked a scheduling question (confirm / which calendar) that is still inside its window."""
     if not schedule_configured():
