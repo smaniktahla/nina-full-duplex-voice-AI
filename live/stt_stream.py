@@ -67,6 +67,7 @@ class StreamingSTT:
         self.vad_thr, self.end_ms, self.max_utt, self.decode_every = vad_thr, end_ms, max_utt_s, decode_every
         self.on_event = on_event or (lambda *a, **k: None)      # on_event(kind, text) kind in partial|final|speech_start
         self.boost = 1.0                                         # raise while the assistant is speaking (echo residue)
+        self.keep_trivial = lambda: False                        # True while a question is open: a lone "yes" / "no" is the answer, not a scrap
         self.listen_only = False                                 # asleep + phrase wake word: one short decode per utterance, no commits
         self.sens = sens                                         # 'ignore distant voices': min level relative to the user's own
         self.ref = None                                          # running level of the user's real utterances
@@ -177,7 +178,7 @@ class StreamingSTT:
                     self.reset_utt()
                 continue
             if final:
-                if len(hyp) <= 2 and all(norm(w) in TRIVIAL for w in hyp) and self.boost <= 1.0:
+                if len(hyp) <= 2 and all(norm(w) in TRIVIAL for w in hyp) and self.boost <= 1.0 and not self.keep_trivial():
                     print("STT dropped trivial scrap: %r" % " ".join(hyp), flush=True)
                     self.reset_utt()
                     continue

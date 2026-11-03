@@ -73,3 +73,15 @@ def test_default_calendar_from_household_config(monkeypatch):
     assert real.default_calendar == "calendar.alex"
     cfg.default_calendar = real.default_calendar
     assert "Alex's calendar" in say(ADD, cfg, who=None)
+
+
+def test_awaiting_gates_bare_yes(monkeypatch):
+    """A lone "yes" is only an answer while Nina's question is open: then the STT must keep it and the server must hand it to the scheduler."""
+    cfg, log = setup(monkeypatch)
+    assert not tools.schedule_awaiting()
+    say(ADD, cfg)
+    assert tools.schedule_awaiting() and tools.schedule_owns("yes") and tools.schedule_owns("Yes, go ahead")
+    say("yes", cfg)
+    assert log["created"] and not tools.schedule_awaiting() and not tools.schedule_owns("yes")
+    setup(monkeypatch, {})
+    assert not tools.schedule_awaiting()
