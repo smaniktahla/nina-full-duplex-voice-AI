@@ -85,3 +85,18 @@ def test_awaiting_gates_bare_yes(monkeypatch):
     assert log["created"] and not tools.schedule_awaiting() and not tools.schedule_owns("yes")
     setup(monkeypatch, {})
     assert not tools.schedule_awaiting()
+
+
+def test_utterance_prefers_the_latest_final_over_chatter(monkeypatch):
+    cfg, _ = setup(monkeypatch)
+    buf = "we have a dentist thing " + ADD
+    assert tools.schedule_utterance(buf, ADD) == ADD
+    assert tools.schedule_utterance(buf, "so anyway") == buf.strip()          # request paused mid-way: whole buffer
+    assert tools.schedule_utterance("what's the weather", "what's the weather") == ""
+
+
+def test_generic_titles_ask_for_a_name(monkeypatch):
+    cfg, _ = setup(monkeypatch)
+    for t in ("create a calendar event for tomorrow at 2 pm", "add an event to my calendar tomorrow at 2", "create that on my calendar tomorrow at 2"):
+        r = say(t, cfg)
+        assert "call it" in r, (t, r)

@@ -643,10 +643,10 @@ class Session:
             self.start_tool("routine", said)
             return
         if (not text and self.user_buf and silent_ms >= CFG["tick_ms"] and not self.stt.in_utt and not self.stt.pending
-                and tools_mod.schedule_owns(self.user_buf)):
+                and tools_mod.schedule_utterance(self.user_buf, self.last_final)):
             # a finished scheduling request or the answer to Nina's question ("yes", "make it 4", "no", "undo that"): code handles it.
             # The tick model must not get to decide (it picks silence for a bare "yes", and "Sure." for a request it then drops).
-            said, self.user_buf = self.user_buf, ""
+            said, self.user_buf = tools_mod.schedule_utterance(self.user_buf, self.last_final), ""
             log("   (schedule utterance %r: starting @schedule)" % said)
             self.sess.add_turn("user", said)
             self.notes.capture("user", said)

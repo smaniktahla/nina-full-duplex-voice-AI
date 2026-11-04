@@ -38,7 +38,7 @@ _MONTHS = ["january", "february", "march", "april", "may", "june", "july", "augu
 _NUMS = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11,
          "twelve": 12, "fifteen": 15, "twenty": 20, "thirty": 30, "forty five": 45, "forty-five": 45, "sixty": 60, "ninety": 90}
 _NUM = r"(?:\d+|" + "|".join(sorted((re.escape(k) for k in _NUMS), key=len, reverse=True)) + r")"
-_GENERIC = frozenset({"event", "appointment", "meeting", "reminder", "call", "thing", "something", "entry"})
+_GENERIC = frozenset({"event", "appointment", "meeting", "reminder", "call", "thing", "something", "entry", "calendar event", "calendar entry", "that", "it", "this"})
 
 CreateEvent = Callable[["Draft"], Awaitable["str | None"]]          # -> "" or a uid once the write was accepted, None when it failed
 EventExists = Callable[["Draft", str], Awaitable["str | None"]]     # observed on the calendar? -> its uid ("" if unknown), None if not seen
@@ -188,7 +188,7 @@ def _month_day(m: "re.Match", now: dt.datetime):
 
 def _parse_clock(work: str):
     """-> ((hour, minute, explicit_meridiem) | None, work)."""
-    m = re.search(r"(?i)\b(?:at |around |by )?(?P<h>\d{1,2})(?::(?P<m>\d\d))?\s*(?P<ap>[ap])\.?m\.?(?!\w)", work)
+    m = re.search(r"(?i)\b(?:at |around |by )?(?P<h>\d{1,2})(?:[:.](?P<m>\d\d))?\s*(?P<ap>[ap])\.?m\.?(?!\w)", work)
     if m:
         h, mi, ap = int(m.group("h")), int(m.group("m") or 0), m.group("ap").lower()
         if 1 <= h <= 12 and mi < 60:
@@ -196,12 +196,21 @@ def _parse_clock(work: str):
     m = re.search(r"(?i)\b(?:at |around |by )?(?P<w>noon|midnight)\b", work)
     if m:
         return ((12 if m.group("w").lower() == "noon" else 0), 0, True), _cut(work, m)
-    m = re.search(r"(?i)\bat\s+(?P<h>\d{1,2})(?::(?P<m>\d\d))?(?![\w:])(?!\s*(?:o'?clock\s*)?(?:people|items))", work)
+    m = re.search(r"(?i)\bat\s+(?P<h>\d{1,2})(?:[:.](?P<m>\d\d))?(?![\w:])(?!\s*(?:o'?clock\s*)?(?:people|items))", work)
     if m:
         h, mi = int(m.group("h")), int(m.group("m") or 0)
         if 1 <= h <= 12 and mi < 60:
             return (h, mi, False), _cut(work, m)
     return None, work
+
+
+_PM_CUE = re.compile(r"(?i)\b(?:tonight|this evening|evening|at night|tomorrow night|afternoon|this afternoon)\b")
+_AM_CUE = re.compile(r"(?i)\b(?:morning|this morning)\b")
+
+
+def _cued_hour(h: int, cue: str) -> int:
+    """No am/pm said but the speaker named a part of the day: 'tonight at 8:30' is 20:30, 'tomorrow morning at 8' is 08:00."""
+    return h % 12 + (12 if cue == "pm" else 0)
 
 
 def _guess_meridiem(h: int) -> int:
@@ -264,6 +273,7 @@ def parse_create(text: str, now: dt.datetime, intent: str | None = None) -> Draf
     allday = re.search(r"(?i)\ball[- ]day\b", work)
     if allday:
         work = _cut(work, allday)
+    cue = "pm" if _PM_CUE.search(work) else "am" if _AM_CUE.search(work) else ""
     date, rel, work = _parse_date(work, now)
     clk, work = _parse_clock(work)
     if intent != "remind":
@@ -283,7 +293,7 @@ def parse_create(text: str, now: dt.datetime, intent: str | None = None) -> Draf
         base = date or day_start(now)
         h, mi, explicit = clk
         if not explicit:
-            h = _guess_meridiem(h)
+            h = _cued_hour(h, cue) if cue else _guess_meridiem(h)
         d.start = base.replace(hour=h, minute=mi)
         if date is None and d.start < now - PAST_GRACE:
             if not explicit and h < 12 and d.start + dt.timedelta(hours=12) > now:
