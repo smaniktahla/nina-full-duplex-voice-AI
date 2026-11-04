@@ -57,12 +57,13 @@ class Draft:
     location: str = ""
     duration: dt.timedelta | None = None
     time_given: bool = False
+    ampm_open: bool = False             # a bare hour with nothing to decide morning vs evening: start holds the AM reading until _settle_ampm or the speaker answers
 
 
 @dataclass
 class Pending:
     draft: Draft
-    stage: str                          # title | time | calendar | confirm
+    stage: str                          # title | time | ampm | calendar | confirm | location
     t: float = 0.0
     speaker: str | None = None
 
@@ -293,9 +294,14 @@ def parse_create(text: str, now: dt.datetime, intent: str | None = None) -> Draf
         base = date or day_start(now)
         h, mi, explicit = clk
         if not explicit:
-            h = _cued_hour(h, cue) if cue else _guess_meridiem(h)
+            if cue:
+                h = _cued_hour(h, cue)
+            elif h == 12:
+                pass                                         # "at 12" is noon
+            else:
+                d.ampm_open, h = True, h % 12                # decided in _settle_ampm, once the title is known
         d.start = base.replace(hour=h, minute=mi)
-        if date is None and d.start < now - PAST_GRACE:
+        if date is None and not d.ampm_open and d.start < now - PAST_GRACE:
             if not explicit and h < 12 and d.start + dt.timedelta(hours=12) > now:
                 d.start += dt.timedelta(hours=12)          # "at 3" said at 1 pm means 3 pm, not tomorrow 3 am
             else:
@@ -303,6 +309,43 @@ def parse_create(text: str, now: dt.datetime, intent: str | None = None) -> Draf
     elif date:
         d.start = date                                       # a date but no time: stage "time" asks, d.time_given stays False
     return _finish(d)
+
+
+_AM_WORDS = re.compile(r"(?i)\b(?:a\.?m\.?|morning|breakfast|sunrise)\b")
+_PM_WORDS = re.compile(r"(?i)\b(?:p\.?m\.?|evening|night|tonight|afternoon|dinner|supper)\b")
+_MEAL_AM = re.compile(r"(?i)\b(?:breakfast|brunch|wake[- ]?up|school bus|drop[- ]?off)\b")
+_MEAL_PM = re.compile(r"(?i)\b(?:dinner|supper|date night|movie night|bedtime|happy hour)\b")
+_LUNCH = re.compile(r"(?i)\blunch")
+
+
+def _settle_ampm(d: Draft, now: dt.datetime) -> bool:
+    """Resolve a bare hour from what is known, in this order: a meal in the title (breakfast = morning, dinner = evening, lunch = 11 am / 1 pm), then
+    today's clock (when only one reading is still ahead, it is that one). True = settled; False = Nina has to ask."""
+    hr = d.start.hour
+    pick = ""
+    t = d.title or ""
+    if _MEAL_AM.search(t):
+        pick = "am"
+    elif _MEAL_PM.search(t):
+        pick = "pm"
+    elif _LUNCH.search(t):
+        pick = "am" if hr == 11 else "pm"
+    elif day_start(d.start) == day_start(now):
+        ahead = [k for k, c in (("am", d.start), ("pm", d.start + dt.timedelta(hours=12))) if c >= now - PAST_GRACE]
+        if len(ahead) == 1:
+            pick = ahead[0]
+    if not pick:
+        return False
+    _apply_ampm(d, pick)
+    return True
+
+
+def _apply_ampm(d: Draft, which: str) -> None:
+    if which == "pm":
+        d.start += dt.timedelta(hours=12)
+    d.ampm_open = False
+    d.end = None
+    _finish(d)
 
 
 def _finish(d: Draft) -> Draft:
@@ -505,6 +548,10 @@ def _next_step(d: Draft, st: SchedState, speaker: str | None, cfg: SchedConfig, 
     if d.start is None or not d.time_given:
         st.pending = Pending(d, "time", now_s, speaker)
         return _res(Status.AMBIGUOUS, "What time?" if d.start is not None else "When should it be?", "ask_time")
+    if d.ampm_open and not _settle_ampm(d, now):
+        st.pending = Pending(d, "ampm", now_s, speaker)
+        hr, mi = d.start.hour, d.start.minute
+        return _res(Status.AMBIGUOUS, "Is that %s in the morning or in the evening?" % (("%d:%02d" % (hr, mi)) if mi else str(hr)), "ask_ampm")
     bad = validate(d, now)
     if bad:
         d.start, d.end, d.time_given = None, None, False
@@ -598,6 +645,15 @@ async def _pending_turn(text: str, p: Pending, st: SchedState, cfg: SchedConfig,
     if p.stage == "confirm" and d.kind == "event" and _LOC_ASK.match(text or ""):
         st.pending = Pending(d, "location", now_s, speaker)
         return _res(Status.AMBIGUOUS, "Where is it?", "ask_location")
+    if p.stage == "ampm":
+        am, pm = _AM_WORDS.search(text or ""), _PM_WORDS.search(text or "")
+        if kind == "no" or (not am and not pm):
+            if kind == "no":
+                st.pending = None
+                return _res(Status.CANCELLED, "Okay, I won't add it.", "declined")
+            return _res(Status.AMBIGUOUS, "Sorry, morning or evening?", "ask_ampm_again")
+        _apply_ampm(d, "pm" if pm and not am else "am")
+        return _next_step(d, st, speaker, cfg, now, now_s)
     if kind == "no" and p.stage in ("confirm", "title", "time", "calendar"):
         st.pending = None
         return _res(Status.CANCELLED, "Okay, I won't add it.", "declined")
