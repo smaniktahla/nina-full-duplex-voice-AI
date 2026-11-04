@@ -46,7 +46,7 @@ def test_parse_full_event():
 
 
 def test_parse_named_calendar_and_default_duration():
-    d = s.parse_create("put soccer practice on the family calendar on friday at 5", NOW)
+    d = s.parse_create("put soccer practice on the family calendar on friday at 5 pm", NOW)
     assert d.title == "Soccer practice" and d.calendar_name == "family"
     assert d.start == dt.datetime(2026, 10, 16, 17, tzinfo=TZ) and d.end - d.start == dt.timedelta(hours=1)
 
@@ -55,11 +55,30 @@ def test_possessive_calendar():
     assert s.parse_create("add lunch to Salil's calendar tomorrow at noon", NOW).calendar_name == "salil"
 
 
-def test_bare_hour_meridiem_guess():
-    assert s.parse_create("add standup tomorrow at 9", NOW).start.hour == 9
-    assert s.parse_create("add dinner tomorrow at 6", NOW).start.hour == 18
-    late = NOW.replace(hour=13)
-    assert s.parse_create("add call with Bob at 3 today", late).start.hour == 15
+def test_bare_hour_is_decided_by_the_title_then_the_clock_else_asked():
+    def settled(text, now=NOW):
+        d = s.parse_create(text, now)
+        return (d.start.hour if s._settle_ampm(d, now) else None)
+    assert settled("add dinner tomorrow at 6") == 18 and settled("add breakfast with Bob tomorrow at 8") == 8      # a meal decides
+    assert settled("add lunch tomorrow at 11") == 11 and settled("add lunch tomorrow at 1") == 13
+    assert settled("add standup tomorrow at 9") is None
+    assert settled("add call with Bob at 8:30 today", NOW.replace(hour=11, minute=36)) == 20                      # only the evening is still ahead
+    assert settled("add call with Bob at 8:30 today", NOW.replace(hour=6)) is None                                # both are ahead: ask
+    assert settled("add call with Bob at 8:30 tomorrow", NOW.replace(hour=11)) is None                            # another day: ask
+    assert s.parse_create("add call at 12 tomorrow", NOW).start.hour == 12                                        # noon needs no question
+
+
+def test_asks_morning_or_evening_and_applies_the_answer():
+    cfg, st, log = mk()
+    r = say("add standup tomorrow at 9 to my calendar", cfg, st)
+    assert r.speech == "Is that 9 in the morning or in the evening?"
+    r = say("morning", cfg, st, t=2)
+    assert "tomorrow at 9 AM" in r.speech
+    st.pending = None
+    assert say("add check in to my calendar tomorrow at 8:30", cfg, st, t=3).speech == "Is that 8:30 in the morning or in the evening?"
+    assert say("huh", cfg, st, t=4).speech == "Sorry, morning or evening?"
+    r = say("in the evening", cfg, st, t=5)
+    assert "tomorrow at 8:30 PM" in r.speech
 
 
 def test_time_without_date_rolls_forward():
@@ -137,10 +156,14 @@ def test_asks_for_missing_title_and_time():
     r = say("add haircut to my calendar", cfg, st, t=3)
     assert r.speech == "When should it be?"
     r = say("friday at 4", cfg, st, t=4)
+    assert r.speech == "Is that 4 in the morning or in the evening?"
+    r = say("afternoon", cfg, st, t=4.5)
     assert "Friday at 4 PM" in r.speech
     st.pending = None
     say("add haircut tomorrow to my calendar", cfg, st, t=5)
     r = say("3", cfg, st, t=6)
+    assert r.speech == "Is that 3 in the morning or in the evening?"
+    r = say("pm", cfg, st, t=7)
     assert "tomorrow at 3 PM" in r.speech
 
 
