@@ -90,3 +90,74 @@ def test_good_night_routine_wins_over_the_goodbye_but_only_when_configured(monke
     assert not tools.routine_owns("ok thanks good night") and not tools.routine_owns("good night everyone")
     monkeypatch.setattr(tools, "ROUTINES", {})
     assert not tools.routine_owns("good night")
+
+
+# ---- script mode: the device list lives in an HA script, Nina runs it and verifies its simple on/off steps
+
+SCRIPT_CFG = {"night": {"script": "script.good_night"}, "morning": {"script": "script.good_morning", "report": ["weather"]}}
+NIGHT_SCRIPT = {"alias": "Good Night", "sequence": [
+    {"action": "homeassistant.turn_off", "target": {"entity_id": ["light.a", "switch.b"]}},
+    {"action": "media_player.turn_off", "target": {"entity_id": "media_player.tv"}},
+    {"action": "homeassistant.turn_off", "target": {"entity_id": "switch.disabled"}, "enabled": False},
+    {"delay": {"seconds": 1}},
+    {"action": "notify.phone", "data": {"message": "x"}},
+    {"action": "homeassistant.turn_off", "target": {"entity_id": ["lock.front_door"]}}]}
+
+
+class ScriptIO(FakeIO):
+    def __init__(self, states, conf=NIGHT_SCRIPT, runs=True, **kw):
+        super().__init__(states, **kw)
+        self.conf, self.runs, self.ran = conf, runs, []
+
+    async def script_config(self, sid):
+        return self.conf
+
+    async def run_script(self, sid):
+        self.ran.append(sid)
+        if not self.runs:
+            return False
+        for a, e in routines.script_targets(self.conf):                  # the fake HA executes the script's steps
+            if e not in self.stuck and self.s.get(e) != "unavailable":
+                self.s[e] = "on" if a == "turn_on" else "off"
+        return True
+
+
+def run_script_mode(name, io):
+    return asyncio.run(routines.run(name, SCRIPT_CFG, io, settle_s=1.0))
+
+
+def test_script_targets_read_only_simple_on_off_steps():
+    t = routines.script_targets(NIGHT_SCRIPT)
+    assert t == [("turn_off", "light.a"), ("turn_off", "switch.b"), ("turn_off", "media_player.tv")]      # not disabled, delay, notify or lock
+    assert routines.script_targets(None) == [] and routines.script_targets({}) == []
+    assert routines.script_targets({"sequence": [{"service": "light.turn_on", "entity_id": "light.x, light.y"}]}) == [("turn_on", "light.x"), ("turn_on", "light.y")]
+
+
+def test_script_runs_then_each_target_is_verified():
+    io = ScriptIO({"light.a": "on", "switch.b": "on", "media_player.tv": "on"})
+    speech, ok = run_script_mode("night", io)
+    assert ok and io.ran == ["script.good_night"] and speech == "All 3 devices are off."
+
+
+def test_script_stuck_or_unavailable_device_is_named():
+    io = ScriptIO({"light.a": "on", "switch.b": "on", "media_player.tv": "unavailable"}, stuck={"switch.b"})
+    speech, ok = run_script_mode("night", io)
+    assert not ok and "1 of 3" in speech and "B did not change" in speech and "TV unavailable" in speech
+
+
+def test_script_that_fails_to_run_says_so_and_checks_nothing():
+    io = ScriptIO({"light.a": "on"}, runs=False)
+    speech, ok = run_script_mode("night", io)
+    assert not ok and "did not run" in speech
+
+
+def test_script_with_nothing_verifiable_is_ok_but_honest():
+    io = ScriptIO({}, conf={"sequence": [{"action": "scene.turn_on", "target": {"entity_id": "scene.x"}}]})
+    speech, ok = run_script_mode("night", io)
+    assert ok and "can't check" in speech
+
+
+def test_script_config_problems():
+    assert routines.problems(SCRIPT_CFG) == []
+    assert len(routines.problems({"night": {"script": "good_night"}})) == 1
+    assert len(routines.problems({"night": {"script": "script.a", "turn_off": ["light.a"]}})) == 1
