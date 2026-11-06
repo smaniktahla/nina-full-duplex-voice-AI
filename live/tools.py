@@ -814,6 +814,22 @@ async def routine_request(http, text):
         async def sleep(self, s):
             await asyncio.sleep(s)
 
+        async def script_config(self, sid):
+            try:
+                async with http.get("%s/api/config/script/config/%s" % (HA_URL, sid.split(".", 1)[1]), headers=_hdr(), timeout=aiohttp.ClientTimeout(total=8)) as r:
+                    return await r.json() if r.status == 200 else None
+            except Exception:                                                      # noqa: BLE001
+                return None
+
+        async def run_script(self, sid):
+            """script.<id> called as a service runs it and returns when it has finished."""
+            try:
+                async with http.post("%s/api/services/script/%s" % (HA_URL, sid.split(".", 1)[1]), headers=_hdr(), json={},
+                                     timeout=aiohttp.ClientTimeout(total=40)) as r:
+                    return r.status == 200
+            except Exception:                                                      # noqa: BLE001
+                return False
+
     speech, ok = await routines.run(name, ROUTINES, IO())
     out = ("[DONE] " if ok else "[NOT DONE] ") + speech
     reports = ROUTINES[name].get("report", [])
