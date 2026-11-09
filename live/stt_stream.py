@@ -23,6 +23,7 @@ try:
 except ImportError:
     import wake_diag
 
+RELAX_WAKE_FILTER = os.environ.get("WAKE_RELAX_FILTER", "1") != "0"
 SR = 16000
 FRAME = 320                      # 20 ms
 KEEP_DIR = os.path.expanduser(os.environ.get("NINA_KEEP_UTTS", "~/.local/share/nina/utterances"))   # "0" or "" turns it off
@@ -136,9 +137,12 @@ class StreamingSTT:
         keep, stats = [], []
         for s in segs:
             # Whisper's own confidence: drop segments it thinks are not speech / are low-confidence guesses (room noise, far voices)
-            dropped = (s.no_speech_prob > 0.6 and s.avg_logprob < -0.8) or s.avg_logprob < -1.4
+            would_drop = (s.no_speech_prob > 0.6 and s.avg_logprob < -0.8) or s.avg_logprob < -1.4
+            # While asleep with a phrase wake word the regex is the gate, and the filter was throwing away real "Hey Nina"s
+            # (seen: no_speech_prob 0.64, avg_logprob -0.92). Keep everything there; WAKE_RELAX_FILTER=0 restores the old behaviour.
+            dropped = would_drop and not (self.listen_only and RELAX_WAKE_FILTER)
             if wake_diag.ENABLED:
-                stats.append({"nsp": round(float(s.no_speech_prob), 2), "lp": round(float(s.avg_logprob), 2), "drop": bool(dropped), "chars": len(s.text.strip())})
+                stats.append({"nsp": round(float(s.no_speech_prob), 2), "lp": round(float(s.avg_logprob), 2), "drop": bool(dropped), "would_drop": bool(would_drop), "chars": len(s.text.strip())})
             if dropped:
                 continue
             keep.append(s.text.strip())
