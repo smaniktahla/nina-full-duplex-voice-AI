@@ -47,10 +47,7 @@ _QUESTION_HEAD = re.compile(r"^(?:what|how|is|are|did|does|do|why)\b", re.I)
 
 @dataclass
 class TaskConfig:
-    project_id: str
-    agents: dict = field(default_factory=dict)       # key ("systems_lead"...) -> Paperclip agent id; absent key = unavailable
-    default_agent: str | None = None                  # key used when the speaker names nobody; None = leave unassigned
-    device: str = "voice"
+    device: str = "voice"      # which terminal this is; project, agents and policy are decided by the facade, not here
 
 
 @dataclass
@@ -66,7 +63,7 @@ class Intent:
 class TaskApiError(Exception):
     def __init__(self, kind: str, detail: str = ""):
         super().__init__("%s %s" % (kind, detail))
-        self.kind = kind        # unavailable | auth | rejected
+        self.kind = kind        # unavailable | auth | rejected | agent_unavailable
         self.detail = detail
 
 
@@ -102,53 +99,71 @@ def idempotency_key(device: str, utterance: str, now: float | None = None) -> st
     return "voice:%s:%s:%d" % (device, hashlib.sha1(norm.encode()).hexdigest()[:16], bucket)
 
 
-def envelope(cfg: TaskConfig, it: Intent, request_id: str, now: float | None = None) -> dict:
-    agent_id = cfg.agents.get(it.agent_key or cfg.default_agent or "")
-    body = {
-        "title": it.task[:100],
-        "description": "%s\n\n---\nCreated by voice. Original utterance: \"%s\"\nrequest_id: %s | device: %s | mode: read-only unless the project policy says otherwise" %
-                       (it.task, _clean(it.utterance), request_id, cfg.device),
-        "projectId": cfg.project_id,
-        "priority": "medium",
-        "status": "todo" if agent_id else "backlog",
-        "idempotencyKey": idempotency_key(cfg.device, it.utterance, now),
-    }
-    if agent_id:
-        body["assigneeAgentId"] = agent_id
-    return body
+def payload(cfg: TaskConfig, it: Intent, request_id: str, now: float | None = None) -> dict:
+    """What the facade receives. No project id, agent id or status: the facade owns those by server-side policy."""
+    return {"task": it.task, "utterance": _clean(it.utterance), "agent_key": it.agent_key, "request_id": request_id, "device": cfg.device,
+            "idempotency_key": idempotency_key(cfg.device, it.utterance, now)}
 
 
 def _fail(reason: str, speech: str, side_effect: bool = False, **tel) -> ToolResult:
     return ToolResult(Status.EXECUTION_FAILED, speech, reason=reason, domain="task", telemetry=tel, side_effect=side_effect)
 
 
+_WHO = {"systems_lead": "the Systems Lead", "homelab_engineer": "the Homelab Engineer", "ai_infra": "the AI Infrastructure Agent"}
+
+
 async def create(cfg: TaskConfig, it: Intent, post: Post, request_id: str, now: float | None = None) -> ToolResult:
     if it.refused:
         return ToolResult(Status.UNAVAILABLE, "I don't have %s set up as an agent yet, so I haven't created anything." % it.refused,
                           reason="agent:not_integrated", domain="task", request_id=request_id)
-    if it.agent_key and it.agent_key not in cfg.agents:
-        return ToolResult(Status.UNAVAILABLE, "%s isn't available right now, so I haven't created anything." % (it.agent_label or "That agent").capitalize(),
-                          reason="agent:not_configured", domain="task", request_id=request_id)
-    body = envelope(cfg, it, request_id, now)
     try:
-        issue = await post("/issues", body)
+        issue = await post("/v1/tasks", payload(cfg, it, request_id, now))
     except TaskApiError as e:
+        if e.kind == "agent_unavailable":
+            return ToolResult(Status.UNAVAILABLE, "%s isn't available for that right now, so I haven't created anything." % (it.agent_label or "That agent"),
+                              reason="agent:unavailable", domain="task", request_id=request_id)
         if e.kind == "auth":
-            return _fail("paperclip:auth", "I couldn't create that. My access to the task system was refused.", request_id=request_id)
+            return _fail("facade:auth", "I couldn't create that. My access to the task system was refused.", request_id=request_id)
         if e.kind == "rejected":
-            return _fail("paperclip:rejected", "The task system rejected that request, so nothing was created.", request_id=request_id)
-        return _fail("paperclip:unavailable", "I can't reach the task system right now, so nothing was created. Please try again in a bit.", request_id=request_id)
+            return _fail("facade:rejected", "The task system rejected that request, so nothing was created.", request_id=request_id)
+        return _fail("facade:unavailable", "I can't reach the task system right now, so nothing was created. Please try again in a bit.", request_id=request_id)
     ident = (issue or {}).get("identifier")
     if not ident:                                       # accepted but unconfirmed: never claim success, never retry blindly
         return ToolResult(Status.UNVERIFIED, "I sent that, but I couldn't confirm it was created. Check the task board before asking again.",
-                          reason="paperclip:no_identifier", domain="task", request_id=request_id, side_effect=True)
+                          reason="facade:no_identifier", domain="task", request_id=request_id, side_effect=True)
     spoken = ident.replace("-", " ")
-    assigned = issue.get("assigneeAgentId")
-    if assigned:
-        who = it.agent_label or next((n for k, n in (("systems_lead", "the Systems Lead"), ("homelab_engineer", "the Homelab Engineer"),
-                                                     ("ai_infra", "the AI Infrastructure Agent")) if cfg.agents.get(k) == assigned), "an agent")
+    if issue.get("assigned"):
+        who = _WHO.get(issue.get("agent_key")) or it.agent_label or "an agent"
         speech = "Got it. I've created %s and assigned it to %s. I'll let you know when it's finished." % (spoken, who)
     else:
         speech = "Got it. I've logged it as %s, but nobody is assigned yet." % spoken
     return ToolResult(Status.SUCCESS, speech, reason="task:created", domain="task", request_id=request_id, side_effect=True,
-                      telemetry={"issue": ident, "assigned": bool(assigned)})
+                      telemetry={"issue": ident, "assigned": bool(issue.get("assigned"))})
+
+
+def make_post(session, base_url: str, token: str, timeout_s: float = 8.0) -> Post:
+    """An aiohttp-backed `post` for the facade. `session` is any aiohttp.ClientSession (Nina's own, or Home Assistant's).
+    The token lives only in this closure; it is sent as a bearer header and never logged or put in a payload."""
+    import asyncio
+    import uuid
+
+    async def post(path: str, body: dict) -> dict:
+        headers = {"Authorization": "Bearer " + token, "X-Correlation-ID": (body.get("request_id") or uuid.uuid4().hex[:10])}
+        try:
+            async with session.post(base_url.rstrip("/") + path, json=body, headers=headers, timeout=timeout_s) as r:
+                st = r.status
+                data = await r.json(content_type=None) if st == 200 else {}
+                err = (await r.json(content_type=None) or {}).get("error", "") if st != 200 else ""
+        except (asyncio.TimeoutError, OSError, ValueError, Exception) as e:     # noqa: BLE001  (connection refused, reset, bad body)
+            raise TaskApiError("unavailable", type(e).__name__)
+        if st == 200:
+            return data
+        if st in (401, 403):
+            raise TaskApiError("auth")
+        if st == 409:
+            raise TaskApiError("agent_unavailable")
+        if st in (400, 413, 422, 429, 502):
+            raise TaskApiError("rejected", err)
+        raise TaskApiError("unavailable", str(st))
+
+    return post

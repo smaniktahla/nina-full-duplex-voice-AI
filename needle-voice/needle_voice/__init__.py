@@ -42,6 +42,8 @@ try:  # voluptuous ships with Home Assistant; guarded only so the package import
             vol.Optional("passthrough_flag_path"): str,
             vol.Optional("random_enabled"): bool,
             vol.Optional("rng_url"): str,
+            vol.Optional("team_facade_url"): str,
+            vol.Optional("team_facade_token_path"): str,
         }
     )
     CONFIG_SCHEMA = vol.Schema({DOMAIN: vol.Any(None, _SCHEMA)}, extra=vol.ALLOW_EXTRA)

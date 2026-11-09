@@ -17,6 +17,9 @@ DEFAULT_CONFIG = {
     # shared random-number service on AI2 (coin, dice, number, pick); "" turns the category off
     "rng_url": "http://10.10.10.226:8794",
     "needle_timeout_seconds": 1.0,
+    # delegation to the agent team through the authenticated task facade (task_ops.py); "" = off. The token is read from a file, never from this config.
+    "team_facade_url": "",
+    "team_facade_token_path": "/config/needle_voice/team_facade.token",
     "hermes_agent_id": "conversation.workshop_extended_openai_conversation_hermes_on_ai2",
     # unlock/open are the dangerous direction; off until explicitly enabled.
     "allow_sensitive_intents": False,

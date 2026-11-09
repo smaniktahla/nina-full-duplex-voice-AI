@@ -35,6 +35,11 @@ from .router import IO, Outcome, RouterConfig, handle
 _LOGGER = logging.getLogger(__name__)
 
 
+def _read_text(path: str) -> str:
+    with open(path, encoding="utf-8") as f:
+        return f.read()
+
+
 async def async_setup_entry(hass, config_entry, async_add_entities) -> None:
     entity = NeedleVoiceEntity(hass, config_entry)
     async_add_entities([entity])
@@ -105,7 +110,7 @@ class NeedleVoiceEntity(ConversationEntity, conversation.AbstractConversationAge
         cfg_dict = self._cfg_dict()
         cfg = RouterConfig.from_dict(cfg_dict)
         try:
-            outcome = await self._route(user_input, cfg, cfg_dict)
+            outcome = await self._team(user_input, cfg_dict) or await self._route(user_input, cfg, cfg_dict)
         except Exception as e:  # noqa: BLE001 - fail open
             _LOGGER.exception("needle_voice: router failed, falling back to Hermes")
             outcome = Outcome("hermes", None, "glue_exception", {"input": user_input.text, "glue_exception": type(e).__name__})
@@ -140,6 +145,30 @@ class NeedleVoiceEntity(ConversationEntity, conversation.AbstractConversationAge
         }
         self.hass.async_add_executor_job(telemetry.write, cfg_dict["telemetry_path"], rec)
         return result
+
+    async def _team(self, user_input, cfg_dict: dict) -> Outcome | None:
+        """Explicit delegation phrases ("ask Claude to ...") go to the task facade. Everything else returns None and takes the normal path
+        untouched. The facade holds the Paperclip credential; this process only has its own revocable client token, read from a file."""
+        url = cfg_dict.get("team_facade_url")
+        if not url:
+            return None
+        from . import task_ops
+        from .result import new_request_id
+
+        it = task_ops.parse(user_input.text)
+        if it is None:
+            return None
+        try:
+            token = (await self.hass.async_add_executor_job(_read_text, cfg_dict["team_facade_token_path"])).strip()
+        except OSError:
+            token = ""
+        if not token:
+            return Outcome("team", "I can't reach the task system right now, so nothing was created.", "team_no_token", {"team_status": "no_token"})
+        from homeassistant.helpers.aiohttp_client import async_get_clientsession
+
+        post = task_ops.make_post(async_get_clientsession(self.hass), url, token)
+        res = await task_ops.create(task_ops.TaskConfig(device="ha_voice"), it, post, new_request_id())
+        return Outcome("team", res.speech, res.reason, {"team_status": res.status.value, "team_issue": res.telemetry.get("issue")})
 
     async def _route(self, user_input, cfg: RouterConfig, cfg_dict: dict) -> Outcome:
         snapshot = build_entity_snapshot(self.hass)  # on the event loop

@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from needle_voice import task_ops as t
 from needle_voice.result import Status
 
-CFG = t.TaskConfig("proj1", {"systems_lead": "agent-sl", "homelab_engineer": "agent-he"}, device="kitchen")
+CFG = t.TaskConfig(device="kitchen")
 
 
 def run(c): return asyncio.run(c)
@@ -31,13 +31,13 @@ def test_unintegrated_agent_refused_without_post():
 
 
 def test_success_speaks_only_confirmed():
-    async def post(p, b): return {"identifier": "NIN-90", "assigneeAgentId": "agent-sl"}
+    async def post(p, b): return {"identifier": "NIN-90", "assigned": True, "agent_key": "systems_lead"}
     r = run(t.create(CFG, t.parse("ask Claude to review the latest commits"), post, "r1"))
-    assert r.status is Status.SUCCESS and "NIN 90" in r.speech and "Claude" in r.speech
+    assert r.status is Status.SUCCESS and "NIN 90" in r.speech and "Systems Lead" in r.speech
 
 
 def test_unassigned_response_does_not_claim_assignment():
-    async def post(p, b): return {"identifier": "NIN-91", "assigneeAgentId": None}
+    async def post(p, b): return {"identifier": "NIN-91", "assigned": False}
     r = run(t.create(CFG, t.parse("have someone review the latest commits"), post, "r1"))
     assert "assigned it" not in r.speech and "nobody is assigned" in r.speech
 
@@ -58,8 +58,42 @@ def test_errors_never_claim_success():
     assert run(t.create(CFG, t.parse("ask Claude to review the latest commits"), noid, "r1")).status is Status.UNVERIFIED
 
 
-def test_secrets_redacted_and_envelope():
+def test_secrets_redacted_and_payload():
     i = t.parse("ask claude to use key sk-abcdefghijklmnopqrstuv to deploy things")
-    b = t.envelope(CFG, i, "r1", 1000)
-    assert "sk-abc" not in b["description"] and b["assigneeAgentId"] == "agent-sl" and b["status"] == "todo"
-    assert t.envelope(t.TaskConfig("p"), t.parse("have someone review the logs"), "r2", 1)["status"] == "backlog"
+    b = t.payload(CFG, i, "r1", 1000)
+    assert "sk-abc" not in b["task"] + b["utterance"] and b["agent_key"] == "systems_lead"
+    assert set(b) == {"task", "utterance", "agent_key", "request_id", "device", "idempotency_key"}      # no project/agent ids/status from the client
+
+
+def test_agent_unavailable_from_facade():
+    async def post(p, b): raise t.TaskApiError("agent_unavailable")
+    r = run(t.create(CFG, t.parse("ask Claude to review the latest commits"), post, "r1"))
+    assert r.status is Status.UNAVAILABLE and "haven't created anything" in r.speech
+
+
+class FakeResp:
+    def __init__(self, st, js): self.status, self._js = st, js
+    async def json(self, content_type=None): return self._js
+    async def __aenter__(self): return self
+    async def __aexit__(self, *a): return False
+
+
+class FakeSession:
+    def __init__(self, resp=None, exc=None): self.resp, self.exc, self.seen = resp, exc, []
+    def post(self, url, json=None, headers=None, timeout=None):
+        self.seen.append((url, json, headers))
+        if self.exc: raise self.exc
+        return self.resp
+
+
+def test_make_post_maps_status_and_never_leaks_token():
+    def go(sess):
+        return run(t.make_post(sess, "http://f:1/", "SECRETTOKEN")("/v1/tasks", {"request_id": "r9"}))
+    s = FakeSession(FakeResp(200, {"identifier": "NIN-1"}))
+    assert go(s)["identifier"] == "NIN-1" and s.seen[0][0] == "http://f:1/v1/tasks" and s.seen[0][2]["Authorization"] == "Bearer SECRETTOKEN"
+    for st, kind in ((401, "auth"), (403, "auth"), (409, "agent_unavailable"), (422, "rejected"), (503, "unavailable")):
+        try: go(FakeSession(FakeResp(st, {"error": "x"})))
+        except t.TaskApiError as e: assert e.kind == kind and "SECRETTOKEN" not in str(e)
+        else: raise AssertionError(st)
+    try: go(FakeSession(exc=ConnectionRefusedError()))
+    except t.TaskApiError as e: assert e.kind == "unavailable"
