@@ -3,6 +3,11 @@ import sys
 import types
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "live"))
+
+try:                                                    # CI's pure-logic job does not install the Whisper runtime; _decode only needs a stand-in model
+    import faster_whisper  # noqa: F401
+except ImportError:
+    sys.modules["faster_whisper"] = types.SimpleNamespace(WhisperModel=object)
 import stt_stream
 
 
