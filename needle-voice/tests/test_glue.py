@@ -379,3 +379,55 @@ def test_refused_requests_do_not_extend_the_breaker(glue, entity, monkeypatch):
         process(e, "explain why the sky is blue")                                    # refused, must not push the window out
     clock[0] = 101
     assert process(e, "explain why the sky is blue") is glue.CONV.hermes_result
+
+
+def _team_setup(glue, monkeypatch, tmp_path, token="T" * 30, post=None):
+    tok = tmp_path / "team.token"
+    if token is not None:
+        tok.write_text(token + "\n")
+    m = types.ModuleType("homeassistant.helpers.aiohttp_client")
+    m.async_get_clientsession = lambda hass: object()
+    monkeypatch.setitem(sys.modules, "homeassistant.helpers.aiohttp_client", m)
+    from needle_voice import task_ops
+    seen = []
+    async def fake_post(path, body): seen.append((path, body)); return post(body) if post else {"identifier": "NIN-55", "assigned": True, "agent_key": "systems_lead"}
+    monkeypatch.setattr(task_ops, "make_post", lambda s, url, t: (seen.append(("token", t)) or fake_post))
+    return {"team_facade_url": "http://facade:1", "team_facade_token_path": str(tok)}, seen
+
+
+def test_team_delegation_off_by_default_goes_to_hermes(glue, entity, monkeypatch):
+    needle_says(glue, monkeypatch, "turn_on_light", {"area": "kitchen"})
+    e = entity()
+    process(e, "ask Claude to review the latest commits")
+    assert glue.CONV.calls and e.records[-1]["route"] != "team"
+
+
+def test_team_delegation_creates_one_task_and_speaks_confirmation(glue, entity, monkeypatch, tmp_path):
+    cfg, seen = _team_setup(glue, monkeypatch, tmp_path)
+    e = entity(cfg)
+    r = process(e, "ask Claude to review the latest commits")
+    assert "NIN 55" in r.response.speech and "Systems Lead" in r.response.speech and not glue.CONV.calls
+    assert e.records[-1]["route"] == "team" and e.records[-1]["team_issue"] == "NIN-55"
+    assert seen[0] == ("token", "T" * 30) and seen[1][0] == "/v1/tasks" and seen[1][1]["device"] == "ha_voice" and seen[1][1]["idempotency_key"]
+
+
+def test_team_ignores_normal_commands(glue, entity, monkeypatch, tmp_path):
+    cfg, seen = _team_setup(glue, monkeypatch, tmp_path)
+    needle_says(glue, monkeypatch, "turn_on_light", {"area": "kitchen"})
+    e = entity(cfg)
+    process(e, "turn on the kitchen light")
+    assert not [s for s in seen if s[0] == "/v1/tasks"] and e.records[-1]["route"] != "team"
+
+
+def test_team_facade_down_speaks_failure_and_never_hermes(glue, entity, monkeypatch, tmp_path):
+    from needle_voice import task_ops
+    def boom(body): raise task_ops.TaskApiError("unavailable")
+    cfg, _ = _team_setup(glue, monkeypatch, tmp_path, post=boom)
+    r = process(entity(cfg), "have someone review the latest commits")
+    assert "nothing was created" in r.response.speech and not glue.CONV.calls
+
+
+def test_team_missing_token_fails_closed(glue, entity, monkeypatch, tmp_path):
+    cfg, seen = _team_setup(glue, monkeypatch, tmp_path, token=None)
+    r = process(entity(cfg), "ask Claude to review the latest commits")
+    assert "nothing was created" in r.response.speech and not seen and not glue.CONV.calls

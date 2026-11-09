@@ -473,6 +473,7 @@ class Session:
                              tools_mod.timer_request(self.http, g) if k == "timer" else
                              tools_mod.clock_request(self.http, g) if k == "clock" else
                              tools_mod.routine_request(self.http, g) if k == "routine" else
+                             tools_mod.team_request(self.http, g) if k == "team" else
                              tools_mod.random_request(self.http, g) if k == "random" else
                              tools_mod.display_request(self.http, g, offered=tools_mod.offer_fresh()) if k == "display" else
                              tools_mod.nav_request(self.http, g) if k == "nav" else
@@ -488,7 +489,7 @@ class Session:
             self.sess.finish_task(j["id"])
             dt = (self.now() - j["t0"]) / 1000
             log("TOOL #%d %s done in %.1fs (rev %d) req=%s: %s" % (j["id"], j["kind"], dt, rev, (tools_mod._home.get("last_rid") if j["kind"] == "ha" else "-"), res[:160]))
-            if j["kind"] == "schedule":
+            if j["kind"] in ("schedule", "team"):
                 # a read-back / confirmation is spoken exactly as code wrote it: the reply model must not paraphrase a time, title or calendar
                 j["told"] = True
                 self.sess.task_told(j["id"])
@@ -563,7 +564,7 @@ class Session:
         if action == "notes":
             self.notes.handle(arg)
             return
-        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer", "clock", "routine", "schedule"):
+        if action in ("search", "hermes", "ha", "weather", "calendar", "random", "display", "nav", "timer", "clock", "routine", "schedule", "team"):
             if arg or action in ("weather", "calendar"):
                 self.start_tool(action, arg or "today")
             return
@@ -645,6 +646,16 @@ class Session:
             self.notes.capture("user", said)
             self.pol.commit(said, said, "", "silent")
             self.start_tool("routine", said)
+            return
+        if (not text and self.user_buf and silent_ms >= CFG["tick_ms"] and not self.stt.in_utt and not self.stt.pending
+                and tools_mod.team_owns(self.user_buf)):
+            # an explicit delegation phrase: code hands it to the task facade; the tick model never decides to create work
+            said, self.user_buf = self.user_buf, ""
+            log("   (team delegation request %r: starting @team)" % said[:80])
+            self.sess.add_turn("user", said)
+            self.notes.capture("user", said)
+            self.pol.commit(said, said, "", "silent")
+            self.start_tool("team", said)
             return
         if (not text and self.user_buf and silent_ms >= CFG["tick_ms"] and not self.stt.in_utt and not self.stt.pending
                 and tools_mod.schedule_utterance(self.user_buf, self.last_final)):

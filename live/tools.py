@@ -838,3 +838,40 @@ async def routine_request(http, text):
     if reports:
         out += " (say the devices result in one short sentence, then " + ", then ".join("the " + ("weather" if r == "weather" else "schedule") for r in reports) + ")"
     return out
+
+
+# ---- team delegation: spoken request -> authenticated task facade -> Paperclip (NIN-72/73). Off unless TEAM_DELEGATION=1.
+def _team_token():
+    t = os.environ.get("TEAM_FACADE_TOKEN", "").strip()
+    f = os.environ.get("TEAM_FACADE_TOKEN_FILE", "")
+    if not t and f:
+        try:
+            t = open(os.path.expanduser(f)).read().strip()
+        except OSError:
+            t = ""
+    return t
+
+
+def team_configured():
+    return os.environ.get("TEAM_DELEGATION") == "1" and bool(os.environ.get("TEAM_FACADE_URL")) and bool(_team_token())
+
+
+def team_owns(text):
+    """A finished utterance that is an explicit delegation phrase ("ask Claude to ...", "have someone ..."). Nothing else is claimed."""
+    if not team_configured():
+        return False
+    from needle_voice import task_ops
+    return task_ops.parse(text) is not None
+
+
+async def team_request(http, text):
+    """One delegation. The facade holds the Paperclip credential; this process only has its own revocable client token. Speaks what the facade confirmed."""
+    from needle_voice import task_ops
+    it = task_ops.parse(text)
+    if it is None:
+        return "I didn't catch what to hand off."
+    rid = ntel_id()
+    post = task_ops.make_post(http, os.environ["TEAM_FACADE_URL"], _team_token())
+    r = await task_ops.create(task_ops.TaskConfig(device="nina_live"), it, post, rid)
+    print("TEAM req=%s status=%s reason=%s issue=%s" % (rid, r.status.value, r.reason, r.telemetry.get("issue", "-")), flush=True)
+    return r.speech
