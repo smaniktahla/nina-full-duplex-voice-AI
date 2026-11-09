@@ -786,7 +786,7 @@ class Session:
             self.notes.capture("assistant", out)
         user_said = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf
         if kind == "speech" and out:
-            if not is_filler(out):
+            if tool or not is_filler(out):                                # a filler ('Sure.') that started a tool must still consume the request, or every tick re-sends it
                 self.user_buf = ""
             self.answer_open = False if (RESPONDER and not events and not tool and not is_filler(out)) else not re.search(r"[.?!][\"')]*$", out)
             self.last_chunk = out
