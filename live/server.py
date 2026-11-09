@@ -37,6 +37,7 @@ sys.path.insert(0, NEEDLE_DIR)
 from needle_voice import telemetry as needle_telemetry         # noqa: E402  Needle owns the session lifecycle + its event log
 from needle_voice.session import ACTIVE, DORMANT, IDLE, SUSPENDED, SessionConfig, SessionManager  # noqa: E402
 from stt_stream import StreamingSTT                           # noqa: E402
+import wake_diag                                                                         # noqa: E402
 from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector            # noqa: E402
 import responder                                                                         # noqa: E402
 from needle_voice import random_ops                               # noqa: E402
@@ -209,8 +210,11 @@ class Session:
     def on_stt(self, kind, text):
         if kind == "wake_check":
             if self.sess.asleep and self.phrase_mode:
-                if re.search(PHRASE_WAKE[self.sess.cfg.wake_word], text.strip(), re.I):
+                matched = bool(re.search(PHRASE_WAKE[self.sess.cfg.wake_word], text.strip(), re.I))
+                wake_diag.record("wake_decision", matched=matched, text=text)
+                if matched:
                     log("WAKE PHRASE heard")
+                    wake_diag.note("last_activation")
                     self.stt.listen_only = False
                     asyncio.ensure_future(self.activate("wake_phrase"))
                     bare = not [w for w in text.split() if re.sub(r"[^a-z]", "", w.lower()) not in WAKE_TOKENS]

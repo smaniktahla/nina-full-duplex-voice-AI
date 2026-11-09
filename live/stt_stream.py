@@ -18,6 +18,10 @@ try:
     from live import claims as claims_mod
 except ImportError:                                                 # run as a script from live/
     import claims as claims_mod
+try:
+    from live import wake_diag
+except ImportError:
+    import wake_diag
 
 SR = 16000
 FRAME = 320                      # 20 ms
@@ -107,11 +111,13 @@ class StreamingSTT:
         if speech:
             if not self.in_utt:
                 self.in_utt = True
+                self.utt_id, self.utt_t0, self.utt_peak = "%x" % int(time.time() * 1000), time.monotonic(), 0.0
                 self.buf = np.concatenate(list(self.pre) + [f]) if self.pre else f.copy()
                 self.on_event("speech_start", "")
             else:
                 self.buf = np.concatenate([self.buf, f])
             self.silence_ms = 0
+            self.utt_peak = max(getattr(self, "utt_peak", 0.0), float(np.max(np.abs(f))))
             self.speech_ms += 20
             self.lvl_sum += rms
             self.lvl_n += 1
@@ -153,6 +159,7 @@ class StreamingSTT:
             if final:
                 audio = np.concatenate([audio, np.zeros(int(0.2 * SR), np.float32)])
             self.decoded_len = len(self.buf)
+            t_dec = time.monotonic()
             hyp = await loop.run_in_executor(self.pool, self._decode, audio)
             self._last = time.monotonic()
             if not self.in_utt:
@@ -160,6 +167,12 @@ class StreamingSTT:
             if len(hyp) == 1 and norm(hyp[0]) in HALLUCINATIONS and self.speech_ms < 600:
                 hyp = []
             if self.listen_only:
+                if wake_diag.ENABLED:
+                    wake_diag.record("wake_check", utt=getattr(self, "utt_id", None), final=bool(final), text=" ".join(hyp),
+                                     speech_ms=self.speech_ms, audio_s=round(len(audio) / SR, 2),
+                                     utt_age_s=round(time.monotonic() - getattr(self, "utt_t0", t_dec), 2),
+                                     decode_ms=int((self._last - t_dec) * 1000), queue_wait_ms=int((t_dec - getattr(self, "utt_t0", t_dec)) * 1000) if not final else None,
+                                     peak=round(getattr(self, "utt_peak", 0.0), 3), noise=round(self.noise, 4), thr=round(max(self.vad_thr, self.noise * 3.0), 4))
                 self.wake_checked = True
                 self.on_event("wake_check", " ".join(hyp))
                 if final or not self.listen_only:                        # decided by the callback (it clears listen_only on a match)
