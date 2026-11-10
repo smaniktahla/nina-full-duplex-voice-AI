@@ -41,6 +41,8 @@ _NAMES = "|".join(sorted((re.escape(k) for k in AGENT_ALIASES), key=len, reverse
 _GENERIC = r"(?:someone|somebody|an agent|one of the agents|the team|the agents|the agent team)"
 _ASK = re.compile(r"^(?:hey nina,?\s*)?(?:please\s+)?(?:can you\s+|could you\s+)?(?:ask|tell|have|get)\s+(?P<who>" + _NAMES + "|" + _GENERIC +
                   r")\s+(?:to\s+)?(?P<task>.{6,})$", re.I | re.S)
+# Speech-to-text hears "have Hermes ..." as "half Hermes ...". Tolerated only before a NAMED agent (never the generic "half the team", which is ordinary English).
+_ASK_MISHEARD = re.compile(r"^(?:hey nina,?\s*)?(?:please\s+)?(?:half|haf)\s+(?P<who>" + _NAMES + r")\s+(?:to\s+)?(?P<task>.{6,})$", re.I | re.S)
 _ASSIGN = re.compile(r"^(?:please\s+)?(?:assign|delegate)\s+(?P<task>.{6,}?)\s+to\s+(?P<who>" + _NAMES + "|" + _GENERIC + r")\s*$", re.I | re.S)
 _QUESTION_HEAD = re.compile(r"^(?:what|how|is|are|did|does|do|why)\b", re.I)
 
@@ -78,7 +80,7 @@ def _clean(task: str) -> str:
 
 def parse(text: str) -> Intent | None:
     t = re.sub(r"\s+", " ", (text or "")).strip()
-    m = _ASK.match(t) or _ASSIGN.match(t)
+    m = _ASK.match(t) or _ASK_MISHEARD.match(t) or _ASSIGN.match(t)
     if not m:
         return None
     raw = m.group("task").strip()
