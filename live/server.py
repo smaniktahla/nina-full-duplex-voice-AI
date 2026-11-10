@@ -774,7 +774,12 @@ class Session:
                     arg = utter
             utter_d = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf     # same de-duplication as user_said below
             owned = tools_mod.claim(utter_d) if RESPONDER else ""
-            if owned and owned != tool.group(1):
+            if tool.group(1) in ("hermes", "search", "ha") and tools_mod.team_owns(utter_d):
+                # an explicit delegation phrase ("ask Hermes to ...") is a work order for Paperclip, not a live chat with an agent: the model's own
+                # tool pick must not bypass the task system, or the work has no issue, assignee or history
+                log("   (team delegation request: @%s replaced by @team)" % tool.group(1))
+                self.run_tool_call("team", utter_d)
+            elif owned and owned != tool.group(1):
                 # the model picked its own tool (it chose @hermes for "show me the route on the kitchen screen"): a request a deterministic tool claims belongs to that tool
                 # (display_ops / navigation_ops / calendar / weather / random), and must never go to an agent that could improvise
                 log("   (%s request: @%s replaced by @%s)" % (owned, tool.group(1), owned))

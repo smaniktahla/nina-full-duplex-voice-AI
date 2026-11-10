@@ -41,7 +41,13 @@ _NAMES = "|".join(sorted((re.escape(k) for k in AGENT_ALIASES), key=len, reverse
 _GENERIC = r"(?:someone|somebody|an agent|one of the agents|the team|the agents|the agent team)"
 _ASK = re.compile(r"^(?:hey nina,?\s*)?(?:please\s+)?(?:can you\s+|could you\s+)?(?:ask|tell|have|get)\s+(?P<who>" + _NAMES + "|" + _GENERIC +
                   r")\s+(?:to\s+)?(?P<task>.{6,})$", re.I | re.S)
+# Speech-to-text hears "have Hermes ..." as "half Hermes ...". Tolerated only before a NAMED agent (never the generic "half the team", which is ordinary English).
+_ASK_MISHEARD = re.compile(r"^(?:hey nina,?\s*)?(?:please\s+)?(?:half|haf)\s+(?P<who>" + _NAMES + r")\s+(?:to\s+)?(?P<task>.{6,})$", re.I | re.S)
 _ASSIGN = re.compile(r"^(?:please\s+)?(?:assign|delegate)\s+(?P<task>.{6,}?)\s+to\s+(?P<who>" + _NAMES + "|" + _GENERIC + r")\s*$", re.I | re.S)
+# Quick lookups and status checks ("check the uptime of AI1") are not work orders: a Paperclip issue + run + comment is slow and spends agent traffic for an answer
+# a direct tool gives in seconds. They fall through to the normal pipeline unless the speaker explicitly asks for a tracked task.
+_LOOKUP_HEAD = re.compile(r"^(?:check|status|what|how|is|are|show|see|tell me|find out|look up|report|read|list|ping|test|verify)\b", re.I)
+_TRACKED = re.compile(r"\b(?:task|ticket|issue|paperclip|background|report back|get back to me|let me know when|when (?:it'?s|you'?re) done)\b", re.I)
 _QUESTION_HEAD = re.compile(r"^(?:what|how|is|are|did|does|do|why)\b", re.I)
 
 
@@ -78,13 +84,15 @@ def _clean(task: str) -> str:
 
 def parse(text: str) -> Intent | None:
     t = re.sub(r"\s+", " ", (text or "")).strip()
-    m = _ASK.match(t) or _ASSIGN.match(t)
+    m = _ASK.match(t) or _ASK_MISHEARD.match(t) or _ASSIGN.match(t)
     if not m:
         return None
     raw = m.group("task").strip()
     task = _clean(raw)
     if len(task) < 6 or _QUESTION_HEAD.match(raw) and raw.endswith("?"):
         return None                                     # "ask claude what time it is" style questions are not work orders
+    if _LOOKUP_HEAD.match(task) and not _TRACKED.search(t):
+        return None
     who = m.group("who").lower()
     if who in AGENT_ALIASES:
         label, key = AGENT_ALIASES[who]

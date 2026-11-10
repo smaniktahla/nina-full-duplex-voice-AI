@@ -97,3 +97,18 @@ def test_make_post_maps_status_and_never_leaks_token():
         else: raise AssertionError(st)
     try: go(FakeSession(exc=ConnectionRefusedError()))
     except t.TaskApiError as e: assert e.kind == "unavailable"
+
+
+def test_stt_half_for_have_before_named_agent():
+    it = t.parse("Half Hermes review the uptime monitoring of AI1")
+    assert it and it.agent_key == "homelab_engineer" and it.task.startswith("review")
+    assert t.parse("Half Hermes review the error handling in the needle project") is not None
+    assert t.parse("half the team showed up late to the meeting") is None      # generic "half the team" is ordinary English
+    assert t.parse("half of Hermes is broken today") is None
+
+
+def test_lookups_stay_out_of_paperclip_unless_tracked():
+    for s in ("ask Hermes to check the uptime of AI1", "have hermes report the hostname and uptime of ai1", "ask claude to show me the disk usage on docker2"):
+        assert t.parse(s) is None, s
+    assert t.parse("ask Hermes to check the uptime of AI1 and create a task if it is under a day") is not None
+    assert t.parse("ask claude to investigate why the JSHQ matching is slow") is not None
