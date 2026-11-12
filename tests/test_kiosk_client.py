@@ -95,3 +95,50 @@ def test_alarm_respects_volume_ducking_and_does_not_overflow():
     p.push(24000, np.full(2400, 32767, np.int16).tobytes())
     mixed = p.fill(2400)
     assert mixed.min() > 0 and mixed.max() <= 16384
+
+
+def test_indicator_shows_only_while_active():
+    assert k.indicator_wanted("ACTIVE") and k.indicator_wanted("active")
+    assert not any(k.indicator_wanted(s) for s in ("IDLE", "DORMANT", "SUSPENDED", "", None))
+    assert k.OVERLAY_ID in k.OVERLAY_ON and k.OVERLAY_ID in k.OVERLAY_OFF
+
+
+def test_indicator_drives_chrome_devtools_on_and_off():
+    """A fake DevTools endpoint: the indicator evaluates the overlay script in every page tab, removes it on request, and survives an unreachable endpoint."""
+    import asyncio
+    from aiohttp import web, ClientSession
+    seen = []
+
+    async def go():
+        async def lst(request):
+            host = request.host
+            return web.json_response([{"type": "page", "webSocketDebuggerUrl": "ws://%s/p1" % host}, {"type": "browser_ui", "webSocketDebuggerUrl": "ws://%s/ui" % host}])
+
+        async def page(request):
+            ws = web.WebSocketResponse(); await ws.prepare(request)
+            async for m in ws:
+                seen.append(json.loads(m.data)["params"]["expression"])
+                await ws.send_str(json.dumps({"id": 1, "result": {}}))
+            return ws
+        app = web.Application(); app.router.add_get("/json/list", lst); app.router.add_get("/p1", page)
+        runner = web.AppRunner(app); await runner.setup()
+        site = web.TCPSite(runner, "127.0.0.1", 0); await site.start()
+        port = site._server.sockets[0].getsockname()[1]
+        async with ClientSession() as http:
+            ind = k.Indicator("http://127.0.0.1:%d" % port); ind.start(http)
+            ind.set(True)
+            for _ in range(50):
+                if seen: break
+                await asyncio.sleep(0.05)
+            assert seen and seen[0] == k.OVERLAY_ON
+            ind.set(False)
+            for _ in range(50):
+                if seen[-1] == k.OVERLAY_OFF: break
+                await asyncio.sleep(0.05)
+            assert seen[-1] == k.OVERLAY_OFF
+            assert len(set(seen)) == 2 and all(e in (k.OVERLAY_ON, k.OVERLAY_OFF) for e in seen)      # only the page tab was touched, never browser_ui
+            ind.stop()
+            dead = k.Indicator("http://127.0.0.1:1"); dead.start(http); dead.set(True)
+            await asyncio.sleep(0.3); dead.stop()                                  # unreachable: logged, no exception escapes
+        await runner.cleanup()
+    asyncio.run(go())
