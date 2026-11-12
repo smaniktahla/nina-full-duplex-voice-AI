@@ -100,11 +100,17 @@ def test_alarm_respects_volume_ducking_and_does_not_overflow():
 def test_indicator_shows_only_while_active():
     assert k.indicator_wanted("ACTIVE") and k.indicator_wanted("active")
     assert not any(k.indicator_wanted(s) for s in ("IDLE", "DORMANT", "SUSPENDED", "", None))
-    assert k.OVERLAY_ID in k.OVERLAY_ON and k.OVERLAY_ID in k.OVERLAY_OFF
 
 
-def test_indicator_drives_chrome_devtools_on_and_off():
-    """A fake DevTools endpoint: the indicator evaluates the overlay script in every page tab, removes it on request, and survives an unreachable endpoint."""
+def test_level_of_maps_loudness_to_0_1():
+    assert k.level_of(np.zeros(320, np.int16)) == 0.0 and k.level_of(np.array([], np.int16)) == 0.0
+    quiet = k.level_of(np.full(320, 30, np.int16)); mid = k.level_of(np.full(320, 1500, np.int16)); loud = k.level_of(np.full(320, 30000, np.int16))
+    assert 0.0 <= quiet < mid < loud <= 1.0 and loud > 0.95                         # monotonic, speech-level audio lands mid-scale
+    assert k.push_js("speak", 2.0).endswith("push('speak',1.000)") and "push('listen',0.000)" in k.push_js("x", -1)
+
+
+def test_indicator_injects_pushes_live_levels_switches_colour_and_hides():
+    """A fake DevTools endpoint: the overlay is injected into page tabs only, then live levels stream in, the mode changes, and hiding removes it."""
     import asyncio
     from aiohttp import web, ClientSession
     seen = []
@@ -112,7 +118,8 @@ def test_indicator_drives_chrome_devtools_on_and_off():
     async def go():
         async def lst(request):
             host = request.host
-            return web.json_response([{"type": "page", "webSocketDebuggerUrl": "ws://%s/p1" % host}, {"type": "browser_ui", "webSocketDebuggerUrl": "ws://%s/ui" % host}])
+            return web.json_response([{"id": "p1", "type": "page", "webSocketDebuggerUrl": "ws://%s/p1" % host},
+                                      {"id": "u", "type": "browser_ui", "webSocketDebuggerUrl": "ws://%s/ui" % host}])
 
         async def page(request):
             ws = web.WebSocketResponse(); await ws.prepare(request)
@@ -124,21 +131,25 @@ def test_indicator_drives_chrome_devtools_on_and_off():
         runner = web.AppRunner(app); await runner.setup()
         site = web.TCPSite(runner, "127.0.0.1", 0); await site.start()
         port = site._server.sockets[0].getsockname()[1]
+
+        async def until(pred):
+            for _ in range(100):
+                if pred(): return True
+                await asyncio.sleep(0.05)
+            return False
         async with ClientSession() as http:
             ind = k.Indicator("http://127.0.0.1:%d" % port); ind.start(http)
-            ind.set(True)
-            for _ in range(50):
-                if seen: break
-                await asyncio.sleep(0.05)
-            assert seen and seen[0] == k.OVERLAY_ON
-            ind.set(False)
-            for _ in range(50):
-                if seen[-1] == k.OVERLAY_OFF: break
-                await asyncio.sleep(0.05)
-            assert seen[-1] == k.OVERLAY_OFF
-            assert len(set(seen)) == 2 and all(e in (k.OVERLAY_ON, k.OVERLAY_OFF) for e in seen)      # only the page tab was touched, never browser_ui
+            ind.set("listen", 0.4)
+            assert await until(lambda: any(e.startswith("window.__ninaWave&&") and "'listen',0.400" in e for e in seen))
+            assert seen[0] == k.WAVE_JS                                                  # injected first, once, before any push
+            ind.set("speak", 0.9)
+            assert await until(lambda: any("'speak',0.900" in e for e in seen))
+            ind.set(None)
+            assert await until(lambda: seen[-1] == k.OVERLAY_OFF)
+            n = len(seen); await asyncio.sleep(0.3); assert len(seen) == n                # hidden = silent: nothing more is sent
+            assert all(e in (k.WAVE_JS, k.OVERLAY_OFF) or e.startswith("window.__ninaWave&&") for e in seen)        # only the page tab, never browser_ui
             ind.stop()
-            dead = k.Indicator("http://127.0.0.1:1"); dead.start(http); dead.set(True)
-            await asyncio.sleep(0.3); dead.stop()                                  # unreachable: logged, no exception escapes
+            dead = k.Indicator("http://127.0.0.1:1"); dead.start(http); dead.set("listen", 0.5)
+            await asyncio.sleep(0.4); dead.stop()                                      # unreachable: logged, no exception escapes
         await runner.cleanup()
     asyncio.run(go())

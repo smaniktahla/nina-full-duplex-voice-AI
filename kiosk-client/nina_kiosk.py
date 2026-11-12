@@ -42,7 +42,7 @@ DEFAULTS = {
     "duck_gain": 0.12,
     "reconnect_min_s": 2.0,
     "reconnect_max_s": 30.0,
-    "chrome_debug": "http://127.0.0.1:9222",  # Chrome remote-debugging endpoint on this machine: draws the "Nina is listening" glow over the page. Empty = no indicator
+    "chrome_debug": "http://127.0.0.1:9222",  # Chrome remote-debugging endpoint on this machine: draws the live listening/speaking waveform over the page. Empty = no indicator
     "mic_stall_s": 15.0,                  # no microphone callbacks for this long (PipeWire restarted, device unplugged): exit so systemd restarts us with fresh audio streams
 }
 
@@ -172,81 +172,160 @@ class Playback:
 
 
 
-# ---------------------------------------------------------------- "Nina is listening" indicator (a glow over whatever page Chrome is showing)
-OVERLAY_ID = "nina-listening-overlay"
-OVERLAY_ON = (
-    "(function(){var id='%s',o=document.getElementById(id);if(o)return;"
-    "var st=document.createElement('style');st.id=id+'-css';"
-    "st.textContent='@keyframes ninaglow{0%%,100%%{opacity:.55}50%%{opacity:1}}';document.documentElement.appendChild(st);"
-    "o=document.createElement('div');o.id=id;"
-    "o.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none;"
-    "box-shadow:inset 0 0 0 6px #3ddc84,inset 0 0 90px 10px rgba(61,220,132,.55);animation:ninaglow 1.6s ease-in-out infinite';"
-    "var p=document.createElement('div');p.textContent='Listening\u2026';"
-    "p.style.cssText='position:absolute;top:18px;left:50%%;transform:translateX(-50%%);background:#0d3b22;color:#eafff3;"
-    "font:600 26px system-ui,sans-serif;padding:8px 26px;border-radius:999px;border:2px solid #3ddc84';"
-    "o.appendChild(p);document.documentElement.appendChild(o);})()" % OVERLAY_ID
-)
-OVERLAY_OFF = "(function(){['%s','%s-css'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});})()" % (OVERLAY_ID, OVERLAY_ID)
+# ---------------------------------------------------------------- "Nina is listening / speaking" waveform over whatever page Chrome is showing
+# The overlay is a canvas injected through Chrome's local DevTools endpoint. The client pushes the live audio level (microphone while she listens, her own
+# speech while she talks) ~30 times a second and the page draws it: blue = listening, orange = speaking. It removes itself if the pushes stop.
+OVERLAY_ID = "nina-wave-overlay"
+WAVE_JS = r"""(function(){
+var id='__ID__';if(window.__ninaWave&&window.__ninaWave.c&&window.__ninaWave.c.isConnected)return;
+var c=document.createElement('canvas');c.id=id;
+c.style.cssText='position:fixed;left:0;right:0;bottom:0;width:100vw;height:300px;z-index:2147483647;pointer-events:none;opacity:0;transition:opacity .3s';
+document.documentElement.appendChild(c);requestAnimationFrame(function(){c.style.opacity='1';});
+var x=c.getContext('2d'),dpr=window.devicePixelRatio||1,w=0,h=0;
+function size(){w=c.clientWidth;h=c.clientHeight;c.width=w*dpr;c.height=h*dpr;x.setTransform(dpr,0,0,dpr,0,0);}size();window.addEventListener('resize',size);
+var COL={listen:[58,160,255],speak:[255,159,67]};
+var S=window.__ninaWave={c:c,mode:'listen',target:0,lvl:0,col:COL.listen.slice(),ph:0,t:0,last:performance.now(),
+  push:function(m,l){S.mode=m;S.target=l;S.last=performance.now();}};
+var hist=[];for(var i=0;i<256;i++)hist.push(0);var hacc=0;
+function frame(t){
+  if(!c.isConnected||window.__ninaWave!==S)return;
+  if(t-S.last>5000){c.remove();window.__ninaWave=null;return;}                 // the client stopped pushing: never leave the glow stuck on screen
+  var dt=Math.min(.05,(t-S.t)/1000||0);S.t=t;
+  var tgt=t-S.last>1200?0:S.target;S.lvl+=(tgt-S.lvl)*Math.min(1,dt*(tgt>S.lvl?22:7));      // fast attack, slower release: follows the voice, not the jitter
+  var k=Math.min(1,dt*6);for(var i=0;i<3;i++)S.col[i]+=(COL[S.mode][i]-S.col[i])*k;
+  S.ph+=dt*(1.2+S.lvl*5);hacc+=dt;if(hacc>.03){hacc=0;hist.shift();hist.push(S.lvl);}
+  x.clearRect(0,0,w,h);x.globalCompositeOperation='lighter';
+  var mid=h/2,r=Math.round(S.col[0]),g=Math.round(S.col[1]),b=Math.round(S.col[2]),n=hist.length;
+  for(var L=0;L<5;L++){
+    x.beginPath();
+    for(var px=0;px<=w;px+=4){
+      var u=px/w,env=Math.pow(Math.sin(Math.PI*u),.8);
+      var hv=hist[Math.min(n-1,Math.floor(u*(n-1)))];                           // the recent past of the real signal shapes the line left to right
+      var amp=Math.min(1.1,.06+1.5*(.5*S.lvl+.5*hv));
+      var v=Math.sin(u*10+S.ph*(1+L*.35)+L*1.7)*.55+Math.sin(u*19-S.ph*(1.3+L*.2)+L)*.3+Math.sin(u*33+S.ph*2.1+L*2.3)*.15;
+      var y=mid+v*env*amp*(mid-12)*(L?.5+L*.12:1);
+      px?x.lineTo(px,y):x.moveTo(px,y);
+    }
+    x.lineWidth=L?1.5:3;x.strokeStyle='rgba('+r+','+g+','+b+','+(L?.5:.95)+')';
+    x.shadowColor='rgba('+r+','+g+','+b+',.9)';x.shadowBlur=L?8:20;x.stroke();
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})()""".replace("__ID__", OVERLAY_ID)
+OVERLAY_OFF = "(function(){var W=window.__ninaWave;if(W&&W.c)W.c.remove();window.__ninaWave=null;var e=document.getElementById('%s');if(e)e.remove();})()" % OVERLAY_ID
+
+
+def push_js(mode, level):
+    return "window.__ninaWave&&window.__ninaWave.push('%s',%.3f)" % ("speak" if mode == "speak" else "listen", max(0.0, min(1.0, float(level))))
+
+
+def level_of(pcm):
+    """0..1 loudness of an int16 block: -55 dBFS and below is 0, -10 dBFS and above is 1 (speech through the echo-cancelled mic sits around -40..-20)."""
+    a = np.asarray(pcm, dtype=np.float32)
+    if not a.size:
+        return 0.0
+    rms = float(np.sqrt(np.mean(a * a))) / 32768.0
+    return max(0.0, min(1.0, (20.0 * np.log10(rms + 1e-6) + 55.0) / 45.0))
 
 
 def indicator_wanted(state):
-    """The glow shows while Nina is awake and taking a request (session state ACTIVE); idle, dormant and suspended hide it."""
+    """The waveform shows while Nina is awake and taking a request (session state ACTIVE); idle, dormant and suspended hide it."""
     return str(state or "").lower() == "active"
 
 
 class Indicator:
-    """Draws/removes the overlay in the kiosk Chrome through its local DevTools endpoint. Best effort: any failure is logged once and retried on the next change."""
+    """Keeps one DevTools connection per page tab in the kiosk Chrome and pushes the live level into the overlay. Best effort: failures are logged once, never touch audio."""
+    PUSH_S = 1 / 30
+    INJECT_EVERY_S = 2.0                                           # re-inject periodically: a page reload loses the overlay
 
     def __init__(self, endpoint):
         self.endpoint = (endpoint or "").rstrip("/")
-        self.want = False
+        self.mode = None                                           # None (hidden), "listen" or "speak"
+        self.level = 0.0
         self.http = None
         self._task = None
-        self._wake = None
         self._warned = False
+        self._conns = {}                                           # tab id -> {ws, reader, injected_at}
 
     def start(self, http):
         if self.endpoint:
             self.http = http
-            self._wake = asyncio.Event()
             self._task = asyncio.ensure_future(self._run())
 
-    def set(self, on):
-        on = bool(on)
-        if on != self.want:
-            self.want = on
-            if self._wake:
-                self._wake.set()
+    def set(self, mode, level=None):
+        self.mode = "listen" if mode is True else (mode if mode in ("listen", "speak") else None)
+        if level is not None:
+            self.level = level
 
-    async def _eval(self, expression):
-        async with self.http.get(self.endpoint + "/json/list", timeout=aiohttp_timeout(2)) as r:
-            tabs = [t for t in await r.json(content_type=None) if t.get("type") == "page" and t.get("webSocketDebuggerUrl")]
-        for t in tabs:                                             # every page tab, so a navigation or a second tab never leaves a stale glow
-            async with self.http.ws_connect(t["webSocketDebuggerUrl"], timeout=aiohttp_ws_timeout(2), max_msg_size=1 << 22) as ws:
-                await ws.send_str(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": expression}}))
-                await asyncio.wait_for(ws.receive(), 2)
+    async def _tabs(self):
+        import aiohttp
+        async with self.http.get(self.endpoint + "/json/list", timeout=aiohttp.ClientTimeout(total=2)) as r:
+            return {t["id"]: t["webSocketDebuggerUrl"] for t in await r.json(content_type=None) if t.get("type") == "page" and t.get("webSocketDebuggerUrl")}
+
+    async def _drain(self, ws):
+        try:
+            async for _ in ws:                                     # responses are not needed, but unread messages would pile up
+                pass
+        except Exception:                                          # noqa: BLE001
+            pass
+
+    async def _drop(self, tid):
+        c = self._conns.pop(tid, None)
+        if c:
+            c["reader"].cancel()
+            try:
+                await c["ws"].close()
+            except Exception:                                      # noqa: BLE001
+                pass
+
+    async def _send(self, tid, url, expression):
+        c = self._conns.get(tid)
+        if c is None or c["ws"].closed:
+            await self._drop(tid)
+            ws = await self.http.ws_connect(url, max_msg_size=1 << 22, timeout=aiohttp_ws_timeout(2))
+            c = self._conns[tid] = {"ws": ws, "reader": asyncio.ensure_future(self._drain(ws)), "injected_at": 0.0, "n": 0}
+        c["n"] += 1
+        await c["ws"].send_str(json.dumps({"id": c["n"], "method": "Runtime.evaluate", "params": {"expression": expression}}))
+        return c
 
     async def _run(self):
-        applied = None
+        tabs, tabs_at, hidden = {}, 0.0, True
         while True:
             try:
-                await asyncio.wait_for(self._wake.wait(), 2.0 if self.want else 10.0)     # while awake, re-apply every 2 s: a page reload loses the overlay
-            except asyncio.TimeoutError:
-                pass
-            self._wake.clear()
-            if not self.want and applied is False:
-                continue
-            try:
-                await self._eval(OVERLAY_ON if self.want else OVERLAY_OFF)
-                applied = self.want
+                await asyncio.sleep(self.PUSH_S if self.mode else 0.25)
+                now = time.monotonic()
+                if now - tabs_at > 1.0 and (self.mode or not hidden or self._conns):
+                    tabs, tabs_at = await self._tabs(), now
+                    for tid in [t for t in self._conns if t not in tabs]:
+                        await self._drop(tid)
+                if self.mode:
+                    hidden = False
+                    for tid, url in tabs.items():
+                        c = self._conns.get(tid)
+                        if c is None or now - c["injected_at"] > self.INJECT_EVERY_S:
+                            c = await self._send(tid, url, WAVE_JS)
+                            c["injected_at"] = now
+                        await self._send(tid, url, push_js(self.mode, self.level))
+                elif not hidden:
+                    for tid, url in tabs.items():
+                        await self._send(tid, url, OVERLAY_OFF)
+                    await asyncio.sleep(0.1)
+                    for tid in list(self._conns):
+                        await self._drop(tid)
+                    hidden = True
                 self._warned = False
             except asyncio.CancelledError:
+                for tid in list(self._conns):
+                    await self._drop(tid)
                 raise
             except Exception as e:                                 # noqa: BLE001  the indicator must never affect audio
                 if not self._warned:
                     log.warning("indicator unavailable: %s", type(e).__name__ + (": " + str(e)[:80] if str(e) else ""))
                     self._warned = True
-                applied = None
+                for tid in list(self._conns):
+                    await self._drop(tid)
+                await asyncio.sleep(1.0)
 
     def stop(self):
         if self._task:
@@ -257,10 +336,6 @@ def aiohttp_ws_timeout(s):
     import aiohttp
     return aiohttp.ClientWSTimeout(ws_close=s)
 
-
-def aiohttp_timeout(s):
-    import aiohttp
-    return aiohttp.ClientTimeout(total=s)
 
 EARCONS = {"wake": (660, 880), "sleep": (660, 440)}
 
@@ -279,6 +354,10 @@ class Client:
         self.dropped = 0
         self.last_mic = time.monotonic()
         self.indicator = Indicator(cfg.get("chrome_debug"))
+        self.awake = False                # session state ACTIVE, from the server
+        self._mic_peak = 0.0              # loudest block since the indicator last looked (written by the audio threads, read and reset by feed_indicator)
+        self._out_peak = 0.0
+        self._speak_until = 0.0
 
     # ---- audio threads (PortAudio callbacks): hand everything to the event loop, never block
     def _mic_cb(self, indata, frames, t, status):
@@ -289,6 +368,8 @@ class Client:
         if self.cfg["mic_gain"] != 1.0:
             a = np.clip(a.astype(np.float32) * self.cfg["mic_gain"], -32768, 32767).astype(np.int16)
         a = self.warm(a)
+        if len(a) and self.awake:
+            self._mic_peak = max(self._mic_peak, level_of(a))
         if not len(a) or self.muted or not self.connected:
             return
         for f in self.framer.feed(a):
@@ -301,7 +382,13 @@ class Client:
         self.q.put_nowait(frame)
 
     def _spk_cb(self, outdata, frames, t, status):
-        outdata[:] = self.play.fill(frames).tobytes()
+        blk = self.play.fill(frames)
+        outdata[:] = blk.tobytes()
+        if self.awake and not self.play.alarm_active:
+            lv = level_of(blk)
+            if lv > 0.05:                  # her own speech is playing (silence between words keeps it on for a moment, see feed_indicator)
+                self._out_peak = max(self._out_peak, lv)
+                self._speak_until = time.monotonic() + 0.5
 
     # ---- server messages
     def on_json(self, m):
@@ -310,7 +397,9 @@ class Client:
             log.info("connected: tts=%s stt=%s", m.get("tts"), m.get("stt"))
         elif t == "mgr":
             log.info("session %s (wake: %s)", m.get("state"), m.get("wake"))
-            self.indicator.set(indicator_wanted(m.get("state")))
+            self.awake = indicator_wanted(m.get("state"))
+            if not self.awake:
+                self.indicator.set(None)
         elif t == "timer_alarm":
             self.play.alarm(m.get("active", False))
             log.info("timer alarm %s", "ringing" if self.play.alarm_active else "dismissed")
@@ -352,7 +441,8 @@ class Client:
                         break
             finally:
                 task.cancel()
-                self.indicator.set(False)
+                self.awake = False
+                self.indicator.set(None)
                 self.connected = False
                 self.play.alarm(False)
                 self.play.cancel()
@@ -379,6 +469,7 @@ class Client:
             log.info("audio running (mic %s, speaker %s); server %s", inp.device, out.device, url)
             async with aiohttp.ClientSession() as http:
                 self.indicator.start(http)
+                feed = asyncio.ensure_future(self.feed_indicator())
                 while not self.stopping:
                     t0 = time.monotonic()
                     try:
@@ -392,8 +483,21 @@ class Client:
                     if self.stopping:
                         break
                     await asyncio.sleep(backoff(attempt - 1, self.cfg["reconnect_min_s"], self.cfg["reconnect_max_s"]))
-                self.indicator.set(False)
+                feed.cancel()
+                self.indicator.set(None)
                 self.indicator.stop()
+
+    async def feed_indicator(self):
+        """~30 times a second: the live level of whatever is happening. Her voice while she speaks (orange), otherwise the microphone (blue)."""
+        while True:
+            await asyncio.sleep(Indicator.PUSH_S)
+            if not self.awake:
+                continue
+            if time.monotonic() < self._speak_until:
+                self.indicator.set("speak", self._out_peak)
+            else:
+                self.indicator.set("listen", self._mic_peak)
+            self._mic_peak = self._out_peak = 0.0
 
     async def watchdog(self):
         """Audio streams do not recover by themselves when PipeWire restarts: if the microphone callback goes quiet, exit non-zero and let systemd restart the service."""
