@@ -42,6 +42,7 @@ DEFAULTS = {
     "duck_gain": 0.12,
     "reconnect_min_s": 2.0,
     "reconnect_max_s": 30.0,
+    "chrome_debug": "http://127.0.0.1:9222",  # Chrome remote-debugging endpoint on this machine: draws the "Nina is listening" glow over the page. Empty = no indicator
     "mic_stall_s": 15.0,                  # no microphone callbacks for this long (PipeWire restarted, device unplugged): exit so systemd restarts us with fresh audio streams
 }
 
@@ -170,6 +171,97 @@ class Playback:
         return out if g == 1.0 else np.clip(out.astype(np.float32) * g, -32768, 32767).astype(np.int16)
 
 
+
+# ---------------------------------------------------------------- "Nina is listening" indicator (a glow over whatever page Chrome is showing)
+OVERLAY_ID = "nina-listening-overlay"
+OVERLAY_ON = (
+    "(function(){var id='%s',o=document.getElementById(id);if(o)return;"
+    "var st=document.createElement('style');st.id=id+'-css';"
+    "st.textContent='@keyframes ninaglow{0%%,100%%{opacity:.55}50%%{opacity:1}}';document.documentElement.appendChild(st);"
+    "o=document.createElement('div');o.id=id;"
+    "o.style.cssText='position:fixed;inset:0;z-index:2147483647;pointer-events:none;"
+    "box-shadow:inset 0 0 0 6px #3ddc84,inset 0 0 90px 10px rgba(61,220,132,.55);animation:ninaglow 1.6s ease-in-out infinite';"
+    "var p=document.createElement('div');p.textContent='Listening\u2026';"
+    "p.style.cssText='position:absolute;top:18px;left:50%%;transform:translateX(-50%%);background:#0d3b22;color:#eafff3;"
+    "font:600 26px system-ui,sans-serif;padding:8px 26px;border-radius:999px;border:2px solid #3ddc84';"
+    "o.appendChild(p);document.documentElement.appendChild(o);})()" % OVERLAY_ID
+)
+OVERLAY_OFF = "(function(){['%s','%s-css'].forEach(function(i){var e=document.getElementById(i);if(e)e.remove();});})()" % (OVERLAY_ID, OVERLAY_ID)
+
+
+def indicator_wanted(state):
+    """The glow shows while Nina is awake and taking a request (session state ACTIVE); idle, dormant and suspended hide it."""
+    return str(state or "").lower() == "active"
+
+
+class Indicator:
+    """Draws/removes the overlay in the kiosk Chrome through its local DevTools endpoint. Best effort: any failure is logged once and retried on the next change."""
+
+    def __init__(self, endpoint):
+        self.endpoint = (endpoint or "").rstrip("/")
+        self.want = False
+        self.http = None
+        self._task = None
+        self._wake = None
+        self._warned = False
+
+    def start(self, http):
+        if self.endpoint:
+            self.http = http
+            self._wake = asyncio.Event()
+            self._task = asyncio.ensure_future(self._run())
+
+    def set(self, on):
+        on = bool(on)
+        if on != self.want:
+            self.want = on
+            if self._wake:
+                self._wake.set()
+
+    async def _eval(self, expression):
+        async with self.http.get(self.endpoint + "/json/list", timeout=aiohttp_timeout(2)) as r:
+            tabs = [t for t in await r.json(content_type=None) if t.get("type") == "page" and t.get("webSocketDebuggerUrl")]
+        for t in tabs:                                             # every page tab, so a navigation or a second tab never leaves a stale glow
+            async with self.http.ws_connect(t["webSocketDebuggerUrl"], timeout=aiohttp_ws_timeout(2), max_msg_size=1 << 22) as ws:
+                await ws.send_str(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": expression}}))
+                await asyncio.wait_for(ws.receive(), 2)
+
+    async def _run(self):
+        applied = None
+        while True:
+            try:
+                await asyncio.wait_for(self._wake.wait(), 2.0 if self.want else 10.0)     # while awake, re-apply every 2 s: a page reload loses the overlay
+            except asyncio.TimeoutError:
+                pass
+            self._wake.clear()
+            if not self.want and applied is False:
+                continue
+            try:
+                await self._eval(OVERLAY_ON if self.want else OVERLAY_OFF)
+                applied = self.want
+                self._warned = False
+            except asyncio.CancelledError:
+                raise
+            except Exception as e:                                 # noqa: BLE001  the indicator must never affect audio
+                if not self._warned:
+                    log.warning("indicator unavailable: %s", type(e).__name__ + (": " + str(e)[:80] if str(e) else ""))
+                    self._warned = True
+                applied = None
+
+    def stop(self):
+        if self._task:
+            self._task.cancel()
+
+
+def aiohttp_ws_timeout(s):
+    import aiohttp
+    return aiohttp.ClientWSTimeout(ws_close=s)
+
+
+def aiohttp_timeout(s):
+    import aiohttp
+    return aiohttp.ClientTimeout(total=s)
+
 EARCONS = {"wake": (660, 880), "sleep": (660, 440)}
 
 
@@ -186,6 +278,7 @@ class Client:
         self.muted = False
         self.dropped = 0
         self.last_mic = time.monotonic()
+        self.indicator = Indicator(cfg.get("chrome_debug"))
 
     # ---- audio threads (PortAudio callbacks): hand everything to the event loop, never block
     def _mic_cb(self, indata, frames, t, status):
@@ -217,6 +310,7 @@ class Client:
             log.info("connected: tts=%s stt=%s", m.get("tts"), m.get("stt"))
         elif t == "mgr":
             log.info("session %s (wake: %s)", m.get("state"), m.get("wake"))
+            self.indicator.set(indicator_wanted(m.get("state")))
         elif t == "timer_alarm":
             self.play.alarm(m.get("active", False))
             log.info("timer alarm %s", "ringing" if self.play.alarm_active else "dismissed")
@@ -258,6 +352,7 @@ class Client:
                         break
             finally:
                 task.cancel()
+                self.indicator.set(False)
                 self.connected = False
                 self.play.alarm(False)
                 self.play.cancel()
@@ -283,6 +378,7 @@ class Client:
         with inp, out:
             log.info("audio running (mic %s, speaker %s); server %s", inp.device, out.device, url)
             async with aiohttp.ClientSession() as http:
+                self.indicator.start(http)
                 while not self.stopping:
                     t0 = time.monotonic()
                     try:
@@ -296,6 +392,8 @@ class Client:
                     if self.stopping:
                         break
                     await asyncio.sleep(backoff(attempt - 1, self.cfg["reconnect_min_s"], self.cfg["reconnect_max_s"]))
+                self.indicator.set(False)
+                self.indicator.stop()
 
     async def watchdog(self):
         """Audio streams do not recover by themselves when PipeWire restarts: if the microphone callback goes quiet, exit non-zero and let systemd restart the service."""

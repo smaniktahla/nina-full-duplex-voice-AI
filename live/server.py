@@ -193,6 +193,7 @@ class Session:
         self.pol.sys = chat("system", system_prompt(CFG["sentinel"], CFG["tick_ms"], True) + LIVE_NOTE
                             + (("\nWHAT YOU KNOW ABOUT THE USER (long-term memory, use it; don't recite it unprompted):\n- " + "\n- ".join(facts)) if facts else ""))
         self.user_buf, self.last_word_ms, self.note_once, self.answer_open = "", 0.0, "", False
+        self.held_n = 0                                                  # replies held back while the user was mid-utterance and not yet re-asked (see the tick)
 
     async def send(self, **m):
         try:
@@ -615,7 +616,7 @@ class Session:
         if self.notes.dictating():                                       # dictation: no replies, no ambient timeouts, no dismissal phrases
             if text or self.stt.in_utt or self.notes.holding():          # stays open between sentences; 5 min of silence lets it time out (and autosave)
                 self.sess.engage("dictation")
-            self.user_buf = ""
+            self.user_buf = ""; self.held_n = 0
             return
         if text:
             self.dismiss_buf = (self.dismiss_buf + " " + text)[-160:]
@@ -714,6 +715,10 @@ class Session:
                 if (kind == "silent" and self.answer_open and not text and self.cont_n < 2
                         and DANGLING.search(self.last_chunk or "")):
                     note = "continue"                                        # never leave a sentence dangling: force the rest (max 2 ticks)
+                elif (kind == "silent" and self.held_n and 0 < self.held_n <= 3 and not text and self.user_buf and silent_ms >= CFG["tick_ms"]
+                      and not self.stt.in_utt and not self.stt.pending):
+                    note = "speak-gate"                                      # a reply was held back mid-utterance and the model has since logged that tick as silence: ask again now the user is done
+                    self.held_n += 1
                 elif kind == "silent" and p_s < CFG["gate_lo"]:
                     note = "gate-lo"
                 elif (kind == "silent" and not text and self.user_buf and p_s < CFG["gate_hi"] and silent_ms >= CFG["tick_ms"]
@@ -744,6 +749,7 @@ class Session:
         if (not events and not speaking and self.stt.in_utt and (kind == "speech" or tool) and not DANGER.search(text + " " + self.user_buf)):
             log("   (held back: user still mid-utterance) %r" % (out or raw))
             kind, out, tool, note = "silent", "", None, "held-mid-utterance"
+            self.held_n = 1
         if gen != self.gen:                                              # interrupted while thinking: obsolete, never speak it
             log("   (discarded obsolete response: %r)" % raw)
             return discard()
@@ -751,6 +757,8 @@ class Session:
         log("TICK %5.1fs words=%-30r %s-> %-6s %r%s p_s=%.2f %s %dms" % (
             now / 1000, text[:30], ("+%d result(s) " % len(events)) if events else "", kind.upper(), out,
             (" [@%s %s]" % (tool.group(1), tool.group(2)[:50])) if tool else "", p_s, note, r["ms"]))
+        if kind == "speech" or tool:
+            self.held_n = 0
         hist = (out + (" @%s %s" % (tool.group(1), tool.group(2).strip()) if tool else "")).strip()
         self.pol.commit(text, text, hist, "speech" if hist else "silent")
         if tool:
@@ -929,7 +937,7 @@ class Session:
             self.slept_at = time.monotonic()
             self.stt.reset_utt()
             self.stt.pending = []
-            self.user_buf = ""
+            self.user_buf = ""; self.held_n = 0
             self.set_state("LISTENING")
             if self.wake_det:
                 try:
