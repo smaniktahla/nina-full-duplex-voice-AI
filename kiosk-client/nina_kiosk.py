@@ -189,7 +189,8 @@ var S=window.__ninaWave={c:c,mode:'listen',target:0,lvl:0,col:COL.listen.slice()
 var hist=[];for(var i=0;i<256;i++)hist.push(0);var hacc=0;
 function frame(t){
   if(!c.isConnected||window.__ninaWave!==S)return;
-  if(t-S.last>5000){c.remove();window.__ninaWave=null;return;}                 // the client stopped pushing: never leave the glow stuck on screen
+  if(t-S.last>5000){c.remove();window.__ninaWave=null;return;}
+  if(t-S.t<32){requestAnimationFrame(frame);return;}                           // capped at ~30 fps: a weak GPU/CPU does not need to draw more than the level is pushed                 // the client stopped pushing: never leave the glow stuck on screen
   var dt=Math.min(.05,(t-S.t)/1000||0);S.t=t;
   var tgt=t-S.last>1200?0:S.target;S.lvl+=(tgt-S.lvl)*Math.min(1,dt*(tgt>S.lvl?22:7));      // fast attack, slower release: follows the voice, not the jitter
   var k=Math.min(1,dt*6);for(var i=0;i<3;i++)S.col[i]+=(COL[S.mode][i]-S.col[i])*k;
@@ -198,7 +199,7 @@ function frame(t){
   var mid=h/2,r=Math.round(S.col[0]),g=Math.round(S.col[1]),b=Math.round(S.col[2]),n=hist.length;
   for(var L=0;L<5;L++){
     x.beginPath();
-    for(var px=0;px<=w;px+=4){
+    for(var px=0;px<=w;px+=6){
       var u=px/w,env=Math.pow(Math.sin(Math.PI*u),.8);
       var hv=hist[Math.min(n-1,Math.floor(u*(n-1)))];                           // the recent past of the real signal shapes the line left to right
       var amp=Math.min(1.1,.06+1.5*(.5*S.lvl+.5*hv));
@@ -207,7 +208,7 @@ function frame(t){
       px?x.lineTo(px,y):x.moveTo(px,y);
     }
     x.lineWidth=L?1.5:3;x.strokeStyle='rgba('+r+','+g+','+b+','+(L?.5:.95)+')';
-    x.shadowColor='rgba('+r+','+g+','+b+',.9)';x.shadowBlur=L?8:20;x.stroke();
+    x.shadowColor='rgba('+r+','+g+','+b+',.9)';x.shadowBlur=L?0:6;x.stroke();                      // glow only on the main line, and small: shadowBlur is the expensive part to draw
   }
   requestAnimationFrame(frame);
 }
