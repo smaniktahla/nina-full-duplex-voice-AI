@@ -114,6 +114,7 @@
     refit();
     $("phone").disabled = !(doc.actions && doc.actions.phone);
     $("close").disabled = !(doc.actions && doc.actions.close);
+    $("close").hidden = new URLSearchParams(location.search).has("popup");
   }
 
   // Fit the whole route in view. Inside an iframe (Home Assistant) the map's box often has not reached its final size when the route first arrives, and Leaflet does

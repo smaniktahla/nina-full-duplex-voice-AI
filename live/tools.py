@@ -447,12 +447,12 @@ async def schedule_request(http, text, speaker=None, cfg=None):
     return res.speech or "Sorry, I didn't catch that."
 
 
-def claim(text):
+def claim(text, offered=None):
     """Which deterministic tool claims this request ('' = none): claims.claim with this server's state (active route, fresh offer, what is configured)."""
     import claims
     if _timer.owns(text):
         return "timer"
-    return claims.claim(text, schedule=schedule_owns(text), store=route_store(), offered=offer_fresh(), display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh(), routine_cfg=ROUTINES)
+    return claims.claim(text, schedule=schedule_owns(text), store=route_store(), offered=offer_fresh() if offered is None else offered, display=bool(KIOSK_TARGETS), nav=nav_configured(), places=PLACES, agenda_fresh=agenda_fresh(), routine_cfg=ROUTINES)
 
 
 def display_owns(text, offered=False):
