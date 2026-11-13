@@ -127,7 +127,8 @@ def test_nav_is_off_without_a_key(monkeypatch, tmp_path):
 
 def test_server_replaces_model_tools_for_navigation_and_display():
     src = open(os.path.join(os.path.dirname(__file__), "..", "live", "server.py")).read()
-    assert 'tools_mod.claim(utter_d)' in src and 'k == "nav"' in src and '"display", "nav", "random"' in src and 'on_phone=kiosk_phone' in src
+    assert 'tools_mod.claim(utter_d, offered=self.route_offer_fresh())' in src
+    assert 'k == "nav"' in src and '"display", "nav", "random"' in src and 'on_phone=kiosk_phone' in src
     assert "import claims" in src and "claims.calendar_when" in src and "claims.weather_when" in src               # one routing table, shared with tests/test_routing_corpus.py
 
 

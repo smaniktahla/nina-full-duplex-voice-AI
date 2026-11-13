@@ -42,6 +42,7 @@ from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector    
 import responder                                                                         # noqa: E402
 from needle_voice import random_ops                               # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
+import route_screen  # noqa: E402
 import notes_tool                                              # noqa: E402
 from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search          # noqa: E402
 
@@ -157,7 +158,7 @@ class Session:
         self.t0 = self.loop.time()
         self.stt = StreamingSTT(shared_model=sh.whisper, executor=sh.stt_pool, on_event=self.on_stt,
                                 sens=float(os.environ.get("SENS", "0.4")), hotwords=tools_mod.stt_hotwords())
-        self.stt.keep_trivial = tools_mod.schedule_awaiting
+        self.stt.keep_trivial = lambda: tools_mod.schedule_awaiting() or self.route_offer_fresh()
         self.tts = TtsModel()
         self.tts.WPS = 2.6
         self.reset_conv()
@@ -187,7 +188,33 @@ class Session:
     def now(self):
         return (self.loop.time() - self.t0) * 1000
 
+    def route_offer_fresh(self):
+        active = tools_mod.route_store().get() if self.route_offer else None
+        return bool(active and active.id == self.route_offer[0] and time.monotonic() < self.route_offer[1])
+
+    async def route_eta(self, text):
+        result = await tools_mod.nav_request(self.http, text)
+        if "Want me to show it on the kitchen screen?" in result:
+            active = tools_mod.route_store().get()
+            if active:
+                self.route_offer = (active.id, time.monotonic() + tools_mod.OFFER_TTL_S)
+            question = "Want me to show it on this screen?" if route_screen.target(self.display_peer) else "Which screen should I show it on?"
+            result = result.replace("Want me to show it on the kitchen screen?", question)
+        return result
+
+    async def route_display(self, text):
+        from needle_voice import display_ops
+        offered = self.route_offer_fresh()
+        self.route_offer = None
+        browser = route_screen.target(self.display_peer, text)
+        if display_ops.parse(text, offered) == "show":
+            if browser:
+                return await route_screen.show(self.http, browser)
+            return "[NOT DONE] Tell me which screen to show the map on."
+        return await tools_mod.display_request(self.http, text, offered=offered)
+
     def reset_conv(self):
+        self.route_offer = None
         self.pol = PromptPolicy("append_state", CFG["sentinel"], CFG["tick_ms"])
         facts = load_facts()
         self.pol.sys = chat("system", system_prompt(CFG["sentinel"], CFG["tick_ms"], True) + LIVE_NOTE
@@ -476,8 +503,8 @@ class Session:
                              tools_mod.routine_request(self.http, g) if k == "routine" else
                              tools_mod.team_request(self.http, g) if k == "team" else
                              tools_mod.random_request(self.http, g) if k == "random" else
-                             tools_mod.display_request(self.http, g, offered=tools_mod.offer_fresh()) if k == "display" else
-                             tools_mod.nav_request(self.http, g) if k == "nav" else
+                             self.route_display(g) if k == "display" else
+                             self.route_eta(g) if k == "nav" else
                              self.schedule_turn(g) if k == "schedule" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
@@ -781,7 +808,7 @@ class Session:
                     log("   (ha request %r adds command words not in the user's words; using %r)" % (arg, utter[:80]))
                     arg = utter
             utter_d = (self.user_buf + " " + text).strip() if text and text not in self.user_buf else self.user_buf     # same de-duplication as user_said below
-            owned = tools_mod.claim(utter_d) if RESPONDER else ""
+            owned = tools_mod.claim(utter_d, offered=self.route_offer_fresh()) if RESPONDER else ""
             if tool.group(1) in ("hermes", "search", "ha") and tools_mod.team_owns(utter_d):
                 # an explicit delegation phrase ("ask Hermes to ...") is a work order for Paperclip, not a live chat with an agent: the model's own
                 # tool pick must not bypass the task system, or the work has no issue, assignee or history
@@ -816,7 +843,7 @@ class Session:
             self.last_chunk = out
             if not self.answer_open:
                 self.cont_n = 0
-            claimed = tools_mod.claim(user_said or "") if (RESPONDER and not events and not tool) else ""
+            claimed = tools_mod.claim(user_said or "", offered=self.route_offer_fresh()) if (RESPONDER and not events and not tool) else ""
             if claimed in ("display", "nav", "random", "timer", "clock", "routine", "schedule"):
                 # show/close the route, distance and travel time, coin/dice: code and a tool answer; the model cannot know and must not guess
                 log("   (%s request without a tool tag: starting @%s)" % (claimed, claimed))
@@ -1148,6 +1175,7 @@ async def ws_handler(request):
     await ws.prepare(request)
     log("client connected", request.remote, request.headers.get("User-Agent", "")[:80])
     session = Session(ws, request.app["shared"], request.app["http"])
+    session.display_peer = request.remote
     tools_mod._timer_listeners.add(session.send)
     try:
         await session.run()
