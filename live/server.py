@@ -42,6 +42,8 @@ from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector    
 import responder                                                                         # noqa: E402
 from needle_voice import random_ops                               # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
+import vision  # noqa: E402
+import sightings  # noqa: E402
 import camera_screen  # noqa: E402
 import route_screen  # noqa: E402
 import notes_tool                                              # noqa: E402
@@ -507,6 +509,8 @@ class Session:
                              self.route_display(g) if k == "display" else
                              self.route_eta(g) if k == "nav" else
                              camera_screen.show(self.http, self.display_peer) if k == "camera_live" else
+                             vision.describe(self.http) if k == "vision" else
+                             sightings.answer_with_popup(g) if k == "sighting" else
                              self.schedule_turn(g) if k == "schedule" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
@@ -518,7 +522,7 @@ class Session:
             j["res"], j["done"] = res, True
             self.sess.finish_task(j["id"])
             dt = (self.now() - j["t0"]) / 1000
-            log("TOOL #%d %s done in %.1fs (rev %d) req=%s: %s" % (j["id"], j["kind"], dt, rev, (tools_mod._home.get("last_rid") if j["kind"] == "ha" else "-"), res[:160]))
+            log("TOOL #%d %s done in %.1fs (rev %d) req=%s: %s" % (j["id"], j["kind"], dt, rev, (tools_mod._home.get("last_rid") if j["kind"] == "ha" else "-"), ("[scene description]" if j["kind"] == "vision" else res[:160])))
             if j["kind"] in ("schedule", "team"):
                 # a read-back / confirmation is spoken exactly as code wrote it: the reply model must not paraphrase a time, title or calendar
                 j["told"] = True
@@ -706,6 +710,19 @@ class Session:
                 request, self.user_buf = self.user_buf, ""
                 self.sess.add_turn("user", request)
                 self.start_tool("camera_live", request)
+            return
+        sighting_intent = sightings.intent(self.user_buf)
+        if sighting_intent:
+            if silent_ms >= CFG["tick_ms"] and not speaking and not self.stt.in_utt and not self.stt.pending:
+                request, self.user_buf = self.user_buf, ""
+                self.sess.add_turn("user", request)
+                self.start_tool("sighting", sighting_intent)
+            return
+        if vision.requested(self.user_buf):
+            if silent_ms >= CFG["tick_ms"] and not speaking and not self.stt.in_utt and not self.stt.pending:
+                request, self.user_buf = self.user_buf, ""
+                self.sess.add_turn("user", request)
+                self.start_tool("vision", request)
             return
         events = self.take_results(now, text, silent_ms, speaking)
         note_in = self.note_once
