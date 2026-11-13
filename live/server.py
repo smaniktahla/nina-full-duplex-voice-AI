@@ -216,8 +216,19 @@ class Session:
             return "[NOT DONE] Tell me which screen to show the map on."
         return await tools_mod.display_request(self.http, text, offered=offered)
 
+    @staticmethod
+    def camera_intent(text):
+        if camera_screen.requested(text):
+            return "camera_live", text
+        if intent := sightings.intent(text):
+            return "sighting", intent
+        if vision.requested(text):
+            return "vision", text
+        return None
+
     def reset_conv(self):
         self.route_offer = None
+        self.camera_request = None
         self.pol = PromptPolicy("append_state", CFG["sentinel"], CFG["tick_ms"])
         facts = load_facts()
         self.pol.sys = chat("system", system_prompt(CFG["sentinel"], CFG["tick_ms"], True) + LIVE_NOTE
@@ -277,6 +288,7 @@ class Session:
         elif kind == "final":
             log("STT final:  ", text)
             self.last_final = text
+            self.camera_request = self.camera_intent(text)
             if len(text.split()) >= 2:
                 self.sess.on_user_utterance(text)
             self.barge_fired = False
@@ -705,24 +717,14 @@ class Session:
         if self.answer_open and text and not is_backchannel(text):
             self.answer_open = False
             self.cont_n = 0
-        if camera_screen.requested(self.user_buf):
+        camera_request = self.camera_request or self.camera_intent(self.user_buf)
+        if camera_request:
             if silent_ms >= CFG["tick_ms"] and not speaking and not self.stt.in_utt and not self.stt.pending:
-                request, self.user_buf = self.user_buf, ""
-                self.sess.add_turn("user", request)
-                self.start_tool("camera_live", request)
-            return
-        sighting_intent = sightings.intent(self.user_buf)
-        if sighting_intent:
-            if silent_ms >= CFG["tick_ms"] and not speaking and not self.stt.in_utt and not self.stt.pending:
-                request, self.user_buf = self.user_buf, ""
-                self.sess.add_turn("user", request)
-                self.start_tool("sighting", sighting_intent)
-            return
-        if vision.requested(self.user_buf):
-            if silent_ms >= CFG["tick_ms"] and not speaking and not self.stt.in_utt and not self.stt.pending:
-                request, self.user_buf = self.user_buf, ""
-                self.sess.add_turn("user", request)
-                self.start_tool("vision", request)
+                kind, argument = camera_request
+                self.camera_request = None
+                self.user_buf = ""
+                self.sess.add_turn("user", self.last_final or argument)
+                self.start_tool(kind, argument)
             return
         events = self.take_results(now, text, silent_ms, speaking)
         note_in = self.note_once
@@ -1175,6 +1177,7 @@ class Session:
                         await self.dismiss()
                     elif m.get("t") == "text" and m.get("text", "").strip():       # typed input: same path as recognised speech
                         await self.activate("typed")
+                        self.camera_request = self.camera_intent(m["text"])
                         self.stt.pending += m["text"].split()
                         self.notes_utterance(m["text"])
                         await self.send(t="stt", kind="final", text=m["text"])

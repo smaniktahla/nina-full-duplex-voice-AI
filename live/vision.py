@@ -14,7 +14,7 @@ import tools
 def requested(text):
     words = " ".join(re.findall(r"[a-z]+", text.lower()))
     return bool(os.environ.get("NINA_CAMERA_SSH")) and bool(re.fullmatch(
-        r"(?:(?:hey )?nina )?(?:what do you see|what can you see|describe what you see)",
+        r"(?:(?:hey )?nina )?(?:so )?(?:(?:what do you see|what can you see|(?:describe|tell me) what you see)(?: right now)?)",
         words,
     ))
 
