@@ -42,6 +42,9 @@ from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector    
 import responder                                                                         # noqa: E402
 from needle_voice import random_ops                               # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
+import vision  # noqa: E402
+import sightings  # noqa: E402
+import camera_screen  # noqa: E402
 import route_screen  # noqa: E402
 import notes_tool                                              # noqa: E402
 from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search          # noqa: E402
@@ -213,8 +216,19 @@ class Session:
             return "[NOT DONE] Tell me which screen to show the map on."
         return await tools_mod.display_request(self.http, text, offered=offered)
 
+    @staticmethod
+    def camera_intent(text):
+        if camera_screen.requested(text):
+            return "camera_live", text
+        if intent := sightings.intent(text):
+            return "sighting", intent
+        if vision.requested(text):
+            return "vision", text
+        return None
+
     def reset_conv(self):
         self.route_offer = None
+        self.camera_request = None
         self.pol = PromptPolicy("append_state", CFG["sentinel"], CFG["tick_ms"])
         facts = load_facts()
         self.pol.sys = chat("system", system_prompt(CFG["sentinel"], CFG["tick_ms"], True) + LIVE_NOTE
@@ -274,6 +288,7 @@ class Session:
         elif kind == "final":
             log("STT final:  ", text)
             self.last_final = text
+            self.camera_request = self.camera_intent(text)
             if len(text.split()) >= 2:
                 self.sess.on_user_utterance(text)
             self.barge_fired = False
@@ -505,6 +520,9 @@ class Session:
                              tools_mod.random_request(self.http, g) if k == "random" else
                              self.route_display(g) if k == "display" else
                              self.route_eta(g) if k == "nav" else
+                             camera_screen.show(self.http, self.display_peer) if k == "camera_live" else
+                             vision.describe(self.http) if k == "vision" else
+                             sightings.answer_with_popup(g) if k == "sighting" else
                              self.schedule_turn(g) if k == "schedule" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
@@ -516,7 +534,7 @@ class Session:
             j["res"], j["done"] = res, True
             self.sess.finish_task(j["id"])
             dt = (self.now() - j["t0"]) / 1000
-            log("TOOL #%d %s done in %.1fs (rev %d) req=%s: %s" % (j["id"], j["kind"], dt, rev, (tools_mod._home.get("last_rid") if j["kind"] == "ha" else "-"), res[:160]))
+            log("TOOL #%d %s done in %.1fs (rev %d) req=%s: %s" % (j["id"], j["kind"], dt, rev, (tools_mod._home.get("last_rid") if j["kind"] == "ha" else "-"), ("[scene description]" if j["kind"] == "vision" else res[:160])))
             if j["kind"] in ("schedule", "team"):
                 # a read-back / confirmation is spoken exactly as code wrote it: the reply model must not paraphrase a time, title or calendar
                 j["told"] = True
@@ -699,6 +717,15 @@ class Session:
         if self.answer_open and text and not is_backchannel(text):
             self.answer_open = False
             self.cont_n = 0
+        camera_request = self.camera_request or self.camera_intent(self.user_buf)
+        if camera_request:
+            if silent_ms >= CFG["tick_ms"] and not speaking and not self.stt.in_utt and not self.stt.pending:
+                kind, argument = camera_request
+                self.camera_request = None
+                self.user_buf = ""
+                self.sess.add_turn("user", self.last_final or argument)
+                self.start_tool(kind, argument)
+            return
         events = self.take_results(now, text, silent_ms, speaking)
         note_in = self.note_once
         if events:
@@ -1150,6 +1177,7 @@ class Session:
                         await self.dismiss()
                     elif m.get("t") == "text" and m.get("text", "").strip():       # typed input: same path as recognised speech
                         await self.activate("typed")
+                        self.camera_request = self.camera_intent(m["text"])
                         self.stt.pending += m["text"].split()
                         self.notes_utterance(m["text"])
                         await self.send(t="stt", kind="final", text=m["text"])

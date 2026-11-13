@@ -22,6 +22,9 @@ may be None, in which case the action answers 501 and the viewer says it didn't 
 
 CLI (on the server):  python live/kiosk.py link --base http://<host>:<KIOSK_PORT> [--days 30]
 """
+import asyncio
+import secrets
+
 import argparse, base64, hmac, hashlib, json, os, sys, time
 from dataclasses import dataclass
 from typing import Awaitable, Callable, Optional
@@ -33,6 +36,20 @@ VIEWER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))
 AGENDA_VIEWER = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "kiosk-agenda")
 SCOPE = "route"
 DEFAULT_DAYS = 30
+SNAPSHOT_TTL_S = 75
+_snapshots = {}
+
+
+def snapshot_enabled():
+    return int(os.environ.get("KIOSK_PORT", "0") or 0) > 0
+
+
+def publish_snapshot(jpeg):
+    token = secrets.token_urlsafe(24)
+    loop = asyncio.get_running_loop()
+    _snapshots[token] = (jpeg, loop.time() + SNAPSHOT_TTL_S, set())
+    loop.call_later(SNAPSHOT_TTL_S, _snapshots.pop, token, None)
+    return "/snapshot/" + token + ".jpg"
 TYPES = {".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
 
 
@@ -179,6 +196,20 @@ def add_routes(app: web.Application, hooks: Hooks, root: str = VIEWER, key_path:
             ok = False
         return web.json_response({"ok": bool(ok)}, status=200 if ok else 502, headers=_headers({"Cache-Control": "no-store"}))
 
+    async def snapshot(request):
+        item = _snapshots.get(request.match_info["token"])
+        if item is None or asyncio.get_running_loop().time() >= item[1]:
+            return deny(404, "snapshot expired or unavailable")
+        jpeg, _, seen = item
+        viewer = request.remote
+        if viewer not in seen:
+            seen.add(viewer)
+            print("Camera popup fetched by %d distinct clients" % len(seen), flush=True)
+        return web.Response(body=jpeg, content_type="image/jpeg", headers=_headers({
+            "Cache-Control": "no-store", "Referrer-Policy": "no-referrer",
+        }))
+
+    app.router.add_get("/snapshot/{token}.jpg", snapshot, allow_head=False)
     app.router.add_get("/kiosk/{token}/{name:.+}", get)
     app.router.add_post("/kiosk/{token}/action/{action}", post)
 

@@ -278,6 +278,24 @@ async def execute_show_page(hass: Any, path: str, hold_s: int, context: Any = No
     return True
 
 
+async def execute_snapshot_popup(hass: Any, browsers: list[str], image_url: str) -> None:
+    """Show a short-lived camera picture on explicitly configured Browser Mod clients."""
+    from urllib.parse import urlsplit
+
+    url = urlsplit(image_url)
+    if (not browsers or any(not re.fullmatch(r"[A-Za-z0-9_-]+", browser) for browser in browsers)
+            or url.scheme not in ("http", "https") or not url.hostname
+            or url.username or url.password or url.query or url.fragment
+            or not re.fullmatch(r"/snapshot/[A-Za-z0-9_-]{32}\.jpg", url.path)):
+        raise ExecutionError("snapshot_popup_refused")
+    await hass.services.async_call("browser_mod", "popup", {
+        "browser_id": browsers,
+        "title": "Nina’s camera",
+        "content": {"type": "picture", "image": image_url, "alt_text": "Kinect snapshot"},
+        "timeout": 60000,
+    }, blocking=True)
+
+
 # One more fixed, narrow write: a navigation push to the owner's phone (the Home Assistant Companion app). The service must be a mobile_app_* notify target
 # (from household config, never from what was said). Two ways to open it: tapping the notification starts turn-by-turn in the Google Maps app on Android
 # (an intent: link naming the Maps package; bare custom schemes are not opened by the Companion app), and an "Open in browser" button opens the Google Maps directions web link (any browser, desktop included). Both links are
