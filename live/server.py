@@ -42,6 +42,7 @@ from wake import PHRASE_WAKE, WAKE_TOKENS, WORDS as WAKE_WORDS, WakeDetector    
 import responder                                                                         # noqa: E402
 from needle_voice import random_ops                               # noqa: E402
 import tools as tools_mod                                                                  # noqa: E402
+import camera_screen  # noqa: E402
 import route_screen  # noqa: E402
 import notes_tool                                              # noqa: E402
 from tools import ask_hermes, calendar, ha_say, hermes_key, weather, web_search          # noqa: E402
@@ -505,6 +506,7 @@ class Session:
                              tools_mod.random_request(self.http, g) if k == "random" else
                              self.route_display(g) if k == "display" else
                              self.route_eta(g) if k == "nav" else
+                             camera_screen.show(self.http, self.display_peer) if k == "camera_live" else
                              self.schedule_turn(g) if k == "schedule" else
                              ask_hermes(self.http, self.compose(j)))
             except asyncio.CancelledError:
@@ -699,6 +701,12 @@ class Session:
         if self.answer_open and text and not is_backchannel(text):
             self.answer_open = False
             self.cont_n = 0
+        if camera_screen.requested(self.user_buf):
+            if silent_ms >= CFG["tick_ms"] and not speaking and not self.stt.in_utt and not self.stt.pending:
+                request, self.user_buf = self.user_buf, ""
+                self.sess.add_turn("user", request)
+                self.start_tool("camera_live", request)
+            return
         events = self.take_results(now, text, silent_ms, speaking)
         note_in = self.note_once
         if events:
