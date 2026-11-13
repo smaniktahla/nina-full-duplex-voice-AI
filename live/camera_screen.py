@@ -15,8 +15,8 @@ def requested(text):
     ))
 
 
-async def show(http, peer):
-    browser = route_screen.target(peer)
+async def show(http, peer, screen=None):
+    browser = route_screen.target(peer, screen=screen)
     if not browser:
         return "I couldn't identify this screen for the live camera view."
     sensor = "sensor." + browser.lower().replace("-", "_") + "_browser_path"

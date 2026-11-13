@@ -34,6 +34,7 @@ DEFAULTS = {
     "token_file": "~/.config/nina-kiosk/service_token",
     "cert_sha256": "",                    # pin the server's self-signed certificate (hex sha256 of the DER); empty = do not verify (LAN only)
     "wake": "hey_nina",
+    "screen": "",                         # Browser Mod id of this kiosk's screen (e.g. kitchen_kiosk): sent as X-Nina-Screen so route maps and the camera view follow it if the IP changes
     "input_device": None,                 # PortAudio device name or index; None = default (use the PipeWire echo-cancel source, see pipewire-echo-cancel.conf)
     "output_device": None,
     "warmup_s": 2.5,                      # microphone audio dropped after every (re)start: the device's resume burst is fully clipped
@@ -458,6 +459,8 @@ class Client:
         if not token:
             log.error("no service token in %s: the server will refuse the connection", self.cfg["token_file"])
         headers = {"X-Nina-Service": token}
+        if self.cfg.get("screen"):
+            headers["X-Nina-Screen"] = self.cfg["screen"]        # Browser Mod id of this machine's screen: route maps follow it, not its IP
         sslctx = False
         if url.startswith("wss://"):
             sslctx = aiohttp.Fingerprint(bytes.fromhex(self.cfg["cert_sha256"])) if self.cfg["cert_sha256"] else False

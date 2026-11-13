@@ -7,12 +7,27 @@ import aiohttp
 import kiosk
 
 
-def target(peer, text=""):
-    screens = json.loads(os.environ.get("NINA_ROUTE_SCREENS", "{}"))
+def _screens():
+    return json.loads(os.environ.get("NINA_ROUTE_SCREENS", "{}"))
+
+
+def declared_screen(headers):
+    """The screen a service client says it is (X-Nina-Screen), but only a Browser Mod id we already know and only from a service-token client.
+    This is stable when the machine's IP changes; the IP map below stays as the fallback for browser clients."""
+    name = headers.get("X-Nina-Screen", "")
+    if not headers.get("X-Nina-Service") or not re.fullmatch(r"[a-zA-Z0-9_-]+", name):
+        return None
+    screens = _screens()
+    known = set(screens.get("named", {}).values()) | set(screens.get("peers", {}).values())
+    return name if name in known else None
+
+
+def target(peer, text="", screen=None):
+    screens = _screens()
     for name, browser in screens.get("named", {}).items():
         if re.search(r"\b(?:on|to) (?:the |my )?" + re.escape(name) + r"(?: screen| display| kiosk)?\b", text, re.I):
             return browser
-    return screens.get("peers", {}).get(peer)
+    return screen or screens.get("peers", {}).get(peer)
 
 
 async def show(http, browser):

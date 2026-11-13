@@ -3,6 +3,7 @@
   "token_file": "~/.config/nina-kiosk/service_token",
   "cert_sha256": "<hex sha256 of the server's self-signed certificate (DER); empty = do not verify>",
   "wake": "hey_nina",
+  "screen": "kitchen_kiosk",
   "input_device": "nina_ec_source",
   "output_device": "nina_ec_sink"
 }
