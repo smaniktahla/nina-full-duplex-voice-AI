@@ -201,7 +201,7 @@ class Session:
             active = tools_mod.route_store().get()
             if active:
                 self.route_offer = (active.id, time.monotonic() + tools_mod.OFFER_TTL_S)
-            question = "Want me to show it on this screen?" if route_screen.target(self.display_peer) else "Which screen should I show it on?"
+            question = "Want me to show it on this screen?" if route_screen.target(self.display_peer, screen=self.display_screen) else "Which screen should I show it on?"
             result = result.replace("Want me to show it on the kitchen screen?", question)
         return result
 
@@ -209,7 +209,7 @@ class Session:
         from needle_voice import display_ops
         offered = self.route_offer_fresh()
         self.route_offer = None
-        browser = route_screen.target(self.display_peer, text)
+        browser = route_screen.target(self.display_peer, text, self.display_screen)
         if display_ops.parse(text, offered) == "show":
             if browser:
                 return await route_screen.show(self.http, browser)
@@ -520,7 +520,7 @@ class Session:
                              tools_mod.random_request(self.http, g) if k == "random" else
                              self.route_display(g) if k == "display" else
                              self.route_eta(g) if k == "nav" else
-                             camera_screen.show(self.http, self.display_peer) if k == "camera_live" else
+                             camera_screen.show(self.http, self.display_peer, self.display_screen) if k == "camera_live" else
                              vision.describe(self.http) if k == "vision" else
                              sightings.answer_with_popup(g) if k == "sighting" else
                              self.schedule_turn(g) if k == "schedule" else
@@ -1204,6 +1204,7 @@ async def ws_handler(request):
     log("client connected", request.remote, request.headers.get("User-Agent", "")[:80])
     session = Session(ws, request.app["shared"], request.app["http"])
     session.display_peer = request.remote
+    session.display_screen = route_screen.declared_screen(request.headers)
     tools_mod._timer_listeners.add(session.send)
     try:
         await session.run()
