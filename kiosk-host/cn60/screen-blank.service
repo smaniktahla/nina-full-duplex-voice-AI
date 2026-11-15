@@ -2,6 +2,8 @@
 Description=Kiosk screen blanker (CN60)
 After=graphical-session.target
 [Service]
+Environment=FRIGATE_WS=ws://FRIGATE_HOST:PORT/ws
+Environment=PRESENCE_CAMERA=Office_Kiosk
 ExecStart=%h/bin/screen-blank.py
 Restart=always
 RestartSec=5

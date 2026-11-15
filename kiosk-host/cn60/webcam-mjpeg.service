@@ -1,0 +1,11 @@
+[Unit]
+Description=Kiosk webcam HTTP stream (Frigate + Nina snapshots)
+After=default.target
+
+[Service]
+ExecStart=/usr/bin/python3 %h/bin/webcam-mjpeg.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

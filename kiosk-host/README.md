@@ -8,7 +8,7 @@ URLs live in the private household config, not here.
 |---|---|---|
 | Browser | Chrome, `--start-fullscreen` | Chrome, `--start-fullscreen` |
 | Exit fullscreen | "Full Screen" extension (swipe down, hold ESC), F11 | same |
-| Screen blank | `cn60/screen-blank.py` (5 min) | `xset` autostart (5 min), `n5105/screen-blank-5min.desktop` |
+| Screen blank | `cn60/screen-blank.py`: presence-driven (60 s after the last person seen), 5 min idle fallback | `xset` autostart (5 min), `n5105/screen-blank-5min.desktop` |
 | Crash watchdog | `common/kiosk-watchdog.user.service` (user unit) | `common/kiosk-watchdog.system.service` (system unit, user `kiosk`) |
 
 ## Design rule: fullscreen, never `--kiosk`
@@ -32,6 +32,31 @@ a Nina wake word, route popup or timer alarm.
 
 Install: copy `screen-blank.py` to `~/bin/`, `screen-blank.service` to
 `~/.config/systemd/user/`, then `systemctl --user enable --now screen-blank`.
+
+### CN60: webcam presence
+
+`cn60/webcam-mjpeg.py` (+ `webcam-mjpeg.service`) shares the USB webcam over HTTP
+(`/detect.mjpeg`, `/snapshot.jpg`, default port 8769) so Frigate and Nina can both use it.
+Add it to Frigate as a detect-only camera (same pattern as the Kinect camera):
+
+```yaml
+  Office_Kiosk:
+    mqtt: {enabled: false}
+    ffmpeg:
+      inputs:
+        - {path: "http://KIOSK_HOST:8769/detect.mjpeg", input_args: preset-http-mjpeg-generic, roles: [detect]}
+      hwaccel_args: []        # VAAPI fails to download frames from this MJPEG; use software decode
+    detect: {enabled: true, width: 1280, height: 720, fps: 5}
+    objects: {track: [person]}
+    record: {enabled: false}
+    snapshots: {enabled: false}
+    face_recognition: {enabled: false}
+```
+
+`screen-blank.py` then subscribes to Frigate's websocket (`FRIGATE_WS`, `PRESENCE_CAMERA` in the
+unit) and blanks only after `ABSENT_AFTER` s (default 60) with no person seen **and** no input,
+so walking away does not blank instantly. A person appearing wakes the screen at once. If the feed
+is down for 30 s it falls back to the 5-minute idle timer.
 
 ## N5105: XFCE
 
