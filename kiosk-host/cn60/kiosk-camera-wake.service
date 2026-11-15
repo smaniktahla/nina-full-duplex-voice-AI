@@ -1,0 +1,13 @@
+[Unit]
+Description=kiosk-camera-wake: camera motion wakes the screen, quiet spell blanks it
+After=graphical-session.target webcam-mjpeg.service
+
+[Service]
+Environment=SCREEN_BACKEND=gnome
+Environment=MOTION_URL=http://127.0.0.1:8769/detect.mjpeg
+ExecStart=%h/bin/kiosk-camera-wake.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=default.target

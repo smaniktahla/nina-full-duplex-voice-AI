@@ -1,0 +1,16 @@
+[Unit]
+Description=Kiosk Chrome crash watchdog and flight recorder
+After=graphical.target
+
+[Service]
+User=kiosk
+SupplementaryGroups=systemd-journal
+Environment=PYTHONUNBUFFERED=1
+Environment=KIOSK_WD_URL=http://HOME_ASSISTANT_HOST:8123/
+Environment=KIOSK_WD_ATQ=http://TASK_QUEUE_HOST:8700
+ExecStart=/usr/bin/python3 /usr/local/bin/kiosk-watchdog.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
