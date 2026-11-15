@@ -1,0 +1,9 @@
+[Unit]
+Description=Kiosk screen blanker (CN60)
+After=graphical-session.target
+[Service]
+ExecStart=%h/bin/screen-blank.py
+Restart=always
+RestartSec=5
+[Install]
+WantedBy=default.target

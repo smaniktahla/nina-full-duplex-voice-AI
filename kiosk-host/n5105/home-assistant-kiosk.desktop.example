@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Home Assistant kiosk
+# --start-fullscreen, NOT --kiosk: see ../README.md. BrowserID is the Browser Mod id.
+Exec=/usr/local/bin/ha-kiosk-wait /usr/bin/google-chrome-stable --start-fullscreen --remote-debugging-address=127.0.0.1 --remote-debugging-port=9222 --password-store=basic --no-first-run --no-default-browser-check --disable-session-crashed-bubble --user-data-dir=%h/.config/google-chrome-kiosk http://HOME_ASSISTANT_HOST:8123/?BrowserID=KIOSK_ID
+Terminal=false
+StartupNotify=false
