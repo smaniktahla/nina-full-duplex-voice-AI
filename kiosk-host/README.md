@@ -8,7 +8,7 @@ URLs live in the private household config, not here.
 |---|---|---|
 | Browser | Chrome, `--start-fullscreen` | Chrome, `--start-fullscreen` |
 | Exit fullscreen | "Full Screen" extension (swipe down, hold ESC), F11 | same |
-| Screen blank | `cn60/screen-blank.py`: presence-driven (60 s after the last person seen), 5 min idle fallback | `xset` autostart (5 min), `n5105/screen-blank-5min.desktop` |
+| Screen wake/blank | `kiosk-camera-wake` (gnome backend, USB webcam) | `kiosk-camera-wake` (x11 backend, Kinect stream) |
 | Crash watchdog | `common/kiosk-watchdog.user.service` (user unit) | `common/kiosk-watchdog.system.service` (system unit, user `kiosk`) |
 
 ## Design rule: fullscreen, never `--kiosk`
@@ -20,48 +20,40 @@ clean and lets you drop out to tabs, address bar and DevTools. Install the
 "Full Screen" Chrome extension (id `gmimocjjppdelmhpcmpkhekmpoddgima`) from the
 Web Store into the kiosk profile; no Google sign-in is needed.
 
-## CN60: `screen-blank`
+## `kiosk-camera-wake` (both kiosks)
 
-GNOME 50 never blanked at a 300 s idle-delay (only short delays fired), so
-GNOME's timer is disabled (`gsettings set org.gnome.desktop.session idle-delay 0`)
-and `screen-blank.py` owns it: it polls Mutter's idle time and sets
-`PowerSaveMode` 3 after `BLANK_AFTER` seconds (default 300). It wakes the panel
-on real input itself (Mutter does not wake a D-Bus-forced blank). Poke it with
-`touch ~/.cache/screen-poke` to wake the panel and restart the timer, e.g. from
-a Nina wake word, route popup or timer alarm.
+`common/kiosk-camera-wake.py` is camera-agnostic: each kiosk points `MOTION_URL` (in its unit) at
+its own local camera MJPEG stream, and picks a screen backend with `SCREEN_BACKEND` (`gnome` =
+Mutter `PowerSaveMode` on Wayland, `x11` = `xset`/`xprintidle`). No Frigate or network is involved.
 
-Install: copy `screen-blank.py` to `~/bin/`, `screen-blank.service` to
-`~/.config/systemd/user/`, then `systemctl --user enable --now screen-blank`.
+One ffmpeg scales the stream to 96x54 gray at 2 fps; frames are compared (camera-wide exposure
+shifts are ignored). Rules:
 
-### CN60: webcam presence
+- screen off: wake after 2 consecutive motion frames (one noisy frame is ignored)
+- screen on: every motion frame restarts the quiet timer, so someone who keeps moving stays lit
+- blank after `ABSENT_AFTER` s (default 60) with no motion **and** no input, so walking away does
+  not blank instantly
+- camera stream down for 30 s: fall back to blanking after `BLANK_AFTER` s (default 300) of no input
+- input, or `touch ~/.cache/screen-poke`, always wakes and restarts the timers. Hook this to Nina
+  (wake word, route/camera popups, timer alarms).
 
-`cn60/webcam-mjpeg.py` (+ `webcam-mjpeg.service`) shares the USB webcam over HTTP
-(`/detect.mjpeg`, `/snapshot.jpg`, default port 8769) so Frigate and Nina can both use it.
-Add it to Frigate as a detect-only camera (same pattern as the Kinect camera):
+The controller owns blanking, so the desktop's own idle blank must be off: on the CN60 GNOME's
+`idle-delay` is 0 (GNOME 50 never blanked at 300 s anyway); on the N5105 the controller sets
+`xset s off; xset dpms 0 0 0` at start.
 
-```yaml
-  Office_Kiosk:
-    mqtt: {enabled: false}
-    ffmpeg:
-      inputs:
-        - {path: "http://KIOSK_HOST:8769/detect.mjpeg", input_args: preset-http-mjpeg-generic, roles: [detect]}
-      hwaccel_args: []        # VAAPI fails to download frames from this MJPEG; use software decode
-    detect: {enabled: true, width: 1280, height: 720, fps: 5}
-    objects: {track: [person]}
-    record: {enabled: false}
-    snapshots: {enabled: false}
-    face_recognition: {enabled: false}
-```
+### CN60 camera: `webcam-mjpeg`
 
-`screen-blank.py` then subscribes to Frigate's websocket (`FRIGATE_WS`, `PRESENCE_CAMERA` in the
-unit) and blanks only after `ABSENT_AFTER` s (default 60) with no person seen **and** no input,
-so walking away does not blank instantly. A person appearing wakes the screen at once. If the feed
-is down for 30 s it falls back to the 5-minute idle timer.
+`cn60/webcam-mjpeg.py` shares the USB webcam over HTTP (`/detect.mjpeg`, `/snapshot.jpg`, default
+port 8769) so the controller and Nina can both use it. It passes the camera's JPEGs through
+without re-encoding (about 1% CPU) and thins them to 5 fps.
+
+### N5105 camera
+
+Reads the Kinect RGB stream served locally on port 8768 by the existing Kinect capture service.
+The older `kiosk-kinect-wake` service (Kinect motion plus a Frigate person check) is superseded.
 
 ## N5105: XFCE
 
-- Blank after 5 min: install `n5105/screen-blank-5min.desktop` in
-  `~/.config/autostart/`. Wake from software with `DISPLAY=:0 xset dpms force on`.
 - XFCE shows its Display dialog when the monitor re-announces itself after an
   overnight blank. Turn it off:
   `xfconf-query -c displays -p /Notify -s 0` and

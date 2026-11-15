@@ -4,8 +4,8 @@
   /detect.mjpeg   multipart MJPEG stream (Frigate camera input)
   /snapshot.jpg   latest single frame (Nina "what do you see")
 
-One ffmpeg reads /dev/video0 and re-encodes to a low frame rate; frames are
-split on JPEG markers and fanned out. Env: WEBCAM_DEV, WEBCAM_SIZE, WEBCAM_FPS, WEBCAM_PORT.
+One ffmpeg reads /dev/video0 (JPEG passthrough, no decode); frames are split on JPEG markers,
+thinned to WEBCAM_FPS and fanned out. Env: WEBCAM_DEV, WEBCAM_SIZE, WEBCAM_FPS, WEBCAM_PORT.
 """
 import os, subprocess, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -22,7 +22,7 @@ cond = threading.Condition()
 def reader():
     while True:
         cmd = ["ffmpeg", "-loglevel", "error", "-f", "v4l2", "-input_format", "mjpeg", "-video_size", SIZE,
-               "-i", DEV, "-vf", f"fps={FPS}", "-q:v", "5", "-f", "image2pipe", "-c:v", "mjpeg", "-"]
+               "-i", DEV, "-c:v", "copy", "-f", "image2pipe", "-"]   # camera JPEGs passed through, no re-encode
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
         buf = b""
         while True:
@@ -36,6 +36,8 @@ def reader():
                 if a < 0 or b < 0:
                     break
                 frame, buf = buf[a:b + 2], buf[b + 2:]
+                if time.time() - latest["t"] < 1.0 / float(FPS):
+                    continue                      # drop frames down to FPS without decoding
                 with cond:
                     latest.update(jpg=frame, seq=latest["seq"] + 1, t=time.time())
                     cond.notify_all()

@@ -1,0 +1,16 @@
+[Unit]
+Description=kiosk-camera-wake: camera motion wakes the screen, quiet spell blanks it
+After=display-manager.service nina-kinect-capture.service
+
+[Service]
+User=kiosk
+Environment=DISPLAY=:0
+Environment=XAUTHORITY=/home/kiosk/.Xauthority
+Environment=SCREEN_BACKEND=x11
+Environment=MOTION_URL=http://127.0.0.1:8768/detect.mjpeg
+ExecStart=/usr/local/bin/kiosk-camera-wake.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target
