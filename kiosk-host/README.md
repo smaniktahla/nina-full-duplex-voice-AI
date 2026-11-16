@@ -56,6 +56,13 @@ Settings come from the Dashboard Manager's **Kiosk Effects** card (Home Assistan
 Browser Mod id, in its unit) every few seconds, so changes apply live; if Home Assistant is unreachable the last
 good values are kept. The local files below are the fallback when no Dashboard Manager entry exists.
 
+**Duplicate tabs.** Each Chrome restart on the CN60 left extra hidden Home Assistant tabs (2-4 of them) that
+kept rendering dashboards in the background, loading the two-core box and making switch animations choppy
+(and with no keyboard or mouse attached they cannot be closed by hand). For two minutes after each Chrome
+launch, `kiosk-page-fade` closes hidden duplicate Home Assistant tabs; tabs opened later (troubleshooting)
+are left alone. The cause was never pinned down (the profile's "open a specific page" start-up setting plus
+the launcher URL explains one extra; the launcher now resets it, but the count still grew by one per restart).
+
 Local setting, re-read live (no restart): `~/.config/kiosk/page-fade.json`
 
 ```json

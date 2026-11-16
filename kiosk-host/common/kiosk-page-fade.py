@@ -17,6 +17,8 @@ Setting (JSON, re-read live every few seconds, no restart): ~/.config/kiosk/page
   seconds       length of each fade (fade: out and in; crossfade: the blend)
   hold_seconds  time allowed for the new dashboard to render after the switch
 Env: CDP_PORT (9222), KPF_CONFIG (config path), KIOSK_EFFECTS_URL, KIOSK_ID.
+Also, for 2 minutes after each Chrome launch, closes hidden duplicate Home Assistant tabs (restarts leave
+extra kiosk tabs that keep rendering dashboards and slow the switch animations); later tabs are left alone.
 """
 import json, os, threading, time, urllib.request
 import websocket  # websocket-client
@@ -168,9 +170,40 @@ def serve(target):
         ws.close()
 
 
+def hidden_ha_duplicates(pages):
+    """Hidden Home Assistant tabs, when another tab is visible (Chrome restarts leave duplicate kiosk tabs)."""
+    base = "/".join(EFFECTS_URL.split("/")[:3]) if EFFECTS_URL else ""
+    if not base or len(pages) < 2:
+        return []
+    state = {}
+    for t in pages:
+        try:
+            ws = websocket.create_connection(t["webSocketDebuggerUrl"], timeout=3, suppress_origin=True)
+            ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": "document.visibilityState", "returnByValue": True}}))
+            state[t["id"]] = json.loads(ws.recv())["result"]["result"].get("value")
+            ws.close()
+        except Exception:
+            pass
+    if "visible" not in state.values():
+        return []
+    return [t for t in pages if state.get(t["id"]) == "hidden" and t["url"].startswith(base)]
+
+
 def main():
     active = {}
+    browser, seen = None, 0.0
     while True:
+        try:
+            ver = json.load(urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/version", timeout=3))["webSocketDebuggerUrl"]
+            if ver != browser:
+                browser, seen = ver, time.time()               # a new Chrome launch
+            if time.time() - seen < 120:                       # only the start-up burst; later tabs are yours (troubleshooting)
+                pages = [t for t in json.load(urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json", timeout=3)) if t.get("type") == "page" and t.get("webSocketDebuggerUrl")]
+                for t in hidden_ha_duplicates(pages):
+                    urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json/close/{t['id']}", timeout=3).read()
+                    print("closed duplicate hidden tab", t["url"], flush=True)
+        except Exception:
+            pass
         try:
             for t in json.load(urllib.request.urlopen(f"http://127.0.0.1:{PORT}/json", timeout=3)):
                 if t.get("type") == "page" and t.get("webSocketDebuggerUrl") and (t["id"] not in active or not active[t["id"]].is_alive()):
