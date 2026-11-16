@@ -11,7 +11,7 @@ and frames are compared. Motion rules:
 Input or `touch ~/.cache/screen-poke` always wakes and restarts the timers.
 Backends (SCREEN_BACKEND): gnome (Mutter PowerSaveMode, Wayland) or x11 (xset/xprintidle).
 Blank and wake fade the dashboard to/from black through Chrome's debug port (CDP_PORT, default 9222;
-FADE_MS, default 1500; FADE_MS=0 disables) so the change is smooth; without Chrome it is instant.
+FADE_MS, default 1500; FADE_MS=0 disables; WAKE_DELAY_MS, default 2200, is how long the panel gets to light before the fade-in) so the change is smooth; without Chrome it is instant.
 Env: MOTION_URL (camera MJPEG URL), SCREEN_BACKEND, ABSENT_AFTER, BLANK_AFTER, MOTION_PIXEL (22),
 MOTION_AREA (0.025), MOTION_CONFIRM (2).
 """
@@ -27,6 +27,7 @@ AREA = float(os.environ.get("MOTION_AREA", "0.025"))
 CONFIRM = int(os.environ.get("MOTION_CONFIRM", "2"))
 CDP_PORT = int(os.environ.get("CDP_PORT", "9222"))
 FADE_MS = int(os.environ.get("FADE_MS", "1500"))
+WAKE_DELAY_MS = int(os.environ.get("WAKE_DELAY_MS", "2200"))   # panel/HDMI needs this long to light up before the fade-in starts
 SETTLE = 4          # s to ignore motion after we change the screen (backlight shifts the picture)
 W, H = 96, 54
 POKE = os.path.expanduser("~/.cache/screen-poke")
@@ -144,7 +145,7 @@ def change(on):
     cam["ignore_until"] = time.time() + SETTLE + (FADE_MS + 900) / 1000   # light shifts during the fade are not motion
     if on:
         set_screen(True)
-        time.sleep(0.8)            # let the panel light up while the page is still black
+        time.sleep(WAKE_DELAY_MS / 1000)   # let the panel light up while the page is still black
         fade_in()
     else:
         fade_out()

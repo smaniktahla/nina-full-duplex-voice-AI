@@ -42,6 +42,21 @@ loopback DevTools port, `CDP_PORT`, default 9222) so the change is smooth; `FADE
 sets the length, `0` disables it, and without Chrome the change is instant. The monitors expose no
 backlight, so this is a page-level fade, then the panel is powered off (blank) or on first (wake).
 
+On wake the panel is powered first and the page stays black for `WAKE_DELAY_MS` (default 2200) while
+the monitor re-syncs, then fades in; with a shorter delay the fade finishes before the monitor shows
+anything and looks like it is missing.
+
+### `kiosk-page-fade` (both kiosks)
+
+`common/kiosk-page-fade.py` fades between dashboards when the Dashboard Manager rotation (or voice,
+route or manual navigation) switches. Home Assistant changes dashboards inside one page
+(`history.pushState` then a `location-changed` event, no reload), so a script injected over the
+loopback DevTools port (and re-injected on every page load) fades a black overlay in, holds the event
+until it is dark, delivers it, then fades back in. Only a change of dashboard (first path segment)
+fades; moving between views of one dashboard does not. `FADE_OUT_MS` (450), `HOLD_MS` (500) and
+`FADE_IN_MS` (800) tune it; `FADE_OUT_MS=0` disables it. Units: `cn60/kiosk-page-fade.service`
+(user) and `n5105/kiosk-page-fade.service` (system, user `kiosk`).
+
 The controller owns blanking, so the desktop's own idle blank must be off: on the CN60 GNOME's
 `idle-delay` is 0 (GNOME 50 never blanked at 300 s anyway); on the N5105 the controller sets
 `xset s off; xset dpms 0 0 0` at start.
