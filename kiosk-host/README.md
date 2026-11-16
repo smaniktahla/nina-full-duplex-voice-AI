@@ -37,6 +37,11 @@ shifts are ignored). Rules:
 - input, or `touch ~/.cache/screen-poke`, always wakes and restarts the timers. Hook this to Nina
   (wake word, route/camera popups, timer alarms).
 
+Blank and wake fade the dashboard page to/from black (a full-screen overlay driven over Chrome's
+loopback DevTools port, `CDP_PORT`, default 9222) so the change is smooth; `FADE_MS` (default 1500)
+sets the length, `0` disables it, and without Chrome the change is instant. The monitors expose no
+backlight, so this is a page-level fade, then the panel is powered off (blank) or on first (wake).
+
 The controller owns blanking, so the desktop's own idle blank must be off: on the CN60 GNOME's
 `idle-delay` is 0 (GNOME 50 never blanked at 300 s anyway); on the N5105 the controller sets
 `xset s off; xset dpms 0 0 0` at start.
