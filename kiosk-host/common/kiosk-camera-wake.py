@@ -11,7 +11,8 @@ and frames are compared. Motion rules:
 Input or `touch ~/.cache/screen-poke` always wakes and restarts the timers.
 Backends (SCREEN_BACKEND): gnome (Mutter PowerSaveMode, Wayland) or x11 (xset/xprintidle).
 Blank and wake fade the dashboard to/from black through Chrome's debug port (CDP_PORT, default 9222;
-FADE_MS, default 1500; FADE_MS=0 disables; WAKE_DELAY_MS, default 2200, is how long the panel gets to light before the fade-in) so the change is smooth; without Chrome it is instant.
+FADE_MS 1500 = blank fade; WAKE_DELAY_MS 1400 = black while the panel lights up; WAKE_FADE_MS 1000 = wake fade-in;
+0 disables a fade; all three can be overridden live in ~/.config/kiosk/camera-wake.json as fade_ms/wake_delay_ms/wake_fade_ms) so the change is smooth; without Chrome it is instant.
 Env: MOTION_URL (camera MJPEG URL), SCREEN_BACKEND, ABSENT_AFTER, BLANK_AFTER, MOTION_PIXEL (22),
 MOTION_AREA (0.025), MOTION_CONFIRM (2).
 """
@@ -26,8 +27,20 @@ PIXEL = int(os.environ.get("MOTION_PIXEL", "22"))
 AREA = float(os.environ.get("MOTION_AREA", "0.025"))
 CONFIRM = int(os.environ.get("MOTION_CONFIRM", "2"))
 CDP_PORT = int(os.environ.get("CDP_PORT", "9222"))
-FADE_MS = int(os.environ.get("FADE_MS", "1500"))
-WAKE_DELAY_MS = int(os.environ.get("WAKE_DELAY_MS", "2200"))   # panel/HDMI needs this long to light up before the fade-in starts
+FADE_MS = int(os.environ.get("FADE_MS", "1500"))               # blank: fade to black
+WAKE_DELAY_MS = int(os.environ.get("WAKE_DELAY_MS", "1400"))   # wake: black while the panel/HDMI lights up
+WAKE_FADE_MS = int(os.environ.get("WAKE_FADE_MS", "1000"))     # wake: fade-in length
+TUNE = os.path.expanduser(os.environ.get("KCW_CONFIG", "~/.config/kiosk/camera-wake.json"))
+
+
+def tune():
+    """Optional live overrides (no restart): {"fade_ms":1500,"wake_delay_ms":1400,"wake_fade_ms":1000}."""
+    try:
+        d = json.load(open(TUNE))
+        return (int(d.get("fade_ms", FADE_MS)), int(d.get("wake_delay_ms", WAKE_DELAY_MS)), int(d.get("wake_fade_ms", WAKE_FADE_MS)))
+    except Exception:
+        return FADE_MS, WAKE_DELAY_MS, WAKE_FADE_MS
+
 SETTLE = 4          # s to ignore motion after we change the screen (backlight shifts the picture)
 W, H = 96, 54
 POKE = os.path.expanduser("~/.cache/screen-poke")
@@ -93,6 +106,7 @@ OVERLAY = ("(()=>{let d=document.getElementById('kcw-fade');if(!d){d=document.cr
 
 def fade_out():
     """Fade the page to black; leave the overlay in place so a later power-on starts dark."""
+    FADE_MS = tune()[0]
     if FADE_MS <= 0:
         return
     js = (OVERLAY % "0") + f";var d=document.getElementById('kcw-fade');d.getBoundingClientRect();"
@@ -103,6 +117,7 @@ def fade_out():
 
 def fade_in():
     """Panel is already powered: start from black, fade the page back in, then drop the overlay."""
+    FADE_MS = tune()[2]
     if FADE_MS <= 0:
         return
     js = (OVERLAY % "1") + ";var d=document.getElementById('kcw-fade');d.style.transition='none';d.style.opacity='1';d.getBoundingClientRect();"
@@ -142,10 +157,10 @@ def camera():
 
 
 def change(on):
-    cam["ignore_until"] = time.time() + SETTLE + (FADE_MS + 900) / 1000   # light shifts during the fade are not motion
+    cam["ignore_until"] = time.time() + SETTLE + (tune()[0] + tune()[1] + tune()[2]) / 1000   # light shifts during the fade are not motion
     if on:
         set_screen(True)
-        time.sleep(WAKE_DELAY_MS / 1000)   # let the panel light up while the page is still black
+        time.sleep(tune()[1] / 1000)   # let the panel light up while the page is still black
         fade_in()
     else:
         fade_out()
