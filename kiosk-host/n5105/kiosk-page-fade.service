@@ -1,0 +1,12 @@
+[Unit]
+Description=kiosk-page-fade: fade between dashboards
+After=display-manager.service
+
+[Service]
+User=kiosk
+ExecStart=/usr/bin/python3 /usr/local/bin/kiosk-page-fade.py
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=graphical.target

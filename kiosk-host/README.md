@@ -42,6 +42,35 @@ loopback DevTools port, `CDP_PORT`, default 9222) so the change is smooth; `FADE
 sets the length, `0` disables it, and without Chrome the change is instant. The monitors expose no
 backlight, so this is a page-level fade, then the panel is powered off (blank) or on first (wake).
 
+### `kiosk-page-fade` (both kiosks)
+
+`common/kiosk-page-fade.py` animates the switch between dashboards when the Dashboard Manager rotation
+(or voice, route or manual navigation) changes dashboard. Home Assistant switches dashboards inside one
+page (`history.pushState` then a `location-changed` event, no reload), so a script injected over the
+loopback DevTools port (and re-injected on every page load) intercepts the event. Only a change of
+dashboard (first path segment) animates; moving between views of one dashboard does not.
+
+Setting, re-read live (no restart): `~/.config/kiosk/page-fade.json`
+
+```json
+{"mode": "fade", "seconds": 0.6, "hold_seconds": 0.5}
+```
+
+- `mode`: `none` (instant), `fade` (to black, switch while dark, back in) or `crossfade` (blend old into
+  new with Chrome View Transitions)
+- `seconds`: length of each fade (crossfade: the blend)
+- `hold_seconds`: time allowed for the new dashboard to render after the switch
+
+**Crossfade is not recommended on these boxes.** Both kiosks render in software (`--disable-gpu`); a
+crossfade composes two full-screen layers and measured only 2-10 frames over the whole transition
+(worst gap up to 3 s), i.e. choppy steps. The plain fade measured 12-15 frames. Crossfade is worth
+trying on a kiosk with GPU rendering.
+
+Wake timing, also live-tunable in `~/.config/kiosk/camera-wake.json`
+(`{"fade_ms": 1500, "wake_delay_ms": 1400, "wake_fade_ms": 1000}`): after power-on the page stays black
+for `wake_delay_ms` (1-3 s depending on how long the monitor takes to resync), then fades in over
+`wake_fade_ms`; `fade_ms` is the blank fade-out.
+
 The controller owns blanking, so the desktop's own idle blank must be off: on the CN60 GNOME's
 `idle-delay` is 0 (GNOME 50 never blanked at 300 s anyway); on the N5105 the controller sets
 `xset s off; xset dpms 0 0 0` at start.
