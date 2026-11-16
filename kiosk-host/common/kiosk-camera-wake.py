@@ -10,10 +10,12 @@ and frames are compared. Motion rules:
   * camera stream down for 30 s: fall back to blanking after BLANK_AFTER s (default 300) of no input
 Input or `touch ~/.cache/screen-poke` always wakes and restarts the timers.
 Backends (SCREEN_BACKEND): gnome (Mutter PowerSaveMode, Wayland) or x11 (xset/xprintidle).
+Blank and wake fade the dashboard to/from black through Chrome's debug port (CDP_PORT, default 9222;
+FADE_MS, default 1500; FADE_MS=0 disables) so the change is smooth; without Chrome it is instant.
 Env: MOTION_URL (camera MJPEG URL), SCREEN_BACKEND, ABSENT_AFTER, BLANK_AFTER, MOTION_PIXEL (22),
 MOTION_AREA (0.025), MOTION_CONFIRM (2).
 """
-import os, re, subprocess, threading, time
+import json, os, re, subprocess, threading, time, urllib.request
 from statistics import median
 
 BACKEND = os.environ.get("SCREEN_BACKEND", "gnome")
@@ -23,6 +25,8 @@ BLANK_AFTER = int(os.environ.get("BLANK_AFTER", "300"))
 PIXEL = int(os.environ.get("MOTION_PIXEL", "22"))
 AREA = float(os.environ.get("MOTION_AREA", "0.025"))
 CONFIRM = int(os.environ.get("MOTION_CONFIRM", "2"))
+CDP_PORT = int(os.environ.get("CDP_PORT", "9222"))
+FADE_MS = int(os.environ.get("FADE_MS", "1500"))
 SETTLE = 4          # s to ignore motion after we change the screen (backlight shifts the picture)
 W, H = 96, 54
 POKE = os.path.expanduser("~/.cache/screen-poke")
@@ -62,6 +66,49 @@ else:
         run("xset", "s", "off"); run("xset", "+dpms"); run("xset", "dpms", "0", "0", "0")
 
 
+def cdp_eval(js):
+    """Run JS in the first Chrome page via the loopback DevTools port; False if Chrome is unreachable."""
+    try:
+        import websocket  # websocket-client
+        tabs = json.load(urllib.request.urlopen(f"http://127.0.0.1:{CDP_PORT}/json", timeout=2))
+        page = next(t for t in tabs if t.get("type") == "page" and t.get("webSocketDebuggerUrl"))
+        ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=3, suppress_origin=True)
+        try:
+            ws.send(json.dumps({"id": 1, "method": "Runtime.evaluate", "params": {"expression": js}}))
+            while json.loads(ws.recv()).get("id") != 1:
+                pass
+        finally:
+            ws.close()
+        return True
+    except Exception as e:
+        print("fade unavailable:", e, flush=True)
+        return False
+
+
+OVERLAY = ("(()=>{let d=document.getElementById('kcw-fade');if(!d){d=document.createElement('div');d.id='kcw-fade';"
+           "d.style.cssText='position:fixed;inset:0;background:#000;opacity:%s;z-index:2147483647;pointer-events:none;transition:none';"
+           "document.documentElement.appendChild(d);}return d})()")
+
+
+def fade_out():
+    """Fade the page to black; leave the overlay in place so a later power-on starts dark."""
+    if FADE_MS <= 0:
+        return
+    js = (OVERLAY % "0") + f";var d=document.getElementById('kcw-fade');d.getBoundingClientRect();"
+    js += f"d.style.transition='opacity {FADE_MS}ms ease-in-out';d.style.opacity='1';1"
+    if cdp_eval(js):
+        time.sleep(FADE_MS / 1000 + 0.1)
+
+
+def fade_in():
+    """Panel is already powered: start from black, fade the page back in, then drop the overlay."""
+    if FADE_MS <= 0:
+        return
+    js = (OVERLAY % "1") + ";var d=document.getElementById('kcw-fade');d.style.transition='none';d.style.opacity='1';d.getBoundingClientRect();"
+    js += f"d.style.transition='opacity {FADE_MS}ms ease-in-out';d.style.opacity='0';setTimeout(()=>d.remove(),{FADE_MS}+100);1"
+    cdp_eval(js)
+
+
 def motion(prev, cur):
     diffs = [b - a for a, b in zip(prev, cur)]
     shift = median(diffs)                       # ignore camera-wide exposure changes
@@ -94,7 +141,14 @@ def camera():
 
 
 def change(on):
-    set_screen(on)
+    cam["ignore_until"] = time.time() + SETTLE + (FADE_MS + 900) / 1000   # light shifts during the fade are not motion
+    if on:
+        set_screen(True)
+        time.sleep(0.8)            # let the panel light up while the page is still black
+        fade_in()
+    else:
+        fade_out()
+        set_screen(False)
     cam["ignore_until"] = time.time() + SETTLE
     cam["consec"] = 0
     cam["last_motion"] = time.time() if on else cam["last_motion"]
