@@ -32,14 +32,35 @@ WAKE_DELAY_MS = int(os.environ.get("WAKE_DELAY_MS", "1400"))   # wake: black whi
 WAKE_FADE_MS = int(os.environ.get("WAKE_FADE_MS", "1000"))     # wake: fade-in length
 TUNE = os.path.expanduser(os.environ.get("KCW_CONFIG", "~/.config/kiosk/camera-wake.json"))
 
+EFFECTS_URL = os.environ.get("KIOSK_EFFECTS_URL", "")   # Dashboard Manager file: http://<ha>/local/kiosk_effects.json
+KIOSK_ID = os.environ.get("KIOSK_ID", "")               # this kiosk's Browser Mod id, the key in that file
+_fx = {"t": 0.0, "data": {}}
+
+
+def ha_effects():
+    """This kiosk's settings from the Dashboard Manager UI; last good copy if Home Assistant is unreachable."""
+    if EFFECTS_URL and KIOSK_ID and time.time() - _fx["t"] > 5:
+        _fx["t"] = time.time()
+        try:
+            _fx["data"] = json.load(urllib.request.urlopen(EFFECTS_URL, timeout=3)).get(KIOSK_ID) or _fx["data"]
+        except Exception:
+            pass
+    return _fx["data"]
+
+
 
 def tune():
     """Optional live overrides (no restart): {"fade_ms":1500,"wake_delay_ms":1400,"wake_fade_ms":1000}."""
     try:
         d = json.load(open(TUNE))
-        return (int(d.get("fade_ms", FADE_MS)), int(d.get("wake_delay_ms", WAKE_DELAY_MS)), int(d.get("wake_fade_ms", WAKE_FADE_MS)))
     except Exception:
-        return FADE_MS, WAKE_DELAY_MS, WAKE_FADE_MS
+        d = {}
+    base = (int(d.get("fade_ms", FADE_MS)), int(d.get("wake_delay_ms", WAKE_DELAY_MS)), int(d.get("wake_fade_ms", WAKE_FADE_MS)))
+    fx = ha_effects()                                   # Dashboard Manager UI (seconds) wins over the local file
+    if fx:
+        return (int(float(fx.get("blank_fade", base[0] / 1000)) * 1000), int(float(fx.get("wake_delay", base[1] / 1000)) * 1000),
+                int(float(fx.get("wake_fade", base[2] / 1000)) * 1000))
+    return base
 
 SETTLE = 4          # s to ignore motion after we change the screen (backlight shifts the picture)
 W, H = 96, 54

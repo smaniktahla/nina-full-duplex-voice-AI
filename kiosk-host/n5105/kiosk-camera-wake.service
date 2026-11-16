@@ -8,6 +8,8 @@ Environment=DISPLAY=:0
 Environment=XAUTHORITY=/home/kiosk/.Xauthority
 Environment=SCREEN_BACKEND=x11
 Environment=MOTION_URL=http://127.0.0.1:8768/detect.mjpeg
+Environment=KIOSK_EFFECTS_URL=http://HOME_ASSISTANT_HOST:8123/local/kiosk_effects.json
+Environment=KIOSK_ID=BROWSER_MOD_ID
 ExecStart=/usr/local/bin/kiosk-camera-wake.py
 Restart=always
 RestartSec=5
