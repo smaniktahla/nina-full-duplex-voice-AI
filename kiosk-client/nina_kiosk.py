@@ -22,6 +22,7 @@ import signal
 import ssl
 import struct
 import sys
+import threading
 import time
 
 import numpy as np
@@ -44,6 +45,7 @@ DEFAULTS = {
     "reconnect_min_s": 2.0,
     "reconnect_max_s": 30.0,
     "chrome_debug": "http://127.0.0.1:9222",  # Chrome remote-debugging endpoint on this machine: draws the live listening/speaking waveform over the page. Empty = no indicator
+    "screen_wake_url": "http://127.0.0.1:8777/wake",   # this machine's kiosk-camera-wake endpoint: Nina wakes the screen when she wakes, talks or a timer rings. Empty = off
     "mic_stall_s": 15.0,                  # no microphone callbacks for this long (PipeWire restarted, device unplugged): exit so systemd restarts us with fresh audio streams
 }
 
@@ -342,6 +344,30 @@ def aiohttp_ws_timeout(s):
 EARCONS = {"wake": (660, 880), "sleep": (660, 440)}
 
 
+class ScreenWake:
+    """Tell the local screen controller (kiosk-camera-wake) that Nina is active so a blanked screen wakes and stays lit.
+    Fire-and-forget on a thread: a missing or slow controller never touches audio."""
+    def __init__(self, url, min_gap_s=3.0):
+        self.url = url or ""
+        self.min_gap_s = min_gap_s
+        self._last = 0.0
+
+    def ping(self, force=False):
+        now = time.monotonic()
+        if not self.url or (not force and now - self._last < self.min_gap_s):
+            return False
+        self._last = now
+        threading.Thread(target=self._get, daemon=True).start()
+        return True
+
+    def _get(self):
+        try:
+            import urllib.request
+            urllib.request.urlopen(self.url, timeout=2).read()
+        except Exception as e:
+            log.debug("screen wake ping failed: %s", e)
+
+
 class Client:
     def __init__(self, cfg):
         self.cfg = cfg
@@ -357,6 +383,7 @@ class Client:
         self.last_mic = time.monotonic()
         self.indicator = Indicator(cfg.get("chrome_debug"))
         self.awake = False                # session state ACTIVE, from the server
+        self.screen = ScreenWake(cfg.get("screen_wake_url"))
         self._mic_peak = 0.0              # loudest block since the indicator last looked (written by the audio threads, read and reset by feed_indicator)
         self._out_peak = 0.0
         self._speak_until = 0.0
@@ -392,6 +419,12 @@ class Client:
                 self._out_peak = max(self._out_peak, lv)
                 self._speak_until = time.monotonic() + 0.5
 
+    def _alarm_wake(self):
+        if self.play.alarm_active:
+            self.screen.ping(force=True)
+            if self.loop:
+                self.loop.call_later(20, self._alarm_wake)
+
     # ---- server messages
     def on_json(self, m):
         t = m.get("t")
@@ -400,11 +433,17 @@ class Client:
         elif t == "mgr":
             log.info("session %s (wake: %s)", m.get("state"), m.get("wake"))
             self.awake = indicator_wanted(m.get("state"))
-            if not self.awake:
+            if self.awake:
+                self.screen.ping(force=True)                             # "Hey Nina": wake the screen
+            else:
                 self.indicator.set(None)
         elif t == "timer_alarm":
             self.play.alarm(m.get("active", False))
             log.info("timer alarm %s", "ringing" if self.play.alarm_active else "dismissed")
+            if self.play.alarm_active:
+                self.screen.ping(force=True)
+                if self.loop:
+                    self.loop.call_later(20, self._alarm_wake)           # keep it lit while the alarm rings
         elif t == "cancel":
             self.play.cancel()
         elif t == "duck":
@@ -412,6 +451,7 @@ class Client:
         elif t == "earcon" and m.get("kind") in EARCONS:
             self.play.tone(EARCONS[m["kind"]])
         elif t in ("assistant", "stt"):
+            self.screen.ping()                                           # mid-conversation: keep the screen lit (rate-limited)
             log.debug("%s: %s", t, (m.get("text") or "")[:80])          # transcripts only at debug level
 
     async def session(self, http, url, headers, sslctx):

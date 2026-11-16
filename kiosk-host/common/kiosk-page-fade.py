@@ -17,6 +17,8 @@ Setting (JSON, re-read live every few seconds, no restart): ~/.config/kiosk/page
   seconds       length of each fade (fade: out and in; crossfade: the blend)
   hold_seconds  time allowed for the new dashboard to render after the switch
 Env: CDP_PORT (9222), KPF_CONFIG (config path), KIOSK_EFFECTS_URL, KIOSK_ID.
+Also wakes a blanked screen when a Browser Mod popup opens (route map, camera or doorbell view), by
+calling the screen controller's /wake (KIOSK_WAKE_URL).
 Also, for 2 minutes after each Chrome launch, closes hidden duplicate Home Assistant tabs (restarts leave
 extra kiosk tabs that keep rendering dashboards and slow the switch animations); later tabs are left alone.
 """
@@ -66,8 +68,18 @@ def load_config():
 
 JS_TEMPLATE = """(() => {
   window.__kpfCfg = %CFG%;
-  if (window.__kpfV === 2) return 'config updated';       // already running this version: only the setting changed
-  window.__kpfV = 2;
+  if (window.__kpfV === 3) return 'config updated';       // already running this version: only the setting changed
+  window.__kpfV = 3;
+  // A Browser Mod popup (route map, camera or doorbell view, ...) wakes a blanked screen: tell the
+  // service over the DevTools binding it holds, which pings the screen controller.
+  const wake = why => { try { if (window.kpfWake) window.kpfWake(why); } catch (e) {} };
+  const hookPopups = () => {
+    const b = window.browser_mod;
+    if (!b) return false;
+    if (!b.__kpfHooked) { b.__kpfHooked = true; b.addEventListener('browser-mod-popup-opened', () => wake('popup')); }
+    return true;
+  };
+  if (!hookPopups()) { const iv = setInterval(() => { if (hookPopups()) clearInterval(iv); }, 500); }
   let ov = null, pending = false;
   const seg = p => (p.split('/')[1] || '');
   let current = seg(location.pathname);
@@ -130,6 +142,20 @@ def make_js(cfg):
     return JS_TEMPLATE.replace("%CFG%", json.dumps(cfg))
 
 
+WAKE_URL = os.environ.get("KIOSK_WAKE_URL", "http://127.0.0.1:8777/wake")   # this machine's kiosk-camera-wake endpoint
+_last_wake = [0.0]
+
+
+def poke_screen():
+    """A Browser Mod popup opened: wake the screen (rate-limited, never raises)."""
+    if WAKE_URL and time.time() - _last_wake[0] > 2:
+        _last_wake[0] = time.time()
+        try:
+            urllib.request.urlopen(WAKE_URL, timeout=2).read()
+        except Exception as e:
+            print("screen wake failed:", e, flush=True)
+
+
 def serve(target):
     """Hold a DevTools session on one page: inject now and on every new document; follow config edits."""
     ws = websocket.create_connection(target["webSocketDebuggerUrl"], timeout=5, suppress_origin=True)
@@ -144,6 +170,8 @@ def serve(target):
     cfg = load_config()
     mtime = os.path.getmtime(CONFIG) if os.path.exists(CONFIG) else 0
     send("Page.enable")
+    send("Runtime.enable")
+    send("Runtime.addBinding", {"name": "kpfWake"})
     add_id = send("Page.addScriptToEvaluateOnNewDocument", {"source": make_js(cfg)})
     send("Runtime.evaluate", {"expression": make_js(cfg)})
     print("injected into", target["url"], cfg, flush=True)
@@ -154,6 +182,8 @@ def serve(target):
                 m = json.loads(ws.recv())
                 if m.get("id") == add_id and "result" in m:
                     script_id[0] = m["result"].get("identifier")
+                elif m.get("method") == "Runtime.bindingCalled" and m["params"].get("name") == "kpfWake":
+                    poke_screen()
             except websocket.WebSocketTimeoutException:
                 pass
             if time.time() - last_check > 3:

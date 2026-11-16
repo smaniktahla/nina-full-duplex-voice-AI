@@ -8,7 +8,8 @@ and frames are compared. Motion rules:
   * screen on:  every motion frame restarts the quiet timer, so someone who keeps moving stays lit
   * blank when there has been no motion AND no input/poke for ABSENT_AFTER s (default 60)
   * camera stream down for 30 s: fall back to blanking after BLANK_AFTER s (default 300) of no input
-Input or `touch ~/.cache/screen-poke` always wakes and restarts the timers.
+Input, `touch ~/.cache/screen-poke`, or a GET to http://127.0.0.1:WAKE_PORT/wake (default 8777; the Nina client
+and the page script call it) always wakes and restarts the timers.
 Backends (SCREEN_BACKEND): gnome (Mutter PowerSaveMode, Wayland) or x11 (xset/xprintidle).
 Blank and wake fade the dashboard to/from black through Chrome's debug port (CDP_PORT, default 9222;
 FADE_MS 1500 = blank fade; WAKE_DELAY_MS 1400 = black while the panel lights up; WAKE_FADE_MS 1000 = wake fade-in;
@@ -16,7 +17,7 @@ FADE_MS 1500 = blank fade; WAKE_DELAY_MS 1400 = black while the panel lights up;
 Env: MOTION_URL (camera MJPEG URL), SCREEN_BACKEND, ABSENT_AFTER, BLANK_AFTER, MOTION_PIXEL (22),
 MOTION_AREA (0.025), MOTION_CONFIRM (2).
 """
-import json, os, re, subprocess, threading, time, urllib.request
+import http.server, json, os, re, subprocess, threading, time, urllib.request
 from statistics import median
 
 BACKEND = os.environ.get("SCREEN_BACKEND", "gnome")
@@ -66,6 +67,33 @@ SETTLE = 4          # s to ignore motion after we change the screen (backlight s
 W, H = 96, 54
 POKE = os.path.expanduser("~/.cache/screen-poke")
 cam = {"last_frame": time.time(), "last_motion": time.time(), "consec": 0, "ignore_until": 0.0, "log": os.environ.get("MOTION_LOG") == "1"}
+
+
+WAKE_PORT = int(os.environ.get("WAKE_PORT", "8777"))   # 0 disables the loopback endpoint
+
+
+class WakeHandler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        if self.path.split("?")[0] == "/wake":
+            with open(POKE, "a"):
+                os.utime(POKE, None)                    # the main loop sees the new mtime: wake + restart the timers
+            print("wake request", flush=True)
+            self.send_response(204)
+        else:
+            self.send_response(404)
+        self.end_headers()
+
+    do_POST = do_GET
+
+    def log_message(self, *a):
+        pass
+
+
+def serve_wake():
+    try:
+        http.server.ThreadingHTTPServer(("127.0.0.1", WAKE_PORT), WakeHandler).serve_forever()
+    except OSError as e:
+        print("wake endpoint unavailable:", e, flush=True)
 
 
 def run(*cmd):
@@ -198,6 +226,8 @@ def main():
     last_poke = os.path.getmtime(POKE) if os.path.exists(POKE) else 0
     if URL:
         threading.Thread(target=camera, daemon=True).start()
+    if WAKE_PORT:
+        threading.Thread(target=serve_wake, daemon=True).start()
     while True:
         try:
             pm = os.path.getmtime(POKE) if os.path.exists(POKE) else 0
