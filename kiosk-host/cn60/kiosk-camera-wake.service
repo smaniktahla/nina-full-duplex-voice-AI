@@ -5,6 +5,8 @@ After=graphical-session.target webcam-mjpeg.service
 [Service]
 Environment=SCREEN_BACKEND=gnome
 Environment=MOTION_URL=http://127.0.0.1:8769/detect.mjpeg
+Environment=KIOSK_EFFECTS_URL=http://HOME_ASSISTANT_HOST:8123/local/kiosk_effects.json
+Environment=KIOSK_ID=BROWSER_MOD_ID
 ExecStart=%h/bin/kiosk-camera-wake.py
 Restart=always
 RestartSec=5

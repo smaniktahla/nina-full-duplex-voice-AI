@@ -3,6 +3,8 @@ Description=kiosk-page-fade: fade between dashboards
 After=graphical-session.target
 
 [Service]
+Environment=KIOSK_EFFECTS_URL=http://HOME_ASSISTANT_HOST:8123/local/kiosk_effects.json
+Environment=KIOSK_ID=BROWSER_MOD_ID
 ExecStart=/usr/bin/python3 %h/bin/kiosk-page-fade.py
 Restart=always
 RestartSec=5

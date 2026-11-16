@@ -8,13 +8,15 @@ moving between views of one dashboard does not.
 
 Setting (JSON, re-read live every few seconds, no restart): ~/.config/kiosk/page-fade.json
   {"mode": "fade", "seconds": 0.6, "hold_seconds": 0.5}
+  When KIOSK_EFFECTS_URL and KIOSK_ID are set, the Dashboard Manager's "Kiosk Effects" card (served as
+  http://<ha>/local/kiosk_effects.json) overrides this file live; the file is the fallback.
   mode          "none"       switch instantly
                 "fade"       fade to black, switch while dark, fade back in
                 "crossfade"  keep the old dashboard on screen and blend into the new one
                              (Chrome View Transitions)
   seconds       length of each fade (fade: out and in; crossfade: the blend)
   hold_seconds  time allowed for the new dashboard to render after the switch
-Env: CDP_PORT (9222), KPF_CONFIG (config path).
+Env: CDP_PORT (9222), KPF_CONFIG (config path), KIOSK_EFFECTS_URL, KIOSK_ID.
 """
 import json, os, threading, time, urllib.request
 import websocket  # websocket-client
@@ -23,16 +25,38 @@ PORT = int(os.environ.get("CDP_PORT", "9222"))
 CONFIG = os.path.expanduser(os.environ.get("KPF_CONFIG", "~/.config/kiosk/page-fade.json"))
 DEFAULT = {"mode": "fade", "seconds": 0.6, "hold_seconds": 0.5}
 
+EFFECTS_URL = os.environ.get("KIOSK_EFFECTS_URL", "")   # Dashboard Manager file: http://<ha>/local/kiosk_effects.json
+KIOSK_ID = os.environ.get("KIOSK_ID", "")               # this kiosk's Browser Mod id, the key in that file
+_fx = {"t": 0.0, "data": {}}
+
+
+def ha_effects():
+    """This kiosk's settings from the Dashboard Manager UI; last good copy if Home Assistant is unreachable."""
+    if EFFECTS_URL and KIOSK_ID and time.time() - _fx["t"] > 5:
+        _fx["t"] = time.time()
+        try:
+            _fx["data"] = json.load(urllib.request.urlopen(EFFECTS_URL, timeout=3)).get(KIOSK_ID) or _fx["data"]
+        except Exception:
+            pass
+    return _fx["data"]
+
+
 
 def load_config():
     try:
         c = dict(DEFAULT, **json.load(open(CONFIG)))
+        fx = ha_effects()                                  # the Dashboard Manager UI wins over the local file
+        if fx:
+            c.update(mode=fx.get("transition_mode", c["mode"]), seconds=fx.get("transition_seconds", c["seconds"]),
+                     hold_seconds=fx.get("transition_hold", c["hold_seconds"]))
         if c["mode"] not in ("none", "fade", "crossfade"):
             raise ValueError("mode")
         c["seconds"] = max(0.0, float(c["seconds"])); c["hold_seconds"] = max(0.0, float(c["hold_seconds"]))
         return c
     except FileNotFoundError:
-        return dict(DEFAULT)
+        fx = ha_effects()
+        return dict(DEFAULT, mode=fx.get("transition_mode", "fade"), seconds=fx.get("transition_seconds", 0.6),
+                    hold_seconds=fx.get("transition_hold", 0.5)) if fx else dict(DEFAULT)
     except Exception as e:
         print("bad config, using defaults:", e, flush=True)
         return dict(DEFAULT)
@@ -132,9 +156,9 @@ def serve(target):
                 pass
             if time.time() - last_check > 3:
                 last_check = time.time()
-                mt = os.path.getmtime(CONFIG) if os.path.exists(CONFIG) else 0
-                if mt != mtime:
-                    mtime, cfg = mt, load_config()
+                new = load_config()
+                if new != cfg:
+                    cfg = new
                     if script_id[0]:
                         send("Page.removeScriptToEvaluateOnNewDocument", {"identifier": script_id[0]})
                     add_id = send("Page.addScriptToEvaluateOnNewDocument", {"source": make_js(cfg)})

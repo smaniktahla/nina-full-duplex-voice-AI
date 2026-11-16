@@ -50,7 +50,13 @@ page (`history.pushState` then a `location-changed` event, no reload), so a scri
 loopback DevTools port (and re-injected on every page load) intercepts the event. Only a change of
 dashboard (first path segment) animates; moving between views of one dashboard does not.
 
-Setting, re-read live (no restart): `~/.config/kiosk/page-fade.json`
+Settings come from the Dashboard Manager's **Kiosk Effects** card (Home Assistant, repo `ha-dashboard-manager`):
+**Apply to kiosk** writes the kiosk's entry to `/config/www/kiosk_effects.json`, and each kiosk fetches
+`http://HOME_ASSISTANT_HOST:8123/local/kiosk_effects.json` (set `KIOSK_EFFECTS_URL` and `KIOSK_ID`, the kiosk's
+Browser Mod id, in its unit) every few seconds, so changes apply live; if Home Assistant is unreachable the last
+good values are kept. The local files below are the fallback when no Dashboard Manager entry exists.
+
+Local setting, re-read live (no restart): `~/.config/kiosk/page-fade.json`
 
 ```json
 {"mode": "fade", "seconds": 0.6, "hold_seconds": 0.5}
@@ -66,7 +72,8 @@ crossfade composes two full-screen layers and measured only 2-10 frames over the
 (worst gap up to 3 s), i.e. choppy steps. The plain fade measured 12-15 frames. Crossfade is worth
 trying on a kiosk with GPU rendering.
 
-Wake timing, also live-tunable in `~/.config/kiosk/camera-wake.json`
+Wake timing comes from the same card (`blank_fade`, `wake_delay`, `wake_fade`, in seconds), with a local fallback in
+`~/.config/kiosk/camera-wake.json`
 (`{"fade_ms": 1500, "wake_delay_ms": 1400, "wake_fade_ms": 1000}`): after power-on the page stays black
 for `wake_delay_ms` (1-3 s depending on how long the monitor takes to resync), then fades in over
 `wake_fade_ms`; `fade_ms` is the blank fade-out.
