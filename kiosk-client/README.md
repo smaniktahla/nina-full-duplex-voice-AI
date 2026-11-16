@@ -23,3 +23,10 @@ three-tone alarm into the speaker stream until the server sends `active: false`.
 Say "Nina, stop the timer" or tap Dismiss timer on the kiosk countdown to stop it.
 Speech interruption does not dismiss the alarm. Volume and ducking still apply.
 Disconnect clears local playback; the server restores an undismissed alarm on reconnect.
+
+## Waking the screen
+
+If the machine runs the `kiosk-camera-wake` screen controller (see `kiosk-host/`), the client pings its loopback
+`/wake` endpoint so a blanked screen lights up and stays lit while Nina is in use: on "Hey Nina", on each
+conversation turn (at most every 3 s) and every 20 s while a timer alarm rings. Set `screen_wake_url`
+(default `http://127.0.0.1:8777/wake`); an empty string turns it off. A missing controller is ignored.

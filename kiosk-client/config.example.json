@@ -4,6 +4,7 @@
   "cert_sha256": "<hex sha256 of the server's self-signed certificate (DER); empty = do not verify>",
   "wake": "hey_nina",
   "screen": "kitchen_kiosk",
+  "screen_wake_url": "http://127.0.0.1:8777/wake",
   "input_device": "nina_ec_source",
   "output_device": "nina_ec_sink"
 }

@@ -85,6 +85,17 @@ Wake timing comes from the same card (`blank_fade`, `wake_delay`, `wake_fade`, i
 for `wake_delay_ms` (1-3 s depending on how long the monitor takes to resync), then fades in over
 `wake_fade_ms`; `fade_ms` is the blank fade-out.
 
+**What wakes a blanked screen** (all of them also restart the quiet timer): camera motion, input, and
+
+- the Nina client (`screen_wake_url` in its config, default `http://127.0.0.1:8777/wake`): "Hey Nina", every
+  turn of a conversation (rate-limited) and a ringing timer (re-pinged every 20 s);
+- any Browser Mod popup: route maps, camera and doorbell views. `kiosk-page-fade` hooks the page's
+  `browser-mod-popup-opened` event and calls the same `/wake` (`KIOSK_WAKE_URL`);
+- `touch ~/.cache/screen-poke`, or a GET to `http://127.0.0.1:8777/wake` from anything on the kiosk
+  (`WAKE_PORT`, `0` disables the endpoint; it listens on loopback only).
+
+Dashboard rotation switches deliberately do not wake a blank screen.
+
 The controller owns blanking, so the desktop's own idle blank must be off: on the CN60 GNOME's
 `idle-delay` is 0 (GNOME 50 never blanked at 300 s anyway); on the N5105 the controller sets
 `xset s off; xset dpms 0 0 0` at start.
