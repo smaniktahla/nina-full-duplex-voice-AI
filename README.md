@@ -1,7 +1,7 @@
 # Nina
 
-A local, full-duplex voice assistant for the homelab: you talk to it from any browser, it can interrupt and be interrupted, look things up,
-run Home Assistant requests through Needle's safety path, hand deep work to Hermes, and go to sleep until you say "Hey Jarvis" / "Hey Nina".
+A local, full-duplex voice assistant you can run locally: you talk to it from any browser, run it as a service on a server or kiosk, and it can interrupt and be interrupted, look things up,
+run Home Assistant requests through Needle's safety path, hand deep work to Hermes or other locally hosted agents, and go to sleep until you say "Hey Jarvis" / "Hey Nina".
 
 ```
 browser mic/speaker --WSS--> live/server.py 
