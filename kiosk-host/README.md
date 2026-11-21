@@ -11,6 +11,10 @@ URLs live in the private household config, not here.
 | Screen wake/blank | `kiosk-camera-wake` (gnome backend, USB webcam) | `kiosk-camera-wake` (x11 backend, Kinect stream) |
 | Crash watchdog | `common/kiosk-watchdog.user.service` (user unit) | `common/kiosk-watchdog.system.service` (system unit, user `kiosk`) |
 
+> **Session type (checked 2026-11-20):** the N5105 kiosk session actually runs GNOME Shell 50 on Wayland
+> (GDM autologin as `kiosk`), the same as the CN60; XFCE is installed but not the session in use. The
+> XFCE notes below and the `x11` camera-wake backend predate that and need re-checking.
+
 ## Design rule: fullscreen, never `--kiosk`
 
 The kiosks must switch between "locked down, clean interface" and "give me
@@ -118,3 +122,29 @@ Needs `python3-websocket` (or `pip install --user websocket-client`). Set in the
 unit: `KIOSK_WD_URL` (dashboard URL for the fresh tab, required) and
 `KIOSK_WD_ATQ` (task-queue base URL; empty disables the low-priority task it
 files after a crash).
+
+## `kiosk-stats` top-bar widget (both kiosks)
+
+`common/kiosk-stats@homelab/` is a small GNOME Shell extension that shows `CPU 35%  RAM 2.1/11G  Disk 23%`
+in the top bar (refreshed every 3 s; amber at 85 %, red at 95 % on any of the three). It reads `/proc` and
+statfs in-process, so it adds almost no load to these two-core boxes. The bar is hidden while Chrome is
+fullscreen: swipe down or press Esc to leave fullscreen and it is there.
+
+Install as the kiosk user (no root needed on the CN60):
+
+```bash
+mkdir -p ~/.local/share/gnome-shell/extensions/kiosk-stats@homelab
+cp common/kiosk-stats@homelab/* ~/.local/share/gnome-shell/extensions/kiosk-stats@homelab/
+gsettings set org.gnome.shell enabled-extensions "['kiosk-stats@homelab']"   # append to the existing list if it is not empty
+```
+
+GNOME on Wayland only discovers new extensions at login, so log out and back in (autologin returns the kiosk).
+
+## Boot ordering rule for these units
+
+A unit that is `After=X` must not also be `WantedBy=X`: systemd finds an ordering cycle at boot and silently
+deletes the start job, so the service never runs. Both cases were found 2026-11-20: `webcam-mjpeg.service`
+(`After=default.target` and `WantedBy=default.target`, which dropped `kiosk-camera-wake` on the CN60) and
+`kiosk-watchdog.service` (`After=graphical.target`, was `WantedBy=multi-user.target`, now `graphical.target`).
+`journalctl -b -g "ordering cycle"` shows it. On the N5105, `systemd-networkd-wait-online.service` is masked
+because NetworkManager owns the Wi-Fi; leaving it enabled stalled boot about two minutes.

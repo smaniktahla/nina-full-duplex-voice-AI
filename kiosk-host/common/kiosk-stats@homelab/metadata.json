@@ -1,0 +1,6 @@
+{
+  "uuid": "kiosk-stats@homelab",
+  "name": "Kiosk stats",
+  "description": "CPU, RAM and disk use in the top bar. Reads /proc and statfs directly, no subprocesses.",
+  "shell-version": ["48", "49", "50"]
+}
