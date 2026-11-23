@@ -13,6 +13,8 @@ Backends (SCREEN_BACKEND): gnome (Mutter PowerSaveMode, Wayland) or x11 (xset/xp
 Blank and wake fade the dashboard to/from black through Chrome's debug port (CDP_PORT, default 9222;
 FADE_MS 1500 = blank fade; WAKE_DELAY_MS 1400 = black while the panel lights up; WAKE_FADE_MS 1000 = wake fade-in;
 0 disables a fade; all three can be overridden live in ~/.config/kiosk/camera-wake.json as fade_ms/wake_delay_ms/wake_fade_ms) so the change is smooth; without Chrome it is instant.
+Fullscreen: Chrome can drop fullscreen when the panel powers back up. If it was fullscreen when the screen blanked, wake puts it
+back (CDP); a window someone deliberately left fullscreen is never touched, so Esc / swipe-down still works.
 Env: MOTION_URL (camera MJPEG URL), SCREEN_BACKEND, ABSENT_AFTER, BLANK_AFTER, MOTION_PIXEL (22),
 MOTION_AREA (0.025), MOTION_CONFIRM (2).
 """
@@ -120,6 +122,33 @@ def cdp_eval(js):
         return False
 
 
+def window_state(want=None):
+    """Return Chrome's window state via the debug port; if want is given, set it when different. None if unreachable."""
+    try:
+        import websocket
+        tabs = json.load(urllib.request.urlopen(f"http://127.0.0.1:{CDP_PORT}/json", timeout=2))
+        page = next(t for t in tabs if t.get("type") == "page" and t.get("webSocketDebuggerUrl"))
+        ws = websocket.create_connection(page["webSocketDebuggerUrl"], timeout=3, suppress_origin=True)
+        try:
+            def call(i, m, p=None):
+                ws.send(json.dumps({"id": i, "method": m, "params": p or {}}))
+                while True:
+                    r = json.loads(ws.recv())
+                    if r.get("id") == i:
+                        return r.get("result", {})
+            w = call(1, "Browser.getWindowForTarget")
+            st = w.get("bounds", {}).get("windowState")
+            if want and st != want:
+                call(2, "Browser.setWindowBounds", {"windowId": w["windowId"], "bounds": {"windowState": want}})
+                print("restored", want, flush=True)
+            return st
+        finally:
+            ws.close()
+    except Exception as e:
+        print("window state unavailable:", e, flush=True)
+        return None
+
+
 OVERLAY = ("(()=>{let d=document.getElementById('kcw-fade');if(!d){d=document.createElement('div');d.id='kcw-fade';"
            "d.style.cssText='position:fixed;inset:0;background:#000;opacity:%s;z-index:2147483647;pointer-events:none;transition:none';"
            "document.documentElement.appendChild(d);}return d})()")
@@ -182,8 +211,11 @@ def change(on):
     if on:
         set_screen(True)
         time.sleep(tune()[1] / 1000)   # let the panel light up while the page is still black
+        if cam.get("was_fs"):
+            window_state("fullscreen")   # Chrome drops fullscreen when the panel powers up; only undo that, never a deliberate exit
         fade_in()
     else:
+        cam["was_fs"] = window_state() == "fullscreen"
         fade_out()
         set_screen(False)
     cam["ignore_until"] = time.time() + SETTLE
