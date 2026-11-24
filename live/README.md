@@ -31,6 +31,12 @@ Say **"Hey Jarvis"** (HA's openWakeWord) or **"Hey Nina"** (phrase match on the 
 assistant doesn't answer never keeps it awake. Timeouts are editable in the UI; events land in `~/.local/share/needle_voice/sessions.jsonl`.
 `WAKE=off ./run.sh` = always listening (old behaviour). Tests: `wakeflow_test.py` (full lifecycle, ~4 min), Needle: `cd ~/needle-voice/tests && pytest test_session.py`.
 
+## Setup wizard (admin only)
+`https://<host>:8443/setup` (after creating the admin account at `/login`) edits the connection settings with a **Test connection** button per service:
+Home Assistant (URL + token), wake-word host, Hermes, SearXNG, local llama-server, optional DocMost notes, time zone and region.
+It writes only the private files `~/.config/nina/household.json` and `~/.config/nina/env` (chmod 600, timestamped `.bak-` copy before every change; secrets are write-only and never shown).
+Other keys and env lines are preserved. Saving does **not** restart anything: redeploy/restart the service as a separate, deliberate step. Code: `live/setup_wizard/`, tests: `tests/test_setup_wizard.py`.
+
 ## Dependencies (already installed on AI2)
 `/home/salil/venvs/duplex-live` (system site-packages + `piper-tts`, `faster-whisper`); Piper voice in `voices/`.
 Rebuild: `python3 -m venv --without-pip --system-site-packages ~/venvs/duplex-live && python3 -m pip --python ~/venvs/duplex-live/bin/python install piper-tts faster-whisper`, then download

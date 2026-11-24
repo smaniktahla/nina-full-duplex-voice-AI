@@ -23,7 +23,7 @@ from aiohttp import web
 DIR = os.path.expanduser(os.environ.get("NINA_AUTH_DIR", "~/.config/nina"))
 USERS, SECRET, SERVICE = (os.path.join(DIR, n) for n in ("users.json", "auth_secret", "service_token"))
 COOKIE, TTL, MIN_PW = "nina_session", 12 * 3600, 10
-ADMIN_ONLY = ("/api/speakers/", "/api/users")
+ADMIN_ONLY = ("/api/speakers/", "/api/users", "/api/setup", "/setup")
 NAME_RE = re.compile(r"^[a-z0-9_.-]{2,32}$")
 N, R, P = 2 ** 14, 8, 1
 _fails = {}   # ip -> (count, locked_until)
@@ -149,7 +149,7 @@ async def middleware(request, handler):
         return await handler(request)
     user = current_user(request)
     if not user:
-        if request.method == "GET" and (path == "/" or path.endswith(".html")):
+        if request.method == "GET" and (path in ("/", "/setup") or path.endswith(".html")):
             raise web.HTTPFound("/login")
         return _json(401, error="login required", setup_needed=not load_users())
     if path == "/ws":                                    # cross-site websocket hijack check (cookie is SameSite=Strict as well)

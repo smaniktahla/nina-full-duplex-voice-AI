@@ -1284,6 +1284,11 @@ def main():
         speaker_web.add_routes(app)
     except Exception as e:                                          # noqa: BLE001
         log("speaker enrollment routes unavailable:", repr(e)[:100])
+    try:
+        import setup_wizard.web as setup_web                        # post-install configuration wizard (/setup, admin only)
+        setup_web.add_routes(app)
+    except Exception as e:                                          # noqa: BLE001
+        log("setup wizard unavailable:", repr(e)[:100])
     app.router.add_get("/ws", ws_handler)
     ctx = None
     cert, key = os.path.join(HERE, "cert.pem"), os.path.join(HERE, "key.pem")

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nina - setup</title>
+<link rel="icon" href="/favicon.ico" sizes="any"><meta name="theme-color" content="#00081c">
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#16181d;--mut:#667085;--line:#e2e5ea;--acc:#2563eb;--bad:#dc2626;--ok:#16a34a}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a21;--ink:#e8eaef;--mut:#8b93a3;--line:#262b36;--acc:#5b8cff;--bad:#f87171;--ok:#4ade80}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:0 16px 48px}
+main{max-width:720px;margin:24px auto}h1{font-size:1.4rem;margin:0 0 4px}p.lead{color:var(--mut);margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px;display:grid;gap:10px}
+.card h2{font-size:1.05rem;margin:0}label{display:grid;gap:4px;font-size:.9rem;color:var(--mut)}
+input{font:inherit;padding:10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}button{font:inherit;border:1px solid var(--acc);background:var(--acc);color:#fff;font-weight:600;padding:9px 14px;border-radius:10px;cursor:pointer}
+button.ghost{background:transparent;color:var(--acc)}button:disabled{opacity:.5}.res{font-size:.9rem}.res.ok{color:var(--ok)}.res.bad{color:var(--bad)}
+small{color:var(--mut)}pre{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;overflow:auto;font-size:.8rem;max-height:260px}
+.err{color:var(--bad);font-size:.85rem;min-height:1em}nav a{color:var(--acc)}
+</style></head><body><main>
+<nav><a href="/">&larr; back to Nina</a></nav>
+<h1>Nina setup</h1>
+<p class="lead">Connections first. Nothing is saved until you press <b>Review changes</b> and then <b>Save</b>. Settings live in private files on this machine, never in the repository; secrets are write-only here.</p>
+<div id="cards"></div>
+<div class="card"><h2>Review and save</h2>
+  <div class="row"><button id="rev">Review changes</button><button id="save" disabled>Save</button></div>
+  <pre id="diff" hidden></pre><div id="out" class="res"></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const H={"Content-Type":"application/json","X-Nina-CSRF":"1"};
+const GROUPS=[
+ {title:"Home Assistant",probe:"ha",fields:[["ha_url","Home Assistant URL"],["wake_host","Wake-word host (openWakeWord)"],["wake_port","Wake-word port"]],secret:["HA_TOKEN"],extra:["wake"]},
+ {title:"Hermes (agent)",probe:"hermes",fields:[["hermes_url","Hermes URL"],["hermes_ssh_host","ssh alias to read its key (blank = local)"]],secret:["HERMES_API_KEY"]},
+ {title:"Web search",probe:"searx",fields:[["searx_url","SearXNG URL"]]},
+ {title:"Local model",probe:"llama",fields:[]},
+ {title:"Conversation notes (optional)",probe:"docmost",fields:[["docmost_mcp_url","DocMost MCP URL (blank = off)"],["notes_default_user","Default speaker name in notes"]]},
+ {title:"Locale",fields:[["timezone","Time zone (e.g. America/New_York)"],["region","Home region (e.g. VA)"]]}
+];
+let S=null;const inputs={},secrets={};
+async function api(path,body){const r=await fetch(path,body===undefined?{}:{method:"POST",headers:H,body:JSON.stringify(body)});
+  if(r.status===401){location.href="/login";return {}}return {status:r.status,...await r.json()}}
+function collect(){const v={},e={};for(const k in inputs){v[k]=inputs[k].value}for(const k in secrets){if(secrets[k].value.trim())e[k]=secrets[k].value.trim()}return {values:v,env:e}}
+function mk(tag,txt,cls){const n=document.createElement(tag);if(txt)n.textContent=txt;if(cls)n.className=cls;return n}
+function build(){const root=$("cards");root.textContent="";
+ for(const g of GROUPS){const c=mk("div",null,"card");c.appendChild(mk("h2",g.title));
+  for(const [k,label] of g.fields){const l=mk("label",label),i=document.createElement("input");i.value=S.values[k]??"";i.placeholder=String(S.defaults[k]??"");inputs[k]=i;l.appendChild(i);c.appendChild(l)}
+  for(const k of g.secret||[]){const sc=S.secrets[k],l=mk("label",sc.label+(sc.set?" (set: leave blank to keep)":" (not set)")),i=document.createElement("input");
+   i.type="password";i.autocomplete="off";i.placeholder=sc.set?"unchanged":"paste value";secrets[k]=i;l.appendChild(i);c.appendChild(l)}
+  if(g.probe){const row=mk("div",null,"row"),b=mk("button","Test connection","ghost"),r=mk("span",null,"res");row.append(b,r);c.appendChild(row);
+   b.onclick=async()=>{r.className="res";r.textContent="testing...";const names=[g.probe,...(g.extra||[])],out=[];let all=true;
+    for(const n of names){const res=await api("/api/setup/probe",{probe:n,...collect()});out.push(res.detail);all=all&&res.ok}
+    r.className="res "+(all?"ok":"bad");r.textContent=(all?"OK: ":"Problem: ")+out.join(" | ")}}
+  root.appendChild(c)}}
+$("rev").onclick=async()=>{const r=await api("/api/setup/preview",collect()),o=$("out"),d=$("diff");
+ if(r.errors&&Object.keys(r.errors).length){o.className="res bad";o.textContent=Object.entries(r.errors).map(([k,m])=>k+": "+m).join("; ");d.hidden=true;$("save").disabled=true;return}
+ if(!r.changes.length){o.className="res";o.textContent="No changes.";d.hidden=true;$("save").disabled=true;return}
+ d.hidden=false;d.textContent=r.diff;o.className="res";o.textContent=r.changes.length+" change(s) ready.";$("save").disabled=false};
+$("save").onclick=async()=>{const r=await api("/api/setup/apply",collect()),o=$("out");$("save").disabled=true;
+ if(!r.ok){o.className="res bad";o.textContent=Object.entries(r.errors||{}).map(([k,m])=>k+": "+m).join("; ")||"Save failed";return}
+ o.className="res ok";o.textContent="Saved. Backups: "+(r.backups.length?r.backups.join(", "):"none (new files)")+". The voice server must be restarted to use the new settings (deploy/restart is a separate, deliberate step).";
+ S=await api("/api/setup/state");build()};
+(async()=>{S=await api("/api/setup/state");build()})();
+</script></main></body></html>
