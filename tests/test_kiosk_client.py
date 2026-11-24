@@ -153,3 +153,24 @@ def test_indicator_injects_pushes_live_levels_switches_colour_and_hides():
             await asyncio.sleep(0.4); dead.stop()                                      # unreachable: logged, no exception escapes
         await runner.cleanup()
     asyncio.run(go())
+
+
+def test_screen_wake_pings_the_local_controller_and_rate_limits():
+    import http.server, threading, time
+    hits = []
+    class H(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            hits.append(self.path); self.send_response(204); self.end_headers()
+        def log_message(self, *a): pass
+    srv = http.server.HTTPServer(("127.0.0.1", 0), H); threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        w = k.ScreenWake("http://127.0.0.1:%d/wake" % srv.server_port, min_gap_s=60)
+        assert w.ping() and not w.ping() and w.ping(force=True)                  # second one inside the gap is dropped, force always goes
+        for _ in range(50):
+            if len(hits) == 2: break
+            time.sleep(0.05)
+        assert hits == ["/wake", "/wake"]
+        assert not k.ScreenWake("").ping(force=True)                             # empty url = off
+        assert k.ScreenWake("http://127.0.0.1:9/wake").ping(force=True)         # nothing listening: swallowed, never raises
+    finally:
+        srv.shutdown()
